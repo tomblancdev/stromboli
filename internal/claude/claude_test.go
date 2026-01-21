@@ -1,63 +1,68 @@
 package claude
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tomblanc/stromboli/internal/container"
 )
 
-func TestNewClient(t *testing.T) {
-	client := NewClient("claude-auth")
-	assert.NotNil(t, client)
-	assert.Equal(t, "claude-auth", client.volumeName)
+func TestNewClient_DefaultSecretsFile(t *testing.T) {
+	client := NewClient("")
+	assert.Equal(t, DefaultSecretsFile, client.secretsFile)
 }
 
-func TestIsConfigured_WhenVolumeDoesNotExist_ReturnsFalse(t *testing.T) {
-	client := NewClient("nonexistent-volume-12345")
-	configured, err := client.IsConfigured()
-	assert.NoError(t, err)
-	assert.False(t, configured)
+func TestNewClient_CustomSecretsFile(t *testing.T) {
+	client := NewClient("/path/to/secrets")
+	assert.Equal(t, "/path/to/secrets", client.secretsFile)
 }
 
-func TestIsConfigured_WhenVolumeExists_ReturnsTrue(t *testing.T) {
-	// Setup: create test volume
-	manager := container.NewManager()
-	volumeName := "test-claude-auth"
-	err := manager.VolumeCreate(volumeName)
+func TestIsConfigured_WhenFileDoesNotExist_ReturnsFalse(t *testing.T) {
+	client := NewClient("/nonexistent/path/secrets")
+	assert.False(t, client.IsConfigured())
+}
+
+func TestIsConfigured_WhenFileExists_ReturnsTrue(t *testing.T) {
+	// Create temp file
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
-	defer manager.VolumeRemove(volumeName)
 
-	// Test
-	client := NewClient(volumeName)
-	configured, err := client.IsConfigured()
+	client := NewClient(secretsFile)
+	assert.True(t, client.IsConfigured())
+}
+
+func TestGetToken_WhenFileDoesNotExist_ReturnsError(t *testing.T) {
+	client := NewClient("/nonexistent/path/secrets")
+	token, err := client.GetToken()
+	assert.ErrorIs(t, err, ErrTokenNotFound)
+	assert.Empty(t, token)
+}
+
+func TestGetToken_WhenFileExists_ReturnsToken(t *testing.T) {
+	// Create temp file with token
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	err := os.WriteFile(secretsFile, []byte("my-secret-token\n"), 0600)
+	require.NoError(t, err)
+
+	client := NewClient(secretsFile)
+	token, err := client.GetToken()
 	assert.NoError(t, err)
-	assert.True(t, configured)
+	assert.Equal(t, "my-secret-token", token)
 }
 
-func TestLogin_CreatesVolume(t *testing.T) {
-	// Skip in CI - needs TTY
-	t.Skip("Login requires interactive TTY")
+func TestGetToken_TrimsWhitespace(t *testing.T) {
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	err := os.WriteFile(secretsFile, []byte("  token-with-spaces  \n\n"), 0600)
+	require.NoError(t, err)
 
-	volumeName := "test-login-volume"
-	client := NewClient(volumeName)
-	defer client.manager.VolumeRemove(volumeName)
-
-	// Volume should not exist initially
-	exists, _ := client.IsConfigured()
-	assert.False(t, exists)
-
-	// After Login attempt, volume should be created
-	// (even if login fails due to no TTY)
-	_ = client.Login()
-
-	exists, _ = client.IsConfigured()
-	assert.True(t, exists)
-}
-
-func TestLogout_NotImplemented(t *testing.T) {
-	client := NewClient("claude-auth")
-	err := client.Logout()
-	assert.ErrorIs(t, err, ErrNotImplemented)
+	client := NewClient(secretsFile)
+	token, err := client.GetToken()
+	assert.NoError(t, err)
+	assert.Equal(t, "token-with-spaces", token)
 }

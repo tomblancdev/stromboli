@@ -5,21 +5,29 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tomblanc/stromboli/internal/claude"
+	"github.com/tomblanc/stromboli/internal/runner"
 )
 
 // Server represents the HTTP API server
 type Server struct {
-	router *gin.Engine
+	router      *gin.Engine
+	runner      runner.Runner
+	claudeClient *claude.Client
 }
 
 // NewServer creates a new API server
-func NewServer() *Server {
+func NewServer(r runner.Runner, claudeClient *claude.Client) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.Use(loggerMiddleware())
 
-	s := &Server{router: router}
+	s := &Server{
+		router:       router,
+		runner:       r,
+		claudeClient: claudeClient,
+	}
 	s.setupRoutes()
 
 	return s
@@ -33,11 +41,9 @@ func (s *Server) Run(addr string) error {
 
 // setupRoutes configures all API routes
 func (s *Server) setupRoutes() {
-	// Health endpoints
 	s.router.GET("/health", s.healthCheck)
-
-	// Claude credentials status (CLI handles setup)
 	s.router.GET("/claude/status", s.claudeStatus)
+	s.router.POST("/run", s.runClaude)
 }
 
 // loggerMiddleware logs HTTP requests
@@ -62,9 +68,60 @@ func (s *Server) healthCheck(c *gin.Context) {
 
 // claudeStatus checks if Claude credentials are configured
 func (s *Server) claudeStatus(c *gin.Context) {
-	// TODO: Check if claude-auth volume exists and has credentials
+	configured := s.claudeClient.IsConfigured()
+	if configured {
+		c.JSON(http.StatusOK, gin.H{
+			"configured": true,
+			"message":    "Claude is configured",
+		})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"configured": false,
-		"message":    "Run 'stromboli claude init' to configure",
+		"message":    "Run 'make claude-setup' to configure",
+	})
+}
+
+// runClaude executes Claude in an isolated container
+func (s *Server) runClaude(c *gin.Context) {
+	var req RunRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, RunResponse{
+			Status: "error",
+			Error:  "Invalid request: " + err.Error(),
+		})
+		return
+	}
+
+	// Check if configured
+	if !s.claudeClient.IsConfigured() {
+		c.JSON(http.StatusServiceUnavailable, RunResponse{
+			Status: "error",
+			Error:  "Claude not configured. Run 'make claude-setup' first",
+		})
+		return
+	}
+
+	// Run Claude
+	result, err := s.runner.Run(c.Request.Context(), runner.Request{
+		Prompt:    req.Prompt,
+		Workspace: req.Workspace,
+		Model:     req.Model,
+		SessionID: req.SessionID,
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, RunResponse{
+			Status: "error",
+			Error:  err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, RunResponse{
+		ID:        result.ID,
+		Status:    "completed",
+		Output:    result.Output,
+		SessionID: result.SessionID,
 	})
 }

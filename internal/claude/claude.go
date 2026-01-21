@@ -2,70 +2,43 @@ package claude
 
 import (
 	"errors"
-	"fmt"
 	"os"
-	"os/exec"
-
-	"github.com/tomblanc/stromboli/internal/container"
+	"strings"
 )
 
-var ErrNotImplemented = errors.New("not implemented")
-var ErrLoginFailed = errors.New("login failed")
+var ErrTokenNotFound = errors.New("token not found")
 
-// Client wraps Claude Code CLI operations
+const DefaultSecretsFile = ".claude-secrets"
+
+// Client wraps Claude Code token operations
 type Client struct {
-	volumeName string
-	imageName  string
-	manager    *container.Manager
+	secretsFile string
 }
 
 // NewClient creates a new Claude client
-func NewClient(volumeName string) *Client {
+func NewClient(secretsFile string) *Client {
+	if secretsFile == "" {
+		secretsFile = DefaultSecretsFile
+	}
 	return &Client{
-		volumeName: volumeName,
-		imageName:  "stromboli-agent:latest",
-		manager:    container.NewManager(),
+		secretsFile: secretsFile,
 	}
 }
 
-// IsConfigured checks if Claude credentials exist in the volume
-func (c *Client) IsConfigured() (bool, error) {
-	return c.manager.VolumeExists(c.volumeName)
+// IsConfigured checks if token file exists
+func (c *Client) IsConfigured() bool {
+	_, err := os.Stat(c.secretsFile)
+	return err == nil
 }
 
-// Login runs claude login to authenticate interactively
-func (c *Client) Login() error {
-	// Create volume if it doesn't exist
-	exists, err := c.manager.VolumeExists(c.volumeName)
+// GetToken reads the token from secrets file
+func (c *Client) GetToken() (string, error) {
+	data, err := os.ReadFile(c.secretsFile)
 	if err != nil {
-		return err
-	}
-
-	if !exists {
-		if err := c.manager.VolumeCreate(c.volumeName); err != nil {
-			return fmt.Errorf("failed to create volume: %w", err)
+		if os.IsNotExist(err) {
+			return "", ErrTokenNotFound
 		}
+		return "", err
 	}
-
-	// Run claude login interactively
-	// Using exec directly for TTY support
-	cmd := exec.Command("podman", "run", "--rm", "-it",
-		"-v", c.volumeName+":/home/claude/.claude",
-		c.imageName,
-		"login",
-	)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("%w: %v", ErrLoginFailed, err)
-	}
-
-	return nil
-}
-
-// Logout runs claude logout to remove credentials
-func (c *Client) Logout() error {
-	return ErrNotImplemented
+	return strings.TrimSpace(string(data)), nil
 }
