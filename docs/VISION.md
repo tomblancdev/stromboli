@@ -312,3 +312,129 @@ GROUP BY model;
 2. Add Redis when job queuing needed
 3. Add ClickHouse when analytics/logging at scale needed
 4. Scale to multi-node when single machine isn't enough
+
+---
+
+## Git Operations Support
+
+Stromboli handles git operations to ensure branch isolation for agents.
+
+### API Design
+
+```json
+POST /run
+{
+  "prompt": "fix the auth bug",
+  "workspace": "/repos/myproject",
+  "model": "sonnet",
+
+  "git": {
+    "branch": "fix-123",
+    "create_branch": true,
+    "base_branch": "main",
+    "use_worktree": true,
+    "allowed_branches": ["fix-*", "feat-*"]
+  }
+}
+```
+
+### Git Options
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `branch` | string | Target branch for the agent to work on |
+| `create_branch` | bool | Create branch if it doesn't exist |
+| `base_branch` | string | Base branch when creating (default: main) |
+| `use_worktree` | bool | Use git worktree for isolation |
+| `allowed_branches` | []string | Glob patterns for allowed branches (security) |
+
+### Worktree Strategy
+
+For parallel agents, use git worktrees:
+
+```
+/repos/myproject/                    ← main repo (main branch)
+/repos/myproject/.worktrees/
+├── fix-123/                         ← isolated worktree
+├── fix-456/                         ← isolated worktree
+└── feat-789/                        ← isolated worktree
+```
+
+Benefits:
+- True isolation between agents
+- No checkout conflicts
+- Parallel work on different branches
+- Clean separation of concerns
+
+### Execution Flow
+
+```
+1. Receive request with git options
+2. Validate branch against allowed_branches
+3. If use_worktree:
+   - Create worktree: git worktree add .worktrees/{branch} -b {branch} {base}
+   - Mount worktree path to container
+4. Else if create_branch:
+   - git checkout -b {branch} {base}
+5. Else:
+   - git checkout {branch}
+6. Run Claude in container with prepared workspace
+7. Claude commits to the branch
+8. Return result with branch info
+```
+
+### Response Enhancement
+
+```json
+{
+  "id": "run-abc123",
+  "status": "completed",
+  "output": "Fixed the auth bug...",
+  "git": {
+    "branch": "fix-123",
+    "commits": ["a1b2c3d"],
+    "files_changed": ["src/auth.go", "tests/auth_test.go"],
+    "worktree_path": "/repos/myproject/.worktrees/fix-123"
+  }
+}
+```
+
+### Branch Protection
+
+Security: Only allow agents to work on specific branch patterns:
+
+```go
+// Default allowed patterns
+var defaultAllowedBranches = []string{
+    "fix-*",
+    "feat-*",
+    "feature-*",
+    "ai-*",
+    "agent-*",
+}
+
+// NEVER allow
+var protectedBranches = []string{
+    "main",
+    "master",
+    "release-*",
+    "production",
+}
+```
+
+### Cleanup
+
+Worktrees should be cleaned up after use:
+
+```go
+// Option 1: Auto-cleanup after run
+"git": {
+  "cleanup_worktree": true
+}
+
+// Option 2: Manual cleanup endpoint
+DELETE /worktrees/{branch}
+
+// Option 3: TTL-based cleanup (cron job)
+// Clean worktrees older than 24h with no activity
+```
