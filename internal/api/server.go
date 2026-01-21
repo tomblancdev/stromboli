@@ -36,15 +36,8 @@ func (s *Server) setupRoutes() {
 	// Health endpoints
 	s.router.GET("/health", s.healthCheck)
 
-	// Agent endpoints
-	agents := s.router.Group("/agents")
-	{
-		agents.POST("", s.spawnAgent)
-		agents.GET("/:id/logs", s.getAgentLogs)
-	}
-
-	// Auth status (CLI handles setup)
-	s.router.GET("/auth/status", s.authStatus)
+	// Claude credentials status (CLI handles setup)
+	s.router.GET("/claude/status", s.claudeStatus)
 }
 
 // loggerMiddleware logs HTTP requests
@@ -67,52 +60,11 @@ func (s *Server) healthCheck(c *gin.Context) {
 	})
 }
 
-// authStatus checks if Claude auth is configured
-func (s *Server) authStatus(c *gin.Context) {
+// claudeStatus checks if Claude credentials are configured
+func (s *Server) claudeStatus(c *gin.Context) {
 	// TODO: Check if claude-auth volume exists and has credentials
 	c.JSON(http.StatusOK, gin.H{
 		"configured": false,
-		"message":    "Run 'stromboli auth init' to configure",
-	})
-}
-
-// SpawnRequest represents a request to spawn a new agent
-type SpawnRequest struct {
-	Task   string       `json:"task" binding:"required"`
-	Mounts []MountSpec  `json:"mounts,omitempty"`
-}
-
-// MountSpec represents a mount configuration
-type MountSpec struct {
-	Source string `json:"source" binding:"required"`
-	Target string `json:"target" binding:"required"`
-	Mode   string `json:"mode,omitempty"` // "ro" or "rw", default "ro"
-}
-
-// spawnAgent creates and starts a new Claude agent container
-func (s *Server) spawnAgent(c *gin.Context) {
-	var req SpawnRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	// TODO: Implement Podman container spawning
-	slog.Info("Spawn request received", "task", req.Task, "mounts", len(req.Mounts))
-
-	c.JSON(http.StatusNotImplemented, gin.H{
-		"error": "Container spawning not yet implemented",
-	})
-}
-
-// getAgentLogs retrieves logs from an agent container
-func (s *Server) getAgentLogs(c *gin.Context) {
-	agentID := c.Param("id")
-
-	// TODO: Implement log retrieval from Podman
-	slog.Info("Logs request", "agent_id", agentID)
-
-	c.JSON(http.StatusNotImplemented, gin.H{
-		"error": "Log retrieval not yet implemented",
+		"message":    "Run 'stromboli claude init' to configure",
 	})
 }
