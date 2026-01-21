@@ -177,7 +177,7 @@ n8n Workflow:
 | Containers | Podman |
 | Auth | OAuth2 (Authentik) |
 | Orchestration | n8n (external) |
-| Database | SQLite → PostgreSQL |
+| Database | PostgreSQL + ClickHouse |
 
 ## Key Decisions
 
@@ -186,3 +186,129 @@ n8n Workflow:
 3. **n8n for orchestration** - Don't reinvent workflow engine
 4. **Custom n8n node** - First-class integration
 5. **Multi-app future** - API designed for various consumers
+
+---
+
+## Future Considerations: Multi-Node & Analytics
+
+### Multi-Machine Architecture
+
+When scaling Stromboli across multiple machines:
+
+```
+                         Load Balancer
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        │                     │                     │
+        ▼                     ▼                     ▼
+ ┌─────────────┐       ┌─────────────┐       ┌─────────────┐
+ │ Stromboli 1 │       │ Stromboli 2 │       │ Stromboli 3 │
+ │ (Stateless) │       │ (Stateless) │       │ (Stateless) │
+ └──────┬──────┘       └──────┬──────┘       └──────┬──────┘
+        │                     │                     │
+        └─────────────────────┼─────────────────────┘
+                              │
+              ┌───────────────┼───────────────┐
+              │               │               │
+              ▼               ▼               ▼
+       ┌───────────┐   ┌───────────┐   ┌───────────┐
+       │ PostgreSQL│   │ClickHouse │   │   Redis   │
+       │  (state)  │   │ (analytics)│   │  (queue)  │
+       └───────────┘   └───────────┘   └───────────┘
+```
+
+**Key Principle:** Each Stromboli node must be **stateless** for horizontal scaling.
+
+### Data Layer Split
+
+| Database | Purpose | Data |
+|----------|---------|------|
+| **PostgreSQL** | Operational | Run state, users, configs, CRUD |
+| **ClickHouse** | Analytics | Events, logs, metrics, time-series |
+| **Redis** | Coordination | Job queue, pub/sub, cache |
+
+### Why ClickHouse for Logs/Analytics
+
+- Column-oriented = fast aggregations
+- 10-100x compression vs row databases
+- Optimized for time-series queries
+- Handles high-volume event ingestion
+- Materialized views for real-time metrics
+
+### ClickHouse Schema (Draft)
+
+```sql
+-- Run events (immutable log)
+CREATE TABLE run_events (
+    event_id UUID,
+    run_id UUID,
+    event_type Enum8('started'=1, 'tool_call'=2, 'completed'=3, 'failed'=4),
+    node_id String,
+    user_id UUID,
+    timestamp DateTime64(3),
+    data String,  -- JSON payload
+    model LowCardinality(String),
+    duration_ms UInt32,
+    tokens_used UInt32,
+    cost_usd Decimal64(4),
+    date Date DEFAULT toDate(timestamp)
+)
+ENGINE = MergeTree()
+PARTITION BY toYYYYMM(date)
+ORDER BY (user_id, run_id, timestamp);
+
+-- Tool usage analytics
+CREATE TABLE tool_calls (
+    run_id UUID,
+    tool_name LowCardinality(String),
+    duration_ms UInt32,
+    success UInt8,
+    timestamp DateTime64(3),
+    date Date DEFAULT toDate(timestamp)
+)
+ENGINE = MergeTree()
+PARTITION BY toYYYYMM(date)
+ORDER BY (tool_name, timestamp);
+```
+
+### Example Analytics Queries
+
+```sql
+-- Cost per user last 24h
+SELECT user_id, sum(cost_usd) as total_cost, count() as runs
+FROM run_events
+WHERE timestamp > now() - INTERVAL 24 HOUR
+GROUP BY user_id ORDER BY total_cost DESC;
+
+-- Most used tools
+SELECT tool_name, count() as calls, avg(duration_ms) as avg_duration
+FROM tool_calls WHERE date = today()
+GROUP BY tool_name ORDER BY calls DESC;
+
+-- Failure rate by model
+SELECT model,
+    countIf(event_type = 'completed') as success,
+    countIf(event_type = 'failed') as failed
+FROM run_events
+WHERE date >= today() - 7
+GROUP BY model;
+```
+
+### What to Capture
+
+```
+📝 Execution Logs         📊 Metrics              🔍 Audit Trail
+─────────────────         ────────                ─────────────
+• AI responses            • Execution time        • Who ran what
+• Tool calls              • Token usage           • When
+• Claude's reasoning      • Container resources   • From where
+• Errors/failures         • Success/failure rate  • Input params
+• Workspace changes       • Queue depth           • OAuth user
+```
+
+### Implementation Order
+
+1. Start single-node with PostgreSQL only
+2. Add Redis when job queuing needed
+3. Add ClickHouse when analytics/logging at scale needed
+4. Scale to multi-node when single machine isn't enough
