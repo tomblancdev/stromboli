@@ -1,0 +1,32 @@
+# Stromboli Claude Code Agent Image
+# Simplified from official devcontainer for automated agents
+
+FROM node:20-slim
+
+ARG CLAUDE_CODE_VERSION=latest
+
+# Install essential tools only
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    gh \
+    jq \
+    procps \
+    ca-certificates \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user for running Claude
+RUN useradd -m -s /bin/bash claude && \
+    mkdir -p /workspace /home/claude/.claude && \
+    chown -R claude:claude /workspace /home/claude/.claude
+
+# Install Claude Code globally
+RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
+
+# Switch to non-root user
+USER claude
+WORKDIR /workspace
+
+# Default command: run claude in non-interactive mode
+# Task is passed via environment variable or arguments
+ENTRYPOINT ["claude"]
+CMD ["--help"]
