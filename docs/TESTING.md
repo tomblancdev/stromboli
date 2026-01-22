@@ -119,7 +119,6 @@ go test -v ./... && go test -v -tags=integration ./... && go test -v -tags=e2e .
 
 Tests with the `//go:build integration` tag require Podman:
 
-- `internal/container/container_test.go` - Container lifecycle tests
 - `internal/secrets/secrets_test.go` - Secrets management tests
 - `internal/runner/runner_test.go` - Runner execution tests
 
@@ -136,7 +135,6 @@ Tests with the `//go:build e2e` tag are E2E tests:
 
 These files contain unit tests that run by default:
 
-- `internal/container/manager_test.go` - Manager initialization
 - `internal/secrets/manager_test.go` - Secrets manager initialization
 - `internal/runner/id_test.go` - ID generation tests
 - All other `*_test.go` files without build tags
@@ -339,7 +337,7 @@ podman system info
 | `make test-e2e` | Run E2E tests (optionally requires Claude token) |
 | `make test-all` | Run all tests (unit + integration + E2E) |
 | `make test-coverage` | Generate coverage reports |
-| `go test ./internal/container` | Test specific package |
+| `go test ./internal/runner` | Test specific package |
 | `go test -v -run TestCreate` | Run specific test |
 | `go test -tags=integration -v ./...` | Manual integration test run |
 | `go test -tags=e2e -v ./tests/e2e/...` | Manual E2E test run |

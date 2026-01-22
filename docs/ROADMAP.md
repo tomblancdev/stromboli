@@ -216,20 +216,21 @@ package container
 ## 🟢 LOW Priority (Nice to Have)
 
 ### 8. Decide Container Package Fate
-- **Status**: ❌ NOT STARTED
+- **Status**: ✅ COMPLETED (Jan 22, 2026)
 - **Priority**: LOW
-- **Effort**: ~30 minutes
-- **Location**: `internal/container/`
+- **Effort**: ~5 minutes
+- **Location**: `internal/container/` (removed)
 
-**Current State**: Well-implemented but completely unused.
+**Current State**: Was well-implemented but completely unused.
 
-**Options**:
+**Options Considered**:
 - [ ] **Option A**: Integrate with runner (4-6h additional work)
 - [ ] **Option B**: Document as future work (30m)
-- [ ] **Option C**: Remove entirely (5m)
+- [x] **Option C**: Remove entirely (5m) ← **SELECTED**
 
-**Decision**: ___________
-**Completion Date**: ___________
+**Decision**: Removed the package entirely. The runner uses the podman package directly for command building, and the container package added maintenance burden without providing value. Can be recreated if needed in the future.
+
+**Completion Date**: January 22, 2026
 
 ---
 
@@ -298,8 +299,8 @@ package container
 | 🔴 Critical | 1 | ~2h | ✅ 1/1 complete |
 | 🟡 High | 3 | ~5.5h | ✅ 3/3 complete |
 | 🟠 Medium | 3 | ~12h | ✅ 3/3 complete |
-| 🟢 Low | 4 | ~9.5h | 0/4 complete |
-| **Total** | **11** | **~29h** | **7/11 complete** |
+| 🟢 Low | 4 | ~9.5h | ✅ 1/4 complete |
+| **Total** | **11** | **~29h** | **8/11 complete** |
 
 ---
 
@@ -334,6 +335,7 @@ _Add notes here as you work through the roadmap..._
 
 | Date | Item | Action | Notes |
 |------|------|--------|-------|
+| Jan 22, 2026 | #8 Container Package Fate | ✅ Completed | Removed unused package entirely |
 | Jan 22, 2026 | #7 E2E Test Suite | ✅ Completed | Comprehensive E2E tests for all API endpoints, graceful Claude skipping |
 | Jan 22, 2026 | #6 Refactor API Handlers | ✅ Completed | Extracted helpers, reduced duplication, standardized error handling |
 | Jan 22, 2026 | #5 Extract Executor Interface | ✅ Completed | Enables unit testing without Podman, 28 new tests, full backward compatibility |
