@@ -31,9 +31,16 @@ type ServerConfig struct {
 
 // AgentConfig holds agent container configuration
 type AgentConfig struct {
-	Image       string // Container image name
-	SecretsFile string // Path to Claude secrets file
-	SessionsDir string // Directory for session data
+	Image       string           // Container image name
+	SecretsFile string           // Path to Claude secrets file
+	SessionsDir string           // Directory for session data
+	TokenCache  TokenCacheConfig // Token cache configuration
+}
+
+// TokenCacheConfig holds token caching configuration
+type TokenCacheConfig struct {
+	Enabled bool          // Enable token caching
+	TTL     time.Duration // Cache time-to-live
 }
 
 // ResourceConfig holds default resource limits for containers
@@ -85,6 +92,7 @@ const (
 	defaultJWTRefresh      = 7 * 24 * time.Hour
 	defaultCleanupTTL      = 1 * time.Hour
 	defaultCleanupInterval = 5 * time.Minute
+	defaultTokenCacheTTL   = 5 * time.Minute
 )
 
 // Load reads configuration from environment variables, config files, and defaults.
@@ -132,6 +140,8 @@ func setupViper(v *viper.Viper) {
 	v.SetDefault("agent.image", defaultAgentImage)
 	v.SetDefault("agent.secrets_file", defaultSecretsFile)
 	v.SetDefault("agent.sessions_dir", defaultSessionsDir)
+	v.SetDefault("agent.token_cache.enabled", true)
+	v.SetDefault("agent.token_cache.ttl", defaultTokenCacheTTL.String())
 	v.SetDefault("resources.memory", defaultMemory)
 	v.SetDefault("resources.cpus", defaultCPUs)
 	v.SetDefault("resources.timeout", defaultTimeout)
@@ -156,6 +166,8 @@ func setupViper(v *viper.Viper) {
 	v.BindEnv("agent.image", "STROMBOLI_AGENT_IMAGE")
 	v.BindEnv("agent.secrets_file", "STROMBOLI_AGENT_SECRETS_FILE")
 	v.BindEnv("agent.sessions_dir", "STROMBOLI_AGENT_SESSIONS_DIR")
+	v.BindEnv("agent.token_cache.enabled", "STROMBOLI_TOKEN_CACHE_ENABLED")
+	v.BindEnv("agent.token_cache.ttl", "STROMBOLI_TOKEN_CACHE_TTL")
 	v.BindEnv("resources.memory", "STROMBOLI_DEFAULT_MEMORY")
 	v.BindEnv("resources.cpus", "STROMBOLI_DEFAULT_CPUS")
 	v.BindEnv("resources.timeout", "STROMBOLI_DEFAULT_TIMEOUT")
@@ -173,6 +185,12 @@ func setupViper(v *viper.Viper) {
 
 // parseConfig extracts and validates configuration from viper
 func parseConfig(v *viper.Viper) (*Config, error) {
+	// Parse token cache TTL
+	cacheTTL, err := parseDuration(v.GetString("agent.token_cache.ttl"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid token cache TTL: %w", err)
+	}
+
 	cfg := &Config{
 		Server: ServerConfig{
 			Address: v.GetString("server.address"),
@@ -181,6 +199,10 @@ func parseConfig(v *viper.Viper) (*Config, error) {
 			Image:       v.GetString("agent.image"),
 			SecretsFile: v.GetString("agent.secrets_file"),
 			SessionsDir: v.GetString("agent.sessions_dir"),
+			TokenCache: TokenCacheConfig{
+				Enabled: v.GetBool("agent.token_cache.enabled"),
+				TTL:     cacheTTL,
+			},
 		},
 		Resources: ResourceConfig{
 			Memory:  v.GetString("resources.memory"),
@@ -285,6 +307,11 @@ func (c *Config) Validate() error {
 	}
 	if c.Jobs.CleanupInterval <= 0 {
 		return fmt.Errorf("job cleanup interval must be positive")
+	}
+
+	// Validate token cache config
+	if c.Agent.TokenCache.Enabled && c.Agent.TokenCache.TTL <= 0 {
+		return fmt.Errorf("token cache TTL must be positive when cache is enabled")
 	}
 
 	return nil

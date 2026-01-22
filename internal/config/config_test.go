@@ -48,6 +48,10 @@ func TestLoad_Defaults(t *testing.T) {
 	// Test job cleanup defaults
 	assert.Equal(t, time.Hour, cfg.Jobs.CleanupTTL)
 	assert.Equal(t, 5*time.Minute, cfg.Jobs.CleanupInterval)
+
+	// Test token cache defaults
+	assert.True(t, cfg.Agent.TokenCache.Enabled)
+	assert.Equal(t, 5*time.Minute, cfg.Agent.TokenCache.TTL)
 }
 
 func TestLoad_EnvironmentVariables(t *testing.T) {
@@ -69,6 +73,8 @@ func TestLoad_EnvironmentVariables(t *testing.T) {
 	os.Setenv("STROMBOLI_JWT_SECRET", "test-secret")
 	os.Setenv("STROMBOLI_JWT_EXPIRY", "12h")
 	os.Setenv("STROMBOLI_JWT_REFRESH_EXPIRY", "72h")
+	os.Setenv("STROMBOLI_TOKEN_CACHE_ENABLED", "false")
+	os.Setenv("STROMBOLI_TOKEN_CACHE_TTL", "10m")
 
 	cfg, err := Load()
 	require.NoError(t, err)
@@ -88,6 +94,8 @@ func TestLoad_EnvironmentVariables(t *testing.T) {
 	assert.Equal(t, "test-secret", cfg.JWT.Secret)
 	assert.Equal(t, 12*time.Hour, cfg.JWT.AccessExpiry)
 	assert.Equal(t, 72*time.Hour, cfg.JWT.RefreshExpiry)
+	assert.False(t, cfg.Agent.TokenCache.Enabled)
+	assert.Equal(t, 10*time.Minute, cfg.Agent.TokenCache.TTL)
 }
 
 func TestLoad_BackwardCompatibility(t *testing.T) {
@@ -156,6 +164,11 @@ jwt:
 jobs:
   cleanup_ttl: "2h"
   cleanup_interval: "10m"
+
+agent:
+  token_cache:
+    enabled: false
+    ttl: "1m"
 `
 	err := os.WriteFile(configPath, []byte(configContent), 0644)
 	require.NoError(t, err)
@@ -181,6 +194,8 @@ jobs:
 	assert.Equal(t, 48*time.Hour, cfg.JWT.RefreshExpiry)
 	assert.Equal(t, 2*time.Hour, cfg.Jobs.CleanupTTL)
 	assert.Equal(t, 10*time.Minute, cfg.Jobs.CleanupInterval)
+	assert.False(t, cfg.Agent.TokenCache.Enabled)
+	assert.Equal(t, time.Minute, cfg.Agent.TokenCache.TTL)
 }
 
 func TestLoad_EnvOverridesConfigFile(t *testing.T) {
@@ -234,6 +249,38 @@ func TestLoad_InvalidRateLimit(t *testing.T) {
 	_, err := Load()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "rate limit RPS must be positive")
+}
+
+func TestLoad_TokenCacheInvalidTTL(t *testing.T) {
+	cleanEnv(t)
+
+	os.Setenv("STROMBOLI_TOKEN_CACHE_ENABLED", "true")
+	os.Setenv("STROMBOLI_TOKEN_CACHE_TTL", "invalid")
+
+	_, err := Load()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid token cache TTL")
+}
+
+func TestLoad_TokenCacheEnabledWithoutTTL(t *testing.T) {
+	cleanEnv(t)
+
+	// Create temporary config file with cache enabled but TTL = 0
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "stromboli.yaml")
+
+	configContent := `
+agent:
+  token_cache:
+    enabled: true
+    ttl: "0s"
+`
+	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	_, err = LoadFromFile(configPath)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "token cache TTL must be positive when cache is enabled")
 }
 
 // cleanEnv removes all STROMBOLI_ environment variables for testing

@@ -66,7 +66,17 @@ func main() {
 		"agent_image", cfg.Agent.Image)
 
 	// Create dependencies
-	claudeClient := claude.NewClient(cfg.Agent.SecretsFile)
+	claudeClient := claude.NewClientWithCache(
+		cfg.Agent.SecretsFile,
+		cfg.Agent.TokenCache.Enabled,
+		cfg.Agent.TokenCache.TTL,
+	)
+
+	if cfg.Agent.TokenCache.Enabled {
+		slog.Info("Token caching enabled", "ttl", cfg.Agent.TokenCache.TTL)
+	} else {
+		slog.Info("Token caching disabled")
+	}
 
 	resourceDefaults := runner.ResourceDefaults{
 		Memory:  cfg.Resources.Memory,

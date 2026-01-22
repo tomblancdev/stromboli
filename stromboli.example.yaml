@@ -11,6 +11,9 @@ agent:
   image: "stromboli-agent:latest"  # Container image to use
   secrets_file: ".claude-secrets"  # Path to Claude API secrets file
   sessions_dir: ".stromboli/sessions"  # Directory for session data
+  token_cache:
+    enabled: true  # Enable token caching (reduces file reads)
+    ttl: "5m"      # Cache time-to-live (e.g., "5m", "10m", "1h")
 
 # Default Resource Limits for Containers
 resources:
@@ -51,6 +54,9 @@ jobs:
 #   image: "ghcr.io/your-org/stromboli-agent:v1.0.0"
 #   secrets_file: "/secrets/claude-api-key"
 #   sessions_dir: "/data/sessions"
+#   token_cache:
+#     enabled: true
+#     ttl: "5m"
 #
 # resources:
 #   memory: "1g"
