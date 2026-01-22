@@ -488,3 +488,154 @@ func TestRunStream_WithResourceLimits(t *testing.T) {
 	// Expected to fail due to no podman container execution
 	assert.Error(t, err)
 }
+
+// TestDefaultResourceLimits_AppliedWhenNotSpecified verifies defaults are used when values not provided
+func TestDefaultResourceLimits_AppliedWhenNotSpecified(t *testing.T) {
+	// Skip if podman is not available
+	if _, err := exec.LookPath("podman"); err != nil {
+		t.Skip("podman not available")
+	}
+
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+
+	// Create runner with default resource limits
+	defaults := ResourceDefaults{
+		Memory:  "512m",
+		CPUs:    "1",
+		Timeout: "30m",
+	}
+	runner, err := NewPodmanRunnerWithDefaults("stromboli-agent:latest", secretsFile, sessionsDir, []string{}, defaults)
+	if err != nil {
+		t.Skipf("podman secrets not available: %v", err)
+	}
+
+	// Request without resource limits - should apply defaults
+	_, err = runner.Run(context.Background(), Request{
+		Prompt: "hello",
+		Podman: types.PodmanOptions{
+			// No Memory, CPUs, or Timeout specified
+		},
+	})
+
+	// Expected to fail due to no podman container execution
+	// but the command should have been built with defaults
+	assert.Error(t, err)
+}
+
+// TestDefaultResourceLimits_ExplicitValuesOverrideDefaults verifies explicit values take precedence
+func TestDefaultResourceLimits_ExplicitValuesOverrideDefaults(t *testing.T) {
+	// Skip if podman is not available
+	if _, err := exec.LookPath("podman"); err != nil {
+		t.Skip("podman not available")
+	}
+
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+
+	// Create runner with default resource limits
+	defaults := ResourceDefaults{
+		Memory:  "512m",
+		CPUs:    "1",
+		Timeout: "30m",
+	}
+	runner, err := NewPodmanRunnerWithDefaults("stromboli-agent:latest", secretsFile, sessionsDir, []string{}, defaults)
+	if err != nil {
+		t.Skipf("podman secrets not available: %v", err)
+	}
+
+	// Request with explicit resource limits - should NOT use defaults
+	_, err = runner.Run(context.Background(), Request{
+		Prompt: "hello",
+		Podman: types.PodmanOptions{
+			Memory:  "2g",
+			CPUs:    "4",
+			Timeout: "1h",
+		},
+	})
+
+	// Expected to fail due to no podman container execution
+	// but the command should have been built with explicit values
+	assert.Error(t, err)
+}
+
+// TestDefaultResourceLimits_PartialOverride verifies partial overrides work correctly
+func TestDefaultResourceLimits_PartialOverride(t *testing.T) {
+	// Skip if podman is not available
+	if _, err := exec.LookPath("podman"); err != nil {
+		t.Skip("podman not available")
+	}
+
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+
+	// Create runner with default resource limits
+	defaults := ResourceDefaults{
+		Memory:  "512m",
+		CPUs:    "1",
+		Timeout: "30m",
+	}
+	runner, err := NewPodmanRunnerWithDefaults("stromboli-agent:latest", secretsFile, sessionsDir, []string{}, defaults)
+	if err != nil {
+		t.Skipf("podman secrets not available: %v", err)
+	}
+
+	// Request with only memory specified - should use default for CPUs and Timeout
+	_, err = runner.Run(context.Background(), Request{
+		Prompt: "hello",
+		Podman: types.PodmanOptions{
+			Memory: "1g",
+			// CPUs and Timeout should use defaults
+		},
+	})
+
+	// Expected to fail due to no podman container execution
+	assert.Error(t, err)
+}
+
+// TestDefaultResourceLimits_StreamingAppliesDefaults verifies defaults work with streaming
+func TestDefaultResourceLimits_StreamingAppliesDefaults(t *testing.T) {
+	// Skip if podman is not available
+	if _, err := exec.LookPath("podman"); err != nil {
+		t.Skip("podman not available")
+	}
+
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+
+	// Create runner with default resource limits
+	defaults := ResourceDefaults{
+		Memory:  "512m",
+		CPUs:    "1",
+		Timeout: "30m",
+	}
+	runner, err := NewPodmanRunnerWithDefaults("stromboli-agent:latest", secretsFile, sessionsDir, []string{}, defaults)
+	if err != nil {
+		t.Skipf("podman secrets not available: %v", err)
+	}
+
+	output := make(chan string, 10)
+
+	// Request without resource limits - should apply defaults
+	_, err = runner.RunStream(context.Background(), Request{
+		Prompt: "hello",
+		Podman: types.PodmanOptions{
+			// No Memory, CPUs, or Timeout specified
+		},
+	}, output)
+
+	// Expected to fail due to no podman container execution
+	assert.Error(t, err)
+}

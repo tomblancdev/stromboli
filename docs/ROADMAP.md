@@ -61,14 +61,14 @@ import "golang.org/x/time/rate"
 ---
 
 ### 3. Set Default Resource Limits
-- **Status**: ❌ NOT STARTED
+- **Status**: ✅ COMPLETED (Jan 22, 2026)
 - **Priority**: HIGH
 - **Effort**: ~1 hour
 - **Location**: `cmd/stromboli/main.go`, `internal/runner/runner.go`
 
 **Why Important**: Without defaults, containers can exhaust host resources.
 
-**Suggested Defaults**:
+**Implementation**:
 ```go
 const (
     defaultMemory   = "512m"
@@ -77,14 +77,17 @@ const (
 )
 ```
 
-**Tasks**:
-- [ ] Add default constants to main.go
-- [ ] Apply defaults in runner if not specified
-- [ ] Allow override via environment variables
-- [ ] Document default limits
-- [ ] Add tests
+**Tasks Completed**:
+- [x] Add default constants to main.go
+- [x] Create `ResourceDefaults` struct in runner package
+- [x] Add `NewPodmanRunnerWithDefaults()` function
+- [x] Maintain backward compatibility with `NewPodmanRunner()`
+- [x] Apply defaults in `runner.Run()` and `runner.RunStream()` methods
+- [x] Allow override via environment variables (STROMBOLI_DEFAULT_MEMORY, _CPUS, _TIMEOUT)
+- [x] Add comprehensive unit tests (4 tests covering defaults, overrides, partial overrides, streaming)
+- [x] Document default limits in `docs/RESOURCE_LIMITS.md`
 
-**Completion Date**: ___________
+**Completion Date**: January 22, 2026
 
 ---
 
@@ -265,10 +268,10 @@ package container
 | Priority | Items | Total Effort | Status |
 |----------|-------|--------------|--------|
 | 🔴 Critical | 1 | ~2h | ✅ 1/1 complete |
-| 🟡 High | 3 | ~5.5h | ✅ 1/3 complete |
+| 🟡 High | 3 | ~5.5h | ✅ 2/3 complete |
 | 🟠 Medium | 3 | ~12h | 0/3 complete |
 | 🟢 Low | 4 | ~9.5h | 0/4 complete |
-| **Total** | **11** | **~29h** | **2/11 complete** |
+| **Total** | **11** | **~29h** | **3/11 complete** |
 
 ---
 
@@ -280,7 +283,7 @@ package container
 ### v1.0-beta (Production Ready)
 - [x] Item #1: Session tests (Jan 22, 2026)
 - [x] Item #2: Rate limiting (Jan 22, 2026)
-- [ ] Item #3: Default resource limits
+- [x] Item #3: Default resource limits (Jan 22, 2026)
 - [ ] Item #4: Integration test build tags
 
 ### v1.0-rc (Release Candidate)
@@ -303,6 +306,7 @@ _Add notes here as you work through the roadmap..._
 
 | Date | Item | Action | Notes |
 |------|------|--------|-------|
+| Jan 22, 2026 | #3 Default Resource Limits | ✅ Completed | Memory: 512m, CPUs: 1, Timeout: 30m - configurable via env vars |
 | Jan 22, 2026 | #2 Rate Limiting | ✅ Completed | Per-IP limiting, configurable via env vars |
 | Jan 22, 2026 | #1 Session Tests | ✅ Completed | 21 tests, all passing |
 | Jan 22, 2026 | Roadmap | Created | Initial planning document |

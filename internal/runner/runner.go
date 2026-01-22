@@ -44,17 +44,31 @@ type Result struct {
 	SessionID string
 }
 
+// ResourceDefaults contains default resource limits for containers
+type ResourceDefaults struct {
+	Memory  string
+	CPUs    string
+	Timeout string
+}
+
 // PodmanRunner runs Claude using Podman containers
 type PodmanRunner struct {
 	image              string
 	secretsMgr         *secrets.Manager
 	sessionMgr         *session.Manager
 	workspaceValidator *workspace.Validator
+	defaults           ResourceDefaults
 }
 
-// NewPodmanRunner creates a new Podman-based runner
+// NewPodmanRunner creates a new Podman-based runner with no default resource limits
 // It ensures the Podman secret exists for secure token handling
 func NewPodmanRunner(image, secretsFile, sessionsDir string, allowedWorkspaces []string) (*PodmanRunner, error) {
+	return NewPodmanRunnerWithDefaults(image, secretsFile, sessionsDir, allowedWorkspaces, ResourceDefaults{})
+}
+
+// NewPodmanRunnerWithDefaults creates a new Podman-based runner with default resource limits
+// It ensures the Podman secret exists for secure token handling
+func NewPodmanRunnerWithDefaults(image, secretsFile, sessionsDir string, allowedWorkspaces []string, defaults ResourceDefaults) (*PodmanRunner, error) {
 	// Create secrets manager and ensure secret exists
 	// Use background context for startup initialization
 	secretsMgr := secrets.NewManager("")
@@ -67,11 +81,15 @@ func NewPodmanRunner(image, secretsFile, sessionsDir string, allowedWorkspaces [
 		secretsMgr:         secretsMgr,
 		sessionMgr:         session.NewManager(sessionsDir),
 		workspaceValidator: workspace.NewValidator(allowedWorkspaces),
+		defaults:           defaults,
 	}, nil
 }
 
 // Run executes Claude in a Podman container
 func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
+	// Apply defaults to request if not specified
+	req.Podman = r.applyDefaults(req.Podman)
+
 	// Apply timeout if specified
 	if req.Podman.Timeout != "" {
 		timeout, err := time.ParseDuration(req.Podman.Timeout)
@@ -169,6 +187,9 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 // RunStream executes Claude in a Podman container and streams output in real-time
 func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<- string) (*Result, error) {
 	defer close(output)
+
+	// Apply defaults to request if not specified
+	req.Podman = r.applyDefaults(req.Podman)
 
 	// Apply timeout if specified
 	if req.Podman.Timeout != "" {
@@ -477,4 +498,18 @@ func generateRunID() string {
 	bytes := make([]byte, 8)
 	rand.Read(bytes)
 	return "run-" + hex.EncodeToString(bytes)
+}
+
+// applyDefaults applies default resource limits when not explicitly specified
+func (r *PodmanRunner) applyDefaults(opts types.PodmanOptions) types.PodmanOptions {
+	if opts.Memory == "" && r.defaults.Memory != "" {
+		opts.Memory = r.defaults.Memory
+	}
+	if opts.CPUs == "" && r.defaults.CPUs != "" {
+		opts.CPUs = r.defaults.CPUs
+	}
+	if opts.Timeout == "" && r.defaults.Timeout != "" {
+		opts.Timeout = r.defaults.Timeout
+	}
+	return opts
 }

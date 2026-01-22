@@ -46,6 +46,11 @@ const (
 	defaultSecretsFile = ".claude-secrets"
 	defaultSessionsDir = ".stromboli/sessions"
 	defaultAddr        = ":8080"
+
+	// Default resource limits
+	defaultMemory  = "512m"
+	defaultCPUs    = "1"
+	defaultTimeout = "30m"
 )
 
 // getAuthConfig loads authentication configuration from environment variables.
@@ -92,6 +97,30 @@ func getRateLimitConfig() api.RateLimitConfig {
 	}
 }
 
+// getResourceDefaults loads default resource limits from environment variables
+func getResourceDefaults() runner.ResourceDefaults {
+	memory := defaultMemory
+	if m := os.Getenv("STROMBOLI_DEFAULT_MEMORY"); m != "" {
+		memory = m
+	}
+
+	cpus := defaultCPUs
+	if c := os.Getenv("STROMBOLI_DEFAULT_CPUS"); c != "" {
+		cpus = c
+	}
+
+	timeout := defaultTimeout
+	if t := os.Getenv("STROMBOLI_DEFAULT_TIMEOUT"); t != "" {
+		timeout = t
+	}
+
+	return runner.ResourceDefaults{
+		Memory:  memory,
+		CPUs:    cpus,
+		Timeout: timeout,
+	}
+}
+
 // allowedWorkspaces restricts which host paths can be mounted as workspaces.
 // Empty slice allows all paths (backward compatible).
 // In production, configure this to restrict access to specific directories.
@@ -108,11 +137,18 @@ func main() {
 
 	// Create dependencies
 	claudeClient := claude.NewClient(defaultSecretsFile)
-	podmanRunner, err := runner.NewPodmanRunner(defaultImage, defaultSecretsFile, defaultSessionsDir, allowedWorkspaces)
+	resourceDefaults := getResourceDefaults()
+	podmanRunner, err := runner.NewPodmanRunnerWithDefaults(defaultImage, defaultSecretsFile, defaultSessionsDir, allowedWorkspaces, resourceDefaults)
 	if err != nil {
 		slog.Error("Failed to create runner", "error", err)
 		os.Exit(1)
 	}
+
+	slog.Info("Resource defaults configured",
+		"memory", resourceDefaults.Memory,
+		"cpus", resourceDefaults.CPUs,
+		"timeout", resourceDefaults.Timeout)
+
 	authConfig := getAuthConfig()
 
 	if authConfig.Enabled {
