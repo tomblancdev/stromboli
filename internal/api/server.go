@@ -60,6 +60,9 @@ func (s *Server) setupRoutes() {
 	s.router.GET("/health", s.healthCheck)
 	s.router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
+	// Auth routes (JWT token generation, refresh, validation)
+	s.setupAuthRoutes()
+
 	// Protected routes (require auth when enabled, rate limited when enabled)
 	protected := s.router.Group("/")
 	protected.Use(RateLimitMiddleware(s.rateLimitConfig))

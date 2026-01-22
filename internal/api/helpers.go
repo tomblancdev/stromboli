@@ -8,6 +8,11 @@ import (
 	"github.com/tomblanc/stromboli/internal/runner"
 )
 
+// ErrorResponse represents a generic error response
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
 // validateClaudeConfigured checks if Claude is configured and returns an error response if not
 func validateClaudeConfigured(c *gin.Context, client *claude.Client) bool {
 	if !client.IsConfigured() {

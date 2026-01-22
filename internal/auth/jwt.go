@@ -17,9 +17,12 @@ var (
 type Config struct {
 	// Enabled determines if auth is required
 	Enabled bool
-	// ValidTokens is a simple list of valid tokens (for MVP)
-	// In production, this should be replaced with proper JWT validation
+	// ValidTokens is a simple list of valid tokens (for backward compatibility)
+	// These are checked first before JWT validation
 	ValidTokens []string
+	// JWTConfig holds JWT-specific configuration
+	// If JWTConfig.Secret is set, JWT validation is enabled
+	JWTConfig JWTConfig
 }
 
 // Middleware returns a Gin middleware that validates JWT tokens
@@ -46,12 +49,23 @@ func Middleware(cfg Config) gin.HandlerFunc {
 		}
 		token := parts[1]
 
-		// Validate token
+		// Try legacy token validation first (for backward compatibility)
 		valid := false
 		for _, t := range cfg.ValidTokens {
 			if token == t {
 				valid = true
 				break
+			}
+		}
+
+		// If not a legacy token and JWT is enabled, try JWT validation
+		if !valid && cfg.JWTConfig.Secret != "" {
+			claims, err := ValidateToken(token, cfg.JWTConfig)
+			if err == nil && claims != nil {
+				valid = true
+				// Store claims in context for handlers to use
+				c.Set("jwt_claims", claims)
+				c.Set("jwt_subject", claims.Subject)
 			}
 		}
 

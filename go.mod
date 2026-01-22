@@ -6,6 +6,7 @@ toolchain go1.24.12
 
 require (
 	github.com/gin-gonic/gin v1.9.1
+	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/prometheus/client_golang v1.20.5
 	github.com/stretchr/testify v1.11.1
 	github.com/swaggo/swag v1.16.6

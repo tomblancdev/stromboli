@@ -1,7 +1,7 @@
 # Stromboli v1.0 Roadmap 🌋
 
 > Last Updated: January 22, 2026
-> Current Score: 9.5/10
+> Current Score: 9/11
 
 ## Progress Tracker
 
@@ -235,21 +235,40 @@ package container
 ---
 
 ### 9. Enhanced JWT Authentication
-- **Status**: ❌ NOT STARTED
+- **Status**: ✅ COMPLETED (Jan 22, 2026)
 - **Priority**: LOW
 - **Effort**: ~4 hours
 - **Location**: `internal/auth/`
 
-**Current State**: Simple token comparison works but no expiration.
+**Current State**: JWT authentication with token expiration and refresh capabilities is fully implemented.
 
-**Tasks**:
-- [ ] Add `github.com/golang-jwt/jwt` dependency
-- [ ] Implement JWT generation endpoint
-- [ ] Add token expiration
-- [ ] Add refresh token support
-- [ ] Update documentation
+**Tasks Completed**:
+- [x] Add `github.com/golang-jwt/jwt/v5` dependency
+- [x] Implement JWT token generation and validation (`internal/auth/token.go`)
+- [x] Add token expiration support (configurable, default: 24h access, 7d refresh)
+- [x] Add refresh token support
+- [x] Implement three auth endpoints:
+  - `POST /auth/token` - Generate JWT tokens (requires API token)
+  - `POST /auth/refresh` - Refresh access token using refresh token
+  - `GET /auth/validate` - Validate token and return claims
+- [x] Update auth middleware to support both legacy tokens and JWT
+- [x] Add comprehensive unit tests (`internal/auth/token_test.go`)
+- [x] Add API endpoint tests (`internal/api/auth_test.go`)
+- [x] Create comprehensive documentation (`docs/AUTHENTICATION.md`)
+- [x] Maintain full backward compatibility with existing simple token auth
 
-**Completion Date**: ___________
+**Implementation Details**:
+- JWT tokens use HS256 signing algorithm
+- Configurable via environment variables:
+  - `STROMBOLI_JWT_SECRET` - Secret for signing tokens
+  - `STROMBOLI_JWT_EXPIRY` - Access token expiry (default: 24h)
+  - `STROMBOLI_JWT_REFRESH_EXPIRY` - Refresh token expiry (default: 168h)
+- JWT is opt-in: enabled when JWT_SECRET is set
+- Backward compatible: legacy tokens continue to work alongside JWT
+- Tokens include claims: subject, issued at, expiration, is_refresh flag
+- Middleware validates legacy tokens first, then JWT tokens
+
+**Completion Date**: January 22, 2026
 
 ---
 
@@ -299,8 +318,8 @@ package container
 | 🔴 Critical | 1 | ~2h | ✅ 1/1 complete |
 | 🟡 High | 3 | ~5.5h | ✅ 3/3 complete |
 | 🟠 Medium | 3 | ~12h | ✅ 3/3 complete |
-| 🟢 Low | 4 | ~9.5h | ✅ 1/4 complete |
-| **Total** | **11** | **~29h** | **8/11 complete** |
+| 🟢 Low | 4 | ~9.5h | ✅ 2/4 complete |
+| **Total** | **11** | **~29h** | **9/11 complete** |
 
 ---
 
@@ -335,6 +354,7 @@ _Add notes here as you work through the roadmap..._
 
 | Date | Item | Action | Notes |
 |------|------|--------|-------|
+| Jan 22, 2026 | #9 Enhanced JWT Authentication | ✅ Completed | JWT with expiration & refresh, backward compatible with legacy tokens |
 | Jan 22, 2026 | #8 Container Package Fate | ✅ Completed | Removed unused package entirely |
 | Jan 22, 2026 | #7 E2E Test Suite | ✅ Completed | Comprehensive E2E tests for all API endpoints, graceful Claude skipping |
 | Jan 22, 2026 | #6 Refactor API Handlers | ✅ Completed | Extracted helpers, reduced duplication, standardized error handling |
