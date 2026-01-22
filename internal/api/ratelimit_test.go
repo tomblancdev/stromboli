@@ -212,3 +212,127 @@ func TestRateLimitErrorResponse(t *testing.T) {
 	assert.Equal(t, http.StatusTooManyRequests, w2.Code)
 	assert.Contains(t, w2.Body.String(), "rate limit exceeded")
 }
+
+func TestIPRateLimiterCleanup(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	// Create a rate limiter with short cleanup interval for testing
+	cleanupInterval := 100 * time.Millisecond
+	limiter := newIPRateLimiter(1, 1, cleanupInterval)
+	defer limiter.Stop()
+
+	// Add some IPs
+	limiter.getLimiter("192.168.1.1")
+	limiter.getLimiter("192.168.1.2")
+	limiter.getLimiter("192.168.1.3")
+
+	// Verify all IPs are tracked
+	limiter.mu.RLock()
+	assert.Equal(t, 3, len(limiter.limiters))
+	limiter.mu.RUnlock()
+
+	// Wait for cleanup to run (cleanup interval + buffer)
+	time.Sleep(cleanupInterval + 50*time.Millisecond)
+
+	// All entries should be cleaned up since they haven't been accessed
+	limiter.mu.RLock()
+	assert.Equal(t, 0, len(limiter.limiters))
+	limiter.mu.RUnlock()
+}
+
+func TestIPRateLimiterCleanupKeepsActive(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	// Create a rate limiter with short cleanup interval for testing
+	cleanupInterval := 100 * time.Millisecond
+	limiter := newIPRateLimiter(1, 1, cleanupInterval)
+	defer limiter.Stop()
+
+	// Add some IPs
+	limiter.getLimiter("192.168.1.1")
+	limiter.getLimiter("192.168.1.2")
+
+	// Keep accessing one IP to keep it alive
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
+	done := make(chan struct{})
+
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				limiter.getLimiter("192.168.1.1")
+			case <-done:
+				return
+			}
+		}
+	}()
+
+	// Wait for cleanup to run
+	time.Sleep(cleanupInterval + 50*time.Millisecond)
+
+	// Stop the access goroutine
+	close(done)
+
+	// IP 192.168.1.1 should still exist, but 192.168.1.2 should be cleaned up
+	limiter.mu.RLock()
+	assert.Equal(t, 1, len(limiter.limiters))
+	_, exists := limiter.limiters["192.168.1.1"]
+	assert.True(t, exists)
+	_, exists = limiter.limiters["192.168.1.2"]
+	assert.False(t, exists)
+	limiter.mu.RUnlock()
+}
+
+func TestRateLimitCleanupIntervalDefault(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	// Test that default cleanup interval is set
+	config := RateLimitConfig{
+		Enabled: true,
+		Rate:    10,
+		Period:  time.Second,
+		Burst:   20,
+		// CleanupInterval not set, should default to 10 minutes
+	}
+
+	router := gin.New()
+	router.Use(RateLimitMiddleware(config))
+	router.GET("/test", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.RemoteAddr = "192.168.1.1:12345"
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestRateLimitCleanupIntervalCustom(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	// Test that custom cleanup interval is used
+	customInterval := 5 * time.Minute
+	config := RateLimitConfig{
+		Enabled:         true,
+		Rate:            10,
+		Period:          time.Second,
+		Burst:           20,
+		CleanupInterval: customInterval,
+	}
+
+	router := gin.New()
+	router.Use(RateLimitMiddleware(config))
+	router.GET("/test", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.RemoteAddr = "192.168.1.1:12345"
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}

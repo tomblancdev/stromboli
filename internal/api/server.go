@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/tomblanc/stromboli/internal/auth"
 	"github.com/tomblanc/stromboli/internal/claude"
+	strerrors "github.com/tomblanc/stromboli/internal/errors"
 	"github.com/tomblanc/stromboli/internal/job"
 	"github.com/tomblanc/stromboli/internal/runner"
 )
@@ -196,9 +198,9 @@ func (s *Server) destroySession(c *gin.Context) {
 
 	if err := s.runner.DestroySession(sessionID); err != nil {
 		status := http.StatusInternalServerError
-		if err.Error() == "session ID is required" || err.Error() == "invalid session ID" {
+		if errors.Is(err, strerrors.ErrSessionIDRequired) || errors.Is(err, strerrors.ErrInvalidSessionID) {
 			status = http.StatusBadRequest
-		} else if err.Error() == "session not found: "+sessionID {
+		} else if errors.Is(err, strerrors.ErrSessionNotFound) {
 			status = http.StatusNotFound
 		}
 

@@ -13,27 +13,43 @@ import (
 
 // RateLimitConfig defines rate limiting settings
 type RateLimitConfig struct {
-	Enabled bool          // Whether rate limiting is enabled
-	Rate    int           // Requests per period
-	Period  time.Duration // Time period (e.g., time.Second)
-	Burst   int           // Maximum burst size
+	Enabled         bool          // Whether rate limiting is enabled
+	Rate            int           // Requests per period
+	Period          time.Duration // Time period (e.g., time.Second)
+	Burst           int           // Maximum burst size
+	CleanupInterval time.Duration // How often to clean up stale IP entries (default: 10 minutes)
+}
+
+// ipLimiterEntry holds a rate limiter and its last access time
+type ipLimiterEntry struct {
+	limiter    *rate.Limiter
+	lastAccess time.Time
 }
 
 // ipRateLimiter tracks rate limiters per IP address
 type ipRateLimiter struct {
-	limiters map[string]*rate.Limiter
-	mu       sync.RWMutex
-	rate     rate.Limit
-	burst    int
+	limiters        map[string]*ipLimiterEntry
+	mu              sync.RWMutex
+	rate            rate.Limit
+	burst           int
+	cleanupInterval time.Duration
+	stopCleanup     chan struct{}
 }
 
 // newIPRateLimiter creates a new IP-based rate limiter
-func newIPRateLimiter(r rate.Limit, b int) *ipRateLimiter {
-	return &ipRateLimiter{
-		limiters: make(map[string]*rate.Limiter),
-		rate:     r,
-		burst:    b,
+func newIPRateLimiter(r rate.Limit, b int, cleanupInterval time.Duration) *ipRateLimiter {
+	i := &ipRateLimiter{
+		limiters:        make(map[string]*ipLimiterEntry),
+		rate:            r,
+		burst:           b,
+		cleanupInterval: cleanupInterval,
+		stopCleanup:     make(chan struct{}),
 	}
+
+	// Start cleanup goroutine
+	go i.cleanupStaleEntries()
+
+	return i
 }
 
 // getLimiter returns the rate limiter for the given IP address
@@ -41,13 +57,45 @@ func (i *ipRateLimiter) getLimiter(ip string) *rate.Limiter {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
-	limiter, exists := i.limiters[ip]
+	entry, exists := i.limiters[ip]
 	if !exists {
-		limiter = rate.NewLimiter(i.rate, i.burst)
-		i.limiters[ip] = limiter
+		entry = &ipLimiterEntry{
+			limiter:    rate.NewLimiter(i.rate, i.burst),
+			lastAccess: time.Now(),
+		}
+		i.limiters[ip] = entry
+	} else {
+		entry.lastAccess = time.Now()
 	}
 
-	return limiter
+	return entry.limiter
+}
+
+// cleanupStaleEntries periodically removes entries not accessed in cleanupInterval
+func (i *ipRateLimiter) cleanupStaleEntries() {
+	ticker := time.NewTicker(i.cleanupInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			i.mu.Lock()
+			now := time.Now()
+			for ip, entry := range i.limiters {
+				if now.Sub(entry.lastAccess) > i.cleanupInterval {
+					delete(i.limiters, ip)
+				}
+			}
+			i.mu.Unlock()
+		case <-i.stopCleanup:
+			return
+		}
+	}
+}
+
+// Stop stops the cleanup goroutine
+func (i *ipRateLimiter) Stop() {
+	close(i.stopCleanup)
 }
 
 // RateLimitMiddleware creates a rate limiting middleware
@@ -59,9 +107,15 @@ func RateLimitMiddleware(config RateLimitConfig) gin.HandlerFunc {
 		}
 	}
 
+	// Set default cleanup interval if not configured
+	cleanupInterval := config.CleanupInterval
+	if cleanupInterval == 0 {
+		cleanupInterval = 10 * time.Minute
+	}
+
 	// Calculate rate per second
 	ratePerSecond := rate.Limit(float64(config.Rate) / config.Period.Seconds())
-	limiter := newIPRateLimiter(ratePerSecond, config.Burst)
+	limiter := newIPRateLimiter(ratePerSecond, config.Burst, cleanupInterval)
 
 	return func(c *gin.Context) {
 		// Extract IP from request
