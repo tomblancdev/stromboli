@@ -51,36 +51,19 @@ type JobListResponse struct {
 func (s *Server) runAsync(c *gin.Context) {
 	var req RunRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, RunResponse{
-			Status: "error",
-			Error:  "Invalid request: " + err.Error(),
-		})
+		handleBadRequest(c, err)
 		return
 	}
 
-	// Check if configured
-	if !s.claudeClient.IsConfigured() {
-		c.JSON(http.StatusServiceUnavailable, RunResponse{
-			Status: "error",
-			Error:  "Claude not configured. Run 'make claude-setup' first",
-		})
+	if !validateClaudeConfigured(c, s.claudeClient) {
 		return
 	}
 
-	// Generate job ID and create job
 	jobID := generateJobID()
 	s.jobMgr.Create(jobID)
 	s.jobMgr.Update(jobID, job.StatusRunning, "", "", "")
 
-	// Build runner request
-	runnerReq := runner.Request{
-		Prompt:    req.Prompt,
-		Workspace: req.Workspace,
-		Claude:    req.Claude,
-		Podman:    req.Podman,
-	}
-
-	// Capture webhook URL
+	runnerReq := buildRunnerRequest(req)
 	webhookURL := req.WebhookURL
 
 	// Start async execution

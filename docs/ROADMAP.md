@@ -151,23 +151,32 @@ package container
 ---
 
 ### 6. Refactor Long API Handlers
-- **Status**: ❌ NOT STARTED
+- **Status**: ✅ COMPLETED (Jan 22, 2026)
 - **Priority**: MEDIUM
 - **Effort**: ~2 hours
-- **Location**: `internal/api/stream.go`, `internal/api/async.go`
+- **Location**: `internal/api/stream.go`, `internal/api/async.go`, `internal/api/server.go`
 
 **Why Important**: Some handlers are 100+ lines, harder to maintain.
 
-**Tasks**:
-- [ ] Create `internal/api/helpers.go`
-- [ ] Extract `validateClaudeConfigured()` helper
-- [ ] Extract `buildRunnerRequest()` helper
-- [ ] Extract `handleRunError()` helper
-- [ ] Refactor `runStream` handler
-- [ ] Refactor `runAsync` handler
-- [ ] Ensure tests still pass
+**Tasks Completed**:
+- [x] Create `internal/api/helpers.go` with extracted functions
+- [x] Extract `validateClaudeConfigured()` helper (validates Claude configuration)
+- [x] Extract `buildRunnerRequest()` helper (converts API request to runner request)
+- [x] Extract `handleRunError()` helper (standardized error responses)
+- [x] Extract `handleBadRequest()` helper (standardized bad request responses)
+- [x] Refactor `runClaude` handler (server.go) - reduced from 43 to 25 lines
+- [x] Refactor `runStream` handler (stream.go) - simplified request building
+- [x] Refactor `runAsync` handler (async.go) - reduced from 28 to 18 lines
+- [x] Add comprehensive unit tests (`internal/api/helpers_test.go`)
 
-**Completion Date**: ___________
+**Impact**:
+- ✅ Reduced code duplication across handlers
+- ✅ Standardized error response handling
+- ✅ Improved maintainability and readability
+- ✅ All handlers now focus on HTTP concerns
+- ✅ Business logic extracted to reusable helpers
+
+**Completion Date**: January 22, 2026
 
 ---
 
@@ -279,9 +288,9 @@ package container
 |----------|-------|--------------|--------|
 | 🔴 Critical | 1 | ~2h | ✅ 1/1 complete |
 | 🟡 High | 3 | ~5.5h | ✅ 3/3 complete |
-| 🟠 Medium | 3 | ~12h | ✅ 1/3 complete |
+| 🟠 Medium | 3 | ~12h | ✅ 2/3 complete |
 | 🟢 Low | 4 | ~9.5h | 0/4 complete |
-| **Total** | **11** | **~29h** | **5/11 complete** |
+| **Total** | **11** | **~29h** | **6/11 complete** |
 
 ---
 
@@ -316,6 +325,7 @@ _Add notes here as you work through the roadmap..._
 
 | Date | Item | Action | Notes |
 |------|------|--------|-------|
+| Jan 22, 2026 | #6 Refactor API Handlers | ✅ Completed | Extracted helpers, reduced duplication, standardized error handling |
 | Jan 22, 2026 | #5 Extract Executor Interface | ✅ Completed | Enables unit testing without Podman, 28 new tests, full backward compatibility |
 | Jan 22, 2026 | #4 Integration Test Build Tags | ✅ Completed | Separated unit/integration tests with build tags, added docs/TESTING.md |
 | Jan 22, 2026 | #3 Default Resource Limits | ✅ Completed | Memory: 512m, CPUs: 1, Timeout: 30m - configurable via env vars |

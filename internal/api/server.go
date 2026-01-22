@@ -132,37 +132,19 @@ func (s *Server) claudeStatus(c *gin.Context) {
 func (s *Server) runClaude(c *gin.Context) {
 	var req RunRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, RunResponse{
-			Status: "error",
-			Error:  "Invalid request: " + err.Error(),
-		})
+		handleBadRequest(c, err)
 		return
 	}
 
-	// Check if configured
-	if !s.claudeClient.IsConfigured() {
-		c.JSON(http.StatusServiceUnavailable, RunResponse{
-			Status: "error",
-			Error:  "Claude not configured. Run 'make claude-setup' first",
-		})
+	if !validateClaudeConfigured(c, s.claudeClient) {
 		return
 	}
 
-	// Build runner request (types are now shared)
-	runnerReq := runner.Request{
-		Prompt:    req.Prompt,
-		Workspace: req.Workspace,
-		Claude:    req.Claude,
-		Podman:    req.Podman,
-	}
+	runnerReq := buildRunnerRequest(req)
 
-	// Run Claude
 	result, err := s.runner.Run(c.Request.Context(), runnerReq)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, RunResponse{
-			Status: "error",
-			Error:  err.Error(),
-		})
+		handleRunError(c, err)
 		return
 	}
 

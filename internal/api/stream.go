@@ -63,13 +63,13 @@ func (s *Server) runStream(c *gin.Context) {
 	}
 
 	// Build runner request
-	runnerReq := runner.Request{
+	runnerReq := buildRunnerRequest(RunRequest{
 		Prompt:    prompt,
 		Workspace: workspace,
 		Claude: types.ClaudeOptions{
 			SessionID: sessionID,
 		},
-	}
+	})
 
 	// Create output channel
 	output := make(chan string, 100)
