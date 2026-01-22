@@ -29,97 +29,16 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/tomblanc/stromboli/internal/api"
 	"github.com/tomblanc/stromboli/internal/auth"
 	"github.com/tomblanc/stromboli/internal/claude"
+	"github.com/tomblanc/stromboli/internal/config"
 	"github.com/tomblanc/stromboli/internal/job"
 	"github.com/tomblanc/stromboli/internal/runner"
 )
-
-const (
-	defaultImage       = "stromboli-agent:latest"
-	defaultSecretsFile = ".claude-secrets"
-	defaultSessionsDir = ".stromboli/sessions"
-	defaultAddr        = ":8080"
-
-	// Default resource limits
-	defaultMemory  = "512m"
-	defaultCPUs    = "1"
-	defaultTimeout = "30m"
-)
-
-// getAuthConfig loads authentication configuration from environment variables.
-// Auth is disabled by default for backward compatibility.
-func getAuthConfig() auth.Config {
-	enabled := os.Getenv("STROMBOLI_AUTH_ENABLED") == "true"
-	tokensEnv := os.Getenv("STROMBOLI_API_TOKENS")
-
-	var tokens []string
-	if tokensEnv != "" {
-		tokens = strings.Split(tokensEnv, ",")
-	}
-
-	return auth.Config{
-		Enabled:     enabled,
-		ValidTokens: tokens,
-	}
-}
-
-// getRateLimitConfig loads rate limiting configuration from environment variables.
-// Rate limiting is disabled by default.
-func getRateLimitConfig() api.RateLimitConfig {
-	enabled := os.Getenv("STROMBOLI_RATE_LIMIT_ENABLED") == "true"
-
-	rate := 10 // default: 10 requests per second
-	if rateStr := os.Getenv("STROMBOLI_RATE_LIMIT_RPS"); rateStr != "" {
-		if r, err := strconv.Atoi(rateStr); err == nil && r > 0 {
-			rate = r
-		}
-	}
-
-	burst := 20 // default: burst of 20
-	if burstStr := os.Getenv("STROMBOLI_RATE_LIMIT_BURST"); burstStr != "" {
-		if b, err := strconv.Atoi(burstStr); err == nil && b > 0 {
-			burst = b
-		}
-	}
-
-	return api.RateLimitConfig{
-		Enabled: enabled,
-		Rate:    rate,
-		Period:  time.Second,
-		Burst:   burst,
-	}
-}
-
-// getResourceDefaults loads default resource limits from environment variables
-func getResourceDefaults() runner.ResourceDefaults {
-	memory := defaultMemory
-	if m := os.Getenv("STROMBOLI_DEFAULT_MEMORY"); m != "" {
-		memory = m
-	}
-
-	cpus := defaultCPUs
-	if c := os.Getenv("STROMBOLI_DEFAULT_CPUS"); c != "" {
-		cpus = c
-	}
-
-	timeout := defaultTimeout
-	if t := os.Getenv("STROMBOLI_DEFAULT_TIMEOUT"); t != "" {
-		timeout = t
-	}
-
-	return runner.ResourceDefaults{
-		Memory:  memory,
-		CPUs:    cpus,
-		Timeout: timeout,
-	}
-}
 
 // allowedWorkspaces restricts which host paths can be mounted as workspaces.
 // Empty slice allows all paths (backward compatible).
@@ -135,29 +54,72 @@ func main() {
 
 	slog.Info("Starting Stromboli 🌋")
 
+	// Load configuration
+	cfg, err := config.Load()
+	if err != nil {
+		slog.Error("Failed to load configuration", "error", err)
+		os.Exit(1)
+	}
+
+	slog.Info("Configuration loaded",
+		"server_address", cfg.Server.Address,
+		"agent_image", cfg.Agent.Image)
+
 	// Create dependencies
-	claudeClient := claude.NewClient(defaultSecretsFile)
-	resourceDefaults := getResourceDefaults()
-	podmanRunner, err := runner.NewPodmanRunnerWithDefaults(defaultImage, defaultSecretsFile, defaultSessionsDir, allowedWorkspaces, resourceDefaults)
+	claudeClient := claude.NewClient(cfg.Agent.SecretsFile)
+
+	resourceDefaults := runner.ResourceDefaults{
+		Memory:  cfg.Resources.Memory,
+		CPUs:    cfg.Resources.CPUs,
+		Timeout: cfg.Resources.Timeout,
+	}
+
+	podmanRunner, err := runner.NewPodmanRunnerWithDefaults(
+		cfg.Agent.Image,
+		cfg.Agent.SecretsFile,
+		cfg.Agent.SessionsDir,
+		allowedWorkspaces,
+		resourceDefaults,
+	)
 	if err != nil {
 		slog.Error("Failed to create runner", "error", err)
 		os.Exit(1)
 	}
 
 	slog.Info("Resource defaults configured",
-		"memory", resourceDefaults.Memory,
-		"cpus", resourceDefaults.CPUs,
-		"timeout", resourceDefaults.Timeout)
+		"memory", cfg.Resources.Memory,
+		"cpus", cfg.Resources.CPUs,
+		"timeout", cfg.Resources.Timeout)
 
-	authConfig := getAuthConfig()
+	// Build auth config for middleware
+	authConfig := auth.Config{
+		Enabled:     cfg.Auth.Enabled,
+		ValidTokens: cfg.Auth.ValidTokens,
+		JWTConfig: auth.JWTConfig{
+			Secret:        cfg.JWT.Secret,
+			AccessExpiry:  cfg.JWT.AccessExpiry,
+			RefreshExpiry: cfg.JWT.RefreshExpiry,
+		},
+	}
 
 	if authConfig.Enabled {
 		slog.Info("Authentication enabled", "tokens", len(authConfig.ValidTokens))
+		if cfg.JWT.Secret != "" {
+			slog.Info("JWT authentication enabled",
+				"access_expiry", cfg.JWT.AccessExpiry,
+				"refresh_expiry", cfg.JWT.RefreshExpiry)
+		}
 	} else {
 		slog.Info("Authentication disabled")
 	}
 
-	rateLimitConfig := getRateLimitConfig()
+	// Build rate limit config
+	rateLimitConfig := api.RateLimitConfig{
+		Enabled: cfg.RateLimit.Enabled,
+		Rate:    cfg.RateLimit.Rate,
+		Period:  cfg.RateLimit.Period,
+		Burst:   cfg.RateLimit.Burst,
+	}
 
 	if rateLimitConfig.Enabled {
 		slog.Info("Rate limiting enabled", "rate", rateLimitConfig.Rate, "burst", rateLimitConfig.Burst)
@@ -168,9 +130,11 @@ func main() {
 	// Create job manager for async execution
 	jobMgr := job.NewManager()
 
-	// Start job cleanup with 1 hour TTL, 5 minute interval
-	jobMgr.StartCleanup(1*time.Hour, 5*time.Minute)
-	slog.Info("Job cleanup started", "ttl", "1h", "interval", "5m")
+	// Start job cleanup with configured TTL and interval
+	jobMgr.StartCleanup(cfg.Jobs.CleanupTTL, cfg.Jobs.CleanupInterval)
+	slog.Info("Job cleanup started",
+		"ttl", cfg.Jobs.CleanupTTL,
+		"interval", cfg.Jobs.CleanupInterval)
 
 	// Setup signal handling for graceful shutdown
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -180,13 +144,13 @@ func main() {
 	server := api.NewServer(podmanRunner, claudeClient, authConfig, rateLimitConfig, jobMgr)
 
 	srv := &http.Server{
-		Addr:    defaultAddr,
+		Addr:    cfg.Server.Address,
 		Handler: server.Handler(),
 	}
 
 	// Start server in a goroutine
 	go func() {
-		slog.Info("Server starting", "addr", defaultAddr)
+		slog.Info("Server starting", "addr", cfg.Server.Address)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("Server error", "error", err)
 			os.Exit(1)

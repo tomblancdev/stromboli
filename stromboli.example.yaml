@@ -1,0 +1,76 @@
+# Stromboli Configuration Example
+# Copy this file to stromboli.yaml and customize as needed
+# Environment variables will override these settings
+
+# HTTP Server Configuration
+server:
+  address: ":8080"  # Server listen address
+
+# Agent Container Configuration
+agent:
+  image: "stromboli-agent:latest"  # Container image to use
+  secrets_file: ".claude-secrets"  # Path to Claude API secrets file
+  sessions_dir: ".stromboli/sessions"  # Directory for session data
+
+# Default Resource Limits for Containers
+resources:
+  memory: "512m"  # Memory limit (e.g., "512m", "1g", "2g")
+  cpus: "1"       # CPU limit (e.g., "1", "2", "4")
+  timeout: "30m"  # Execution timeout (e.g., "30m", "1h", "2h")
+
+# Authentication Configuration
+auth:
+  enabled: false  # Enable authentication (recommended for production)
+  valid_tokens:   # List of valid API tokens (legacy, use JWT in production)
+    # - "token1"
+    # - "token2"
+
+# Rate Limiting Configuration
+rate_limit:
+  enabled: false  # Enable rate limiting
+  rate: 10        # Requests per second
+  burst: 20       # Maximum burst size
+
+# JWT Authentication Configuration
+jwt:
+  secret: ""              # Secret key for signing tokens (required for JWT)
+  access_expiry: "24h"    # Access token lifetime
+  refresh_expiry: "168h"  # Refresh token lifetime (7 days)
+
+# Job Management Configuration
+jobs:
+  cleanup_ttl: "1h"      # How long to keep completed jobs
+  cleanup_interval: "5m" # How often to run cleanup
+
+# Example Production Configuration:
+#
+# server:
+#   address: ":8080"
+#
+# agent:
+#   image: "ghcr.io/your-org/stromboli-agent:v1.0.0"
+#   secrets_file: "/secrets/claude-api-key"
+#   sessions_dir: "/data/sessions"
+#
+# resources:
+#   memory: "1g"
+#   cpus: "2"
+#   timeout: "1h"
+#
+# auth:
+#   enabled: true
+#   valid_tokens: []  # Use JWT instead
+#
+# rate_limit:
+#   enabled: true
+#   rate: 50
+#   burst: 100
+#
+# jwt:
+#   secret: "your-secure-random-secret-key-here"
+#   access_expiry: "24h"
+#   refresh_expiry: "168h"
+#
+# jobs:
+#   cleanup_ttl: "2h"
+#   cleanup_interval: "10m"
