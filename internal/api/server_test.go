@@ -15,6 +15,7 @@ import (
 	"github.com/tomblanc/stromboli/internal/auth"
 	"github.com/tomblanc/stromboli/internal/claude"
 	strerrors "github.com/tomblanc/stromboli/internal/errors"
+	"github.com/tomblanc/stromboli/internal/job"
 	"github.com/tomblanc/stromboli/internal/runner"
 )
 
@@ -28,7 +29,8 @@ func newTestServer(t *testing.T, mockRunner runner.Runner, configured bool) *Ser
 	claudeClient := claude.NewClient(secretsFile)
 	// Auth disabled for tests (backward compatibility)
 	authConfig := auth.Config{Enabled: false}
-	return NewServer(mockRunner, claudeClient, authConfig)
+	jobMgr := job.NewManager()
+	return NewServer(mockRunner, claudeClient, authConfig, jobMgr)
 }
 
 func TestHealthCheck(t *testing.T) {

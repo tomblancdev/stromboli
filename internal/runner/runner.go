@@ -6,11 +6,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/tomblanc/stromboli/internal/claude"
 	"github.com/tomblanc/stromboli/internal/podman"
+	"github.com/tomblanc/stromboli/internal/secrets"
 	"github.com/tomblanc/stromboli/internal/session"
 	"github.com/tomblanc/stromboli/internal/types"
 	"github.com/tomblanc/stromboli/internal/workspace"
@@ -19,6 +19,7 @@ import (
 // Runner executes Claude in a container
 type Runner interface {
 	Run(ctx context.Context, req Request) (*Result, error)
+	RunAsync(ctx context.Context, req Request, jobID string, onComplete func(*Result, error))
 	DestroySession(sessionID string) error
 	ListSessions() ([]string, error)
 }
@@ -41,29 +42,31 @@ type Result struct {
 // PodmanRunner runs Claude using Podman containers
 type PodmanRunner struct {
 	image              string
-	secretsFile        string
+	secretsMgr         *secrets.Manager
 	sessionMgr         *session.Manager
 	workspaceValidator *workspace.Validator
 }
 
 // NewPodmanRunner creates a new Podman-based runner
-func NewPodmanRunner(image, secretsFile, sessionsDir string, allowedWorkspaces []string) *PodmanRunner {
+// It ensures the Podman secret exists for secure token handling
+func NewPodmanRunner(image, secretsFile, sessionsDir string, allowedWorkspaces []string) (*PodmanRunner, error) {
+	// Create secrets manager and ensure secret exists
+	// Use background context for startup initialization
+	secretsMgr := secrets.NewManager("")
+	if err := secretsMgr.EnsureExists(context.Background(), secretsFile); err != nil {
+		return nil, fmt.Errorf("failed to setup secrets: %w", err)
+	}
+
 	return &PodmanRunner{
 		image:              image,
-		secretsFile:        secretsFile,
+		secretsMgr:         secretsMgr,
 		sessionMgr:         session.NewManager(sessionsDir),
 		workspaceValidator: workspace.NewValidator(allowedWorkspaces),
-	}
+	}, nil
 }
 
 // Run executes Claude in a Podman container
 func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
-	// Get absolute path for secrets file (to mount into container)
-	absSecretsPath, err := filepath.Abs(r.secretsFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve secrets path: %w", err)
-	}
-
 	// Create or get session directory
 	sessionID, absSessionPath, err := r.sessionMgr.Create(req.Claude.SessionID)
 	if err != nil {
@@ -88,7 +91,7 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 
 	// Build Podman command
 	podmanBuilder := podman.NewCommand().
-		WithSecretFile(absSecretsPath, "/run/secrets/claude-token").
+		WithSecret(r.secretsMgr.SecretName()).
 		WithEnv("HOME", "/home/claude").
 		WithImage(r.image)
 
@@ -140,6 +143,14 @@ func (r *PodmanRunner) DestroySession(sessionID string) error {
 // ListSessions returns all existing session IDs
 func (r *PodmanRunner) ListSessions() ([]string, error) {
 	return r.sessionMgr.List()
+}
+
+// RunAsync executes Claude in a goroutine and calls onComplete when done
+func (r *PodmanRunner) RunAsync(ctx context.Context, req Request, jobID string, onComplete func(*Result, error)) {
+	go func() {
+		result, err := r.Run(ctx, req)
+		onComplete(result, err)
+	}()
 }
 
 // applyClaudeOptions applies all Claude options to the builder

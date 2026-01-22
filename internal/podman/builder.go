@@ -6,6 +6,7 @@ type CommandBuilder struct {
 	image       string
 	env         map[string]string
 	volumes     []string
+	secrets     []string // podman secrets (--secret flag)
 	tmpfs       []string // tmpfs mounts for isolation
 	workdir     string
 	interactive bool
@@ -63,8 +64,16 @@ func (b *CommandBuilder) WithVolumeChown(hostPath, containerPath string) *Comman
 	return b
 }
 
-// WithSecretFile mounts a file read-only at the specified container path
-// This is used for securely passing secrets without exposing them in process listings
+// WithSecret adds a podman secret to the container
+// The secret must be created beforehand with `podman secret create`
+// Secret is available at /run/secrets/<name> inside the container
+func (b *CommandBuilder) WithSecret(name string) *CommandBuilder {
+	b.secrets = append(b.secrets, name)
+	return b
+}
+
+// WithSecretFile is deprecated - use WithSecret instead
+// This mounts a file read-only but has permission issues with rootless podman
 func (b *CommandBuilder) WithSecretFile(hostPath, containerPath string) *CommandBuilder {
 	b.volumes = append(b.volumes, hostPath+":"+containerPath+":ro")
 	return b
@@ -119,6 +128,10 @@ func (b *CommandBuilder) Build() []string {
 
 	for _, vol := range b.volumes {
 		args = append(args, "-v", vol)
+	}
+
+	for _, secret := range b.secrets {
+		args = append(args, "--secret", secret)
 	}
 
 	for _, tmpfs := range b.tmpfs {

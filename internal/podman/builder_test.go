@@ -60,7 +60,17 @@ func TestWithVolumeReadOnly(t *testing.T) {
 	assert.Contains(t, cmd, "/host:/container:ro")
 }
 
+func TestWithSecret(t *testing.T) {
+	cmd := NewCommand().
+		WithSecret("claude-token").
+		WithImage("alpine").
+		Build()
+	assert.Contains(t, cmd, "--secret")
+	assert.Contains(t, cmd, "claude-token")
+}
+
 func TestWithSecretFile(t *testing.T) {
+	// WithSecretFile is deprecated - use WithSecret instead
 	cmd := NewCommand().
 		WithSecretFile("/path/to/secrets", "/run/secrets/claude-token").
 		WithImage("alpine").
@@ -108,7 +118,7 @@ func TestWithCommand(t *testing.T) {
 func TestFullBuilder(t *testing.T) {
 	cmd := NewCommand().
 		WithName("test-agent").
-		WithSecretFile("/path/to/.claude-secrets", "/run/secrets/claude-token").
+		WithSecret("claude-token").
 		WithEnv("HOME", "/home/claude").
 		WithVolume("/home/user/project", "/workspace").
 		WithWorkdir("/workspace").
@@ -121,8 +131,8 @@ func TestFullBuilder(t *testing.T) {
 	assert.Contains(t, cmd, "--rm")
 	assert.Contains(t, cmd, "--name")
 	assert.Contains(t, cmd, "test-agent")
-	assert.Contains(t, cmd, "-v")
-	assert.Contains(t, cmd, "/path/to/.claude-secrets:/run/secrets/claude-token:ro")
+	assert.Contains(t, cmd, "--secret")
+	assert.Contains(t, cmd, "claude-token")
 	assert.Contains(t, cmd, "-e")
 	assert.Contains(t, cmd, "HOME=/home/claude")
 	assert.Contains(t, cmd, "/home/user/project:/workspace")

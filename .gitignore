@@ -49,3 +49,6 @@ tmp/
 # Database (when we add it later)
 *.db
 *.sqlite
+
+# Session data
+.stromboli/

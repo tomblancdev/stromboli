@@ -5,8 +5,10 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/tomblanc/stromboli/internal/auth"
 	"github.com/tomblanc/stromboli/internal/claude"
+	"github.com/tomblanc/stromboli/internal/job"
 	"github.com/tomblanc/stromboli/internal/runner"
 )
 
@@ -16,20 +18,23 @@ type Server struct {
 	runner       runner.Runner
 	claudeClient *claude.Client
 	authConfig   auth.Config
+	jobMgr       *job.Manager
 }
 
 // NewServer creates a new API server
-func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Config) *Server {
+func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Config, jobMgr *job.Manager) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
-	router.Use(loggerMiddleware())
+	router.Use(RequestIDMiddleware())
+	router.Use(EnhancedLoggingMiddleware())
 
 	s := &Server{
 		router:       router,
 		runner:       r,
 		claudeClient: claudeClient,
 		authConfig:   authConfig,
+		jobMgr:       jobMgr,
 	}
 	s.setupRoutes()
 
@@ -42,10 +47,16 @@ func (s *Server) Run(addr string) error {
 	return s.router.Run(addr)
 }
 
+// Handler returns the HTTP handler for use with http.Server
+func (s *Server) Handler() http.Handler {
+	return s.router
+}
+
 // setupRoutes configures all API routes
 func (s *Server) setupRoutes() {
-	// Health check is public (no auth required)
+	// Health check and metrics are public (no auth required)
 	s.router.GET("/health", s.healthCheck)
+	s.router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// Protected routes (require auth when enabled)
 	protected := s.router.Group("/")
@@ -54,21 +65,14 @@ func (s *Server) setupRoutes() {
 		protected.GET("/claude/status", s.claudeStatus)
 		protected.POST("/run", s.runClaude)
 
+		// Async execution
+		protected.POST("/run/async", s.runAsync)
+		protected.GET("/jobs", s.listJobs)
+		protected.GET("/jobs/:id", s.getJob)
+
 		// Session management
 		protected.GET("/sessions", s.listSessions)
 		protected.DELETE("/sessions/:id", s.destroySession)
-	}
-}
-
-// loggerMiddleware logs HTTP requests
-func loggerMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Next()
-		slog.Info("request",
-			"method", c.Request.Method,
-			"path", c.Request.URL.Path,
-			"status", c.Writer.Status(),
-		)
 	}
 }
 

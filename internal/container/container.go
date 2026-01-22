@@ -1,6 +1,7 @@
 package container
 
 import (
+	"context"
 	"errors"
 	"os/exec"
 	"strings"
@@ -33,7 +34,7 @@ func NewManager() *Manager {
 }
 
 // Create creates a new container (does not start it)
-func (m *Manager) Create(spec Spec) (string, error) {
+func (m *Manager) Create(ctx context.Context, spec Spec) (string, error) {
 	args := []string{"create", "--name", spec.Name}
 
 	for _, mount := range spec.Mounts {
@@ -51,7 +52,7 @@ func (m *Manager) Create(spec Spec) (string, error) {
 	args = append(args, spec.Image)
 	args = append(args, spec.Cmd...)
 
-	cmd := exec.Command("podman", args...)
+	cmd := exec.CommandContext(ctx, "podman", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", errors.Join(strerrors.ErrCommandFailed, errors.New(string(output)))
@@ -61,8 +62,8 @@ func (m *Manager) Create(spec Spec) (string, error) {
 }
 
 // Start starts an existing container
-func (m *Manager) Start(nameOrID string) error {
-	cmd := exec.Command("podman", "start", nameOrID)
+func (m *Manager) Start(ctx context.Context, nameOrID string) error {
+	cmd := exec.CommandContext(ctx, "podman", "start", nameOrID)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return errors.Join(strerrors.ErrCommandFailed, errors.New(string(output)))
@@ -71,8 +72,8 @@ func (m *Manager) Start(nameOrID string) error {
 }
 
 // Stop stops a running container
-func (m *Manager) Stop(nameOrID string) error {
-	cmd := exec.Command("podman", "stop", nameOrID)
+func (m *Manager) Stop(ctx context.Context, nameOrID string) error {
+	cmd := exec.CommandContext(ctx, "podman", "stop", nameOrID)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return errors.Join(strerrors.ErrCommandFailed, errors.New(string(output)))
@@ -81,8 +82,8 @@ func (m *Manager) Stop(nameOrID string) error {
 }
 
 // Remove removes a container
-func (m *Manager) Remove(nameOrID string) error {
-	cmd := exec.Command("podman", "rm", nameOrID)
+func (m *Manager) Remove(ctx context.Context, nameOrID string) error {
+	cmd := exec.CommandContext(ctx, "podman", "rm", nameOrID)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return errors.Join(strerrors.ErrCommandFailed, errors.New(string(output)))
@@ -91,14 +92,14 @@ func (m *Manager) Remove(nameOrID string) error {
 }
 
 // Run creates and starts a container (shorthand)
-func (m *Manager) Run(spec Spec) (string, error) {
-	id, err := m.Create(spec)
+func (m *Manager) Run(ctx context.Context, spec Spec) (string, error) {
+	id, err := m.Create(ctx, spec)
 	if err != nil {
 		return "", err
 	}
 
-	if err := m.Start(id); err != nil {
-		m.Remove(id)
+	if err := m.Start(ctx, id); err != nil {
+		m.Remove(ctx, id)
 		return "", err
 	}
 
@@ -106,8 +107,8 @@ func (m *Manager) Run(spec Spec) (string, error) {
 }
 
 // VolumeExists checks if a volume exists
-func (m *Manager) VolumeExists(name string) (bool, error) {
-	cmd := exec.Command("podman", "volume", "inspect", name)
+func (m *Manager) VolumeExists(ctx context.Context, name string) (bool, error) {
+	cmd := exec.CommandContext(ctx, "podman", "volume", "inspect", name)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if strings.Contains(string(output), "no such volume") {
@@ -119,8 +120,8 @@ func (m *Manager) VolumeExists(name string) (bool, error) {
 }
 
 // VolumeCreate creates a new volume
-func (m *Manager) VolumeCreate(name string) error {
-	cmd := exec.Command("podman", "volume", "create", name)
+func (m *Manager) VolumeCreate(ctx context.Context, name string) error {
+	cmd := exec.CommandContext(ctx, "podman", "volume", "create", name)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return errors.Join(strerrors.ErrCommandFailed, errors.New(string(output)))
@@ -129,8 +130,8 @@ func (m *Manager) VolumeCreate(name string) error {
 }
 
 // VolumeRemove removes a volume
-func (m *Manager) VolumeRemove(name string) error {
-	cmd := exec.Command("podman", "volume", "rm", name)
+func (m *Manager) VolumeRemove(ctx context.Context, name string) error {
+	cmd := exec.CommandContext(ctx, "podman", "volume", "rm", name)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return errors.Join(strerrors.ErrCommandFailed, errors.New(string(output)))

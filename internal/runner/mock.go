@@ -7,12 +7,25 @@ import (
 // MockRunner implements Runner for testing
 type MockRunner struct {
 	RunFunc            func(ctx context.Context, req Request) (*Result, error)
+	RunAsyncFunc       func(ctx context.Context, req Request, jobID string, onComplete func(*Result, error))
 	DestroySessionFunc func(sessionID string) error
 	ListSessionsFunc   func() ([]string, error)
 }
 
 func (m *MockRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	return m.RunFunc(ctx, req)
+}
+
+func (m *MockRunner) RunAsync(ctx context.Context, req Request, jobID string, onComplete func(*Result, error)) {
+	if m.RunAsyncFunc != nil {
+		m.RunAsyncFunc(ctx, req, jobID, onComplete)
+		return
+	}
+	// Default implementation: run synchronously in goroutine
+	go func() {
+		result, err := m.Run(ctx, req)
+		onComplete(result, err)
+	}()
 }
 
 func (m *MockRunner) DestroySession(sessionID string) error {
