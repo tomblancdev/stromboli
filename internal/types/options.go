@@ -119,4 +119,16 @@ type ClaudeOptions struct {
 type PodmanOptions struct {
 	// Volume mounts (host:container or host:container:options format)
 	Volumes []string `json:"volumes,omitempty" example:"/data:/data:ro"`
+
+	// Container timeout (e.g., "5m", "1h", "30s")
+	Timeout string `json:"timeout,omitempty" example:"5m"`
+
+	// Memory limit (e.g., "512m", "1g")
+	Memory string `json:"memory,omitempty" example:"512m"`
+
+	// CPU limit (e.g., "0.5", "2")
+	CPUs string `json:"cpus,omitempty" example:"1"`
+
+	// CPU shares (relative weight, default 1024)
+	CPUShares int `json:"cpu_shares,omitempty" example:"512"`
 }

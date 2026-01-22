@@ -9,8 +9,10 @@ import (
 	"io"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/tomblanc/stromboli/internal/claude"
+	"github.com/tomblanc/stromboli/internal/metrics"
 	"github.com/tomblanc/stromboli/internal/podman"
 	"github.com/tomblanc/stromboli/internal/secrets"
 	"github.com/tomblanc/stromboli/internal/session"
@@ -70,6 +72,17 @@ func NewPodmanRunner(image, secretsFile, sessionsDir string, allowedWorkspaces [
 
 // Run executes Claude in a Podman container
 func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
+	// Apply timeout if specified
+	if req.Podman.Timeout != "" {
+		timeout, err := time.ParseDuration(req.Podman.Timeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid timeout duration: %w", err)
+		}
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+
 	// Create or get session directory
 	sessionID, absSessionPath, err := r.sessionMgr.Create(req.Claude.SessionID)
 	if err != nil {
@@ -121,8 +134,23 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 		podmanBuilder.WithVolumeRaw(vol)
 	}
 
+	// Apply resource limits
+	if req.Podman.Memory != "" {
+		podmanBuilder.WithMemory(req.Podman.Memory)
+	}
+	if req.Podman.CPUs != "" {
+		podmanBuilder.WithCPUs(req.Podman.CPUs)
+	}
+	if req.Podman.CPUShares > 0 {
+		podmanBuilder.WithCPUShares(req.Podman.CPUShares)
+	}
+
 	podmanBuilder.WithCommand(claudeCmd)
 	fullCmd := podmanBuilder.Build()
+
+	// Track active container
+	metrics.IncActiveContainers()
+	defer metrics.DecActiveContainers()
 
 	// Execute command
 	cmd := exec.CommandContext(ctx, fullCmd[0], fullCmd[1:]...)
@@ -141,6 +169,17 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 // RunStream executes Claude in a Podman container and streams output in real-time
 func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<- string) (*Result, error) {
 	defer close(output)
+
+	// Apply timeout if specified
+	if req.Podman.Timeout != "" {
+		timeout, err := time.ParseDuration(req.Podman.Timeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid timeout duration: %w", err)
+		}
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
 
 	// Create or get session directory
 	sessionID, absSessionPath, err := r.sessionMgr.Create(req.Claude.SessionID)
@@ -187,8 +226,23 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 		podmanBuilder.WithVolumeRaw(vol)
 	}
 
+	// Apply resource limits
+	if req.Podman.Memory != "" {
+		podmanBuilder.WithMemory(req.Podman.Memory)
+	}
+	if req.Podman.CPUs != "" {
+		podmanBuilder.WithCPUs(req.Podman.CPUs)
+	}
+	if req.Podman.CPUShares > 0 {
+		podmanBuilder.WithCPUShares(req.Podman.CPUShares)
+	}
+
 	podmanBuilder.WithCommand(claudeCmd)
 	fullCmd := podmanBuilder.Build()
+
+	// Track active container
+	metrics.IncActiveContainers()
+	defer metrics.DecActiveContainers()
 
 	// Execute command with streaming
 	cmd := exec.CommandContext(ctx, fullCmd[0], fullCmd[1:]...)

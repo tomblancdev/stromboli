@@ -149,3 +149,45 @@ func TestFullBuilder(t *testing.T) {
 		assert.NotContains(t, arg, "CLAUDE_CODE_OAUTH_TOKEN")
 	}
 }
+
+func TestWithMemory(t *testing.T) {
+	cmd := NewCommand().
+		WithMemory("512m").
+		WithImage("alpine").
+		Build()
+	assert.Contains(t, cmd, "--memory")
+	assert.Contains(t, cmd, "512m")
+}
+
+func TestWithCPUs(t *testing.T) {
+	cmd := NewCommand().
+		WithCPUs("1.5").
+		WithImage("alpine").
+		Build()
+	assert.Contains(t, cmd, "--cpus")
+	assert.Contains(t, cmd, "1.5")
+}
+
+func TestWithCPUShares(t *testing.T) {
+	cmd := NewCommand().
+		WithCPUShares(512).
+		WithImage("alpine").
+		Build()
+	assert.Contains(t, cmd, "--cpu-shares")
+	assert.Contains(t, cmd, "512")
+}
+
+func TestWithResourceLimits(t *testing.T) {
+	cmd := NewCommand().
+		WithMemory("1g").
+		WithCPUs("2").
+		WithCPUShares(1024).
+		WithImage("alpine").
+		Build()
+	assert.Contains(t, cmd, "--memory")
+	assert.Contains(t, cmd, "1g")
+	assert.Contains(t, cmd, "--cpus")
+	assert.Contains(t, cmd, "2")
+	assert.Contains(t, cmd, "--cpu-shares")
+	assert.Contains(t, cmd, "1024")
+}

@@ -1,5 +1,7 @@
 package podman
 
+import "fmt"
+
 // CommandBuilder builds podman run commands with a fluent API
 type CommandBuilder struct {
 	name        string
@@ -11,6 +13,9 @@ type CommandBuilder struct {
 	workdir     string
 	interactive bool
 	command     []string
+	memory      string // memory limit (e.g., "512m", "1g")
+	cpus        string // CPU limit (e.g., "0.5", "2")
+	cpuShares   int    // CPU shares (relative weight)
 }
 
 // NewCommand creates a new podman command builder
@@ -110,6 +115,24 @@ func (b *CommandBuilder) WithCommand(cmd []string) *CommandBuilder {
 	return b
 }
 
+// WithMemory sets the memory limit (e.g., "512m", "1g")
+func (b *CommandBuilder) WithMemory(limit string) *CommandBuilder {
+	b.memory = limit
+	return b
+}
+
+// WithCPUs sets the CPU limit (e.g., "0.5", "2")
+func (b *CommandBuilder) WithCPUs(cpus string) *CommandBuilder {
+	b.cpus = cpus
+	return b
+}
+
+// WithCPUShares sets the CPU shares (relative weight, default 1024)
+func (b *CommandBuilder) WithCPUShares(shares int) *CommandBuilder {
+	b.cpuShares = shares
+	return b
+}
+
 // Build generates the final podman command
 func (b *CommandBuilder) Build() []string {
 	args := []string{"podman", "run", "--rm"}
@@ -140,6 +163,19 @@ func (b *CommandBuilder) Build() []string {
 
 	if b.workdir != "" {
 		args = append(args, "-w", b.workdir)
+	}
+
+	// Resource limits
+	if b.memory != "" {
+		args = append(args, "--memory", b.memory)
+	}
+
+	if b.cpus != "" {
+		args = append(args, "--cpus", b.cpus)
+	}
+
+	if b.cpuShares > 0 {
+		args = append(args, "--cpu-shares", fmt.Sprintf("%d", b.cpuShares))
 	}
 
 	if b.image != "" {

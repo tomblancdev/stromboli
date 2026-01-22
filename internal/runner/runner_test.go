@@ -334,3 +334,157 @@ func TestRunStream_ClosesChannelOnCompletion(t *testing.T) {
 		// Consume any output
 	}
 }
+
+func TestRun_WithTimeout(t *testing.T) {
+	// Skip if podman is not available
+	if _, err := exec.LookPath("podman"); err != nil {
+		t.Skip("podman not available")
+	}
+
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+
+	runner, err := NewPodmanRunner("stromboli-agent:latest", secretsFile, sessionsDir, []string{})
+	if err != nil {
+		t.Skipf("podman secrets not available: %v", err)
+	}
+
+	// Test with valid timeout
+	_, err = runner.Run(context.Background(), Request{
+		Prompt: "hello",
+		Podman: types.PodmanOptions{
+			Timeout: "5m",
+		},
+	})
+
+	// Expected to fail due to no podman container execution
+	assert.Error(t, err)
+}
+
+func TestRun_WithInvalidTimeout(t *testing.T) {
+	// Skip if podman is not available
+	if _, err := exec.LookPath("podman"); err != nil {
+		t.Skip("podman not available")
+	}
+
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+
+	runner, err := NewPodmanRunner("stromboli-agent:latest", secretsFile, sessionsDir, []string{})
+	if err != nil {
+		t.Skipf("podman secrets not available: %v", err)
+	}
+
+	// Test with invalid timeout
+	_, err = runner.Run(context.Background(), Request{
+		Prompt: "hello",
+		Podman: types.PodmanOptions{
+			Timeout: "invalid",
+		},
+	})
+
+	// Should fail with timeout parse error
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid timeout duration")
+}
+
+func TestRun_WithResourceLimits(t *testing.T) {
+	// Skip if podman is not available
+	if _, err := exec.LookPath("podman"); err != nil {
+		t.Skip("podman not available")
+	}
+
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+
+	runner, err := NewPodmanRunner("stromboli-agent:latest", secretsFile, sessionsDir, []string{})
+	if err != nil {
+		t.Skipf("podman secrets not available: %v", err)
+	}
+
+	// Test with resource limits
+	_, err = runner.Run(context.Background(), Request{
+		Prompt: "hello",
+		Podman: types.PodmanOptions{
+			Memory:    "512m",
+			CPUs:      "1.5",
+			CPUShares: 1024,
+		},
+	})
+
+	// Expected to fail due to no podman container execution
+	assert.Error(t, err)
+}
+
+func TestRunStream_WithTimeout(t *testing.T) {
+	// Skip if podman is not available
+	if _, err := exec.LookPath("podman"); err != nil {
+		t.Skip("podman not available")
+	}
+
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+
+	runner, err := NewPodmanRunner("stromboli-agent:latest", secretsFile, sessionsDir, []string{})
+	if err != nil {
+		t.Skipf("podman secrets not available: %v", err)
+	}
+
+	output := make(chan string, 10)
+
+	// Test with timeout
+	_, err = runner.RunStream(context.Background(), Request{
+		Prompt: "hello",
+		Podman: types.PodmanOptions{
+			Timeout: "5m",
+		},
+	}, output)
+
+	// Expected to fail due to no podman container execution
+	assert.Error(t, err)
+}
+
+func TestRunStream_WithResourceLimits(t *testing.T) {
+	// Skip if podman is not available
+	if _, err := exec.LookPath("podman"); err != nil {
+		t.Skip("podman not available")
+	}
+
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+
+	runner, err := NewPodmanRunner("stromboli-agent:latest", secretsFile, sessionsDir, []string{})
+	if err != nil {
+		t.Skipf("podman secrets not available: %v", err)
+	}
+
+	output := make(chan string, 10)
+
+	// Test with resource limits
+	_, err = runner.RunStream(context.Background(), Request{
+		Prompt: "hello",
+		Podman: types.PodmanOptions{
+			Memory:    "1g",
+			CPUs:      "2",
+			CPUShares: 512,
+		},
+	}, output)
+
+	// Expected to fail due to no podman container execution
+	assert.Error(t, err)
+}
