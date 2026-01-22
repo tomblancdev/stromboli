@@ -1,449 +1,731 @@
-# Stromboli API Documentation 🎭
+# Stromboli API Documentation
 
-> REST API for managing Claude Code agents in Podman containers
+> REST API for executing Claude Code in isolated Podman containers
 
 ## Base URL
 
 ```
-Development: http://localhost:8080/api/v1
-Production:  https://stromboli.example.com/api/v1
+Development: http://localhost:8080
+Production:  https://stromboli.example.com
 ```
 
 ## Authentication
 
-All endpoints (except health checks) require OAuth2 Bearer token authentication via Authentik.
+Authentication is **optional** and disabled by default. When enabled via environment variables, all protected endpoints require Bearer token authentication.
 
 ```bash
-curl -H "Authorization: Bearer <token>" https://stromboli.example.com/api/v1/agents
+# With authentication enabled
+curl -H "Authorization: Bearer <token>" http://localhost:8080/run
 ```
 
-### Scopes
+### Configuration
 
-| Scope | Description |
-|-------|-------------|
-| `agents:read` | List and view agents |
-| `agents:write` | Create, modify, stop agents |
-| `workspaces:read` | List workspaces |
-| `workspaces:write` | Manage workspaces |
+| Environment Variable | Description |
+|---------------------|-------------|
+| `STROMBOLI_AUTH_ENABLED` | Set to `true` to enable authentication (default: `false`) |
+| `STROMBOLI_API_TOKENS` | Comma-separated list of valid Bearer tokens |
+
+**Example:**
+```bash
+export STROMBOLI_AUTH_ENABLED=true
+export STROMBOLI_API_TOKENS="token1,token2,token3"
+```
 
 ---
 
-## Health Endpoints
+## API Endpoints
 
-### `GET /health`
+### System
 
-Health check (no auth required).
+#### `GET /health`
 
-**Response:**
+Health check (no authentication required).
+
+**Response:** `200 OK`
 ```json
 {
   "status": "ok",
-  "version": "0.1.0",
-  "uptime_seconds": 3600
+  "name": "stromboli"
 }
 ```
 
-### `GET /health/ready`
+#### `GET /metrics`
 
-Readiness check - verifies Podman socket and database connectivity.
+Prometheus metrics endpoint (no authentication required).
 
-**Response:**
+**Response:** `200 OK`
+```
+# HELP stromboli_api_requests_total Total API requests
+# TYPE stromboli_api_requests_total counter
+stromboli_api_requests_total{endpoint="/run",method="POST",status="200"} 42
+...
+```
+
+#### `GET /claude/status`
+
+Check if Claude API credentials are configured.
+
+**Response:** `200 OK`
 ```json
 {
-  "ready": true,
-  "checks": {
-    "podman": true,
-    "database": true,
-    "auth": true
+  "configured": true,
+  "message": "Claude is configured"
+}
+```
+
+**When not configured:**
+```json
+{
+  "configured": false,
+  "message": "Run 'make claude-setup' to configure"
+}
+```
+
+---
+
+### Execution
+
+#### `POST /run`
+
+Execute Claude Code synchronously and return the output immediately.
+
+**Request Body:**
+```json
+{
+  "prompt": "Write a function to calculate factorial",
+  "workspace": "/home/user/myproject",
+  "webhook_url": "https://example.com/webhook",
+  "claude": {
+    "model": "sonnet",
+    "session_id": "550e8400-e29b-41d4-a716-446655440000",
+    "resume": false,
+    "continue": false,
+    "dangerously_skip_permissions": true,
+    "system_prompt": "You are a senior Go developer",
+    "max_budget_usd": 5.0,
+    "timeout": "10m"
+  },
+  "podman": {
+    "timeout": "5m",
+    "memory": "1g",
+    "cpus": "2",
+    "cpu_shares": 512,
+    "volumes": ["/data:/data:ro"]
   }
 }
 ```
 
----
-
-## Agent Endpoints
-
-### `GET /agents`
-
-List all agents owned by the authenticated user.
-
-**Query Parameters:**
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `status` | string | - | Filter by status (pending, running, completed, etc.) |
-| `limit` | int | 50 | Max results (1-100) |
-| `offset` | int | 0 | Pagination offset |
-
-**Response:**
+**Response:** `200 OK`
 ```json
 {
-  "agents": [
+  "id": "run-abc123def456",
+  "status": "completed",
+  "output": "Here's a function to calculate factorial:\n\nfunc Factorial(n int) int {\n  if n <= 1 {\n    return 1\n  }\n  return n * Factorial(n-1)\n}\n",
+  "session_id": "sess-abc123def456"
+}
+```
+
+**Error Response:** `400 Bad Request`, `500 Internal Server Error`, `503 Service Unavailable`
+```json
+{
+  "status": "error",
+  "error": "Invalid request: prompt is required"
+}
+```
+
+#### `POST /run/async`
+
+Execute Claude Code asynchronously and return a job ID immediately.
+
+**Request Body:** Same as `/run`
+
+**Response:** `202 Accepted`
+```json
+{
+  "job_id": "job-abc123def456"
+}
+```
+
+Use the job ID to check status via `/jobs/{id}` endpoint.
+
+#### `GET /run/stream`
+
+Execute Claude Code and stream output in real-time using Server-Sent Events (SSE).
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `prompt` | string | ✅ | The prompt to send to Claude |
+| `workspace` | string | - | Workspace path to mount |
+| `session_id` | string | - | Session ID for conversation continuation |
+
+**Example:**
+```bash
+curl -N "http://localhost:8080/run/stream?prompt=Write%20a%20hello%20world%20program&workspace=/home/user/project"
+```
+
+**Response:** `200 OK` with `Content-Type: text/event-stream`
+```
+data: Analyzing your request...
+
+data: Creating file main.go...
+
+data: package main
+
+data:
+
+data: import "fmt"
+
+event: done
+data: {"id":"run-abc123","session_id":"sess-def456","status":"completed"}
+```
+
+**Event Types:**
+- `data:` - Output line from Claude
+- `event: done` - Execution completed successfully (includes metadata)
+- `event: error` - Execution failed
+
+**Error Events:**
+```
+event: error
+data: execution failed: timeout exceeded
+```
+
+---
+
+### Job Management
+
+#### `GET /jobs`
+
+List all async jobs.
+
+**Response:** `200 OK`
+```json
+{
+  "jobs": [
     {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "name": "fix-auth-tests",
+      "id": "job-abc123def456",
       "status": "running",
-      "task": "Fix the failing tests in src/auth.go",
-      "created_at": "2025-01-21T10:00:00Z",
-      "started_at": "2025-01-21T10:00:05Z"
-    }
-  ],
-  "total": 1,
-  "limit": 50,
-  "offset": 0
-}
-```
-
----
-
-### `POST /agents`
-
-Spawn a new Claude Code agent.
-
-**Request Body:**
-```json
-{
-  "task": "Fix the failing tests in src/auth.go",
-  "name": "fix-auth-tests",
-  "workspace": {
-    "git_url": "https://github.com/user/repo.git",
-    "branch": "main",
-    "writable": true
-  },
-  "resources": {
-    "memory_mb": 2048,
-    "cpu_cores": 1
-  },
-  "timeout_minutes": 120
-}
-```
-
-**Fields:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `task` | string | ✅ | Task for Claude Code (1-10000 chars) |
-| `name` | string | - | Human-readable name (lowercase, hyphens) |
-| `workspace` | object | - | Git repository config |
-| `workspace.git_url` | string | - | Repository URL to clone |
-| `workspace.branch` | string | - | Branch to checkout (default: "main") |
-| `workspace.commit` | string | - | Specific commit SHA |
-| `workspace.writable` | bool | - | Allow modifications (default: true) |
-| `workspace.writable_paths` | []string | - | Specific writable paths |
-| `resources` | object | - | Resource limits |
-| `resources.memory_mb` | int | - | Memory limit (512-16384, default: 2048) |
-| `resources.cpu_cores` | float | - | CPU cores (0.5-8, default: 1) |
-| `resources.storage_gb` | int | - | Storage limit (1-100, default: 10) |
-| `credentials` | object | - | Claude API credentials |
-| `credentials.api_key` | string | - | Anthropic API key |
-| `timeout_minutes` | int | - | Auto-stop timeout (1-1440, default: 120) |
-| `environment` | map | - | Additional env vars |
-
-**Response:** `201 Created`
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "name": "fix-auth-tests",
-  "status": "pending",
-  "task": "Fix the failing tests in src/auth.go",
-  "workspace": { ... },
-  "resources": { ... },
-  "created_at": "2025-01-21T10:00:00Z"
-}
-```
-
-**Errors:**
-- `400 Bad Request` - Invalid configuration
-- `429 Too Many Requests` - Agent limit reached
-
----
-
-### `GET /agents/{id}`
-
-Get detailed information about a specific agent.
-
-**Response:**
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "name": "fix-auth-tests",
-  "status": "running",
-  "task": "Fix the failing tests in src/auth.go",
-  "workspace": {
-    "git_url": "https://github.com/user/repo.git",
-    "branch": "main"
-  },
-  "container_id": "abc123def456",
-  "created_at": "2025-01-21T10:00:00Z",
-  "started_at": "2025-01-21T10:00:05Z"
-}
-```
-
----
-
-### `DELETE /agents/{id}`
-
-Stop and remove an agent.
-
-**Query Parameters:**
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `force` | bool | false | Kill immediately without graceful shutdown |
-
-**Response:** `204 No Content`
-
----
-
-### `POST /agents/{id}/stop`
-
-Gracefully stop an agent (keeps container for inspection).
-
-**Request Body (optional):**
-```json
-{
-  "timeout_seconds": 30
-}
-```
-
-**Response:** Updated agent object with `status: "stopped"`
-
----
-
-### `POST /agents/{id}/restart`
-
-Restart an agent with the same configuration.
-
-**Response:** Updated agent object with `status: "starting"`
-
----
-
-### `POST /agents/{id}/continue`
-
-Send a follow-up message to continue the conversation with the agent.
-
-**Request Body:**
-```json
-{
-  "message": "Great progress! Now also add unit tests for the new function.",
-  "wait_for_idle": false,
-  "timeout_seconds": 300
-}
-```
-
-**Fields:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `message` | string | ✅ | Follow-up message (1-10000 chars) |
-| `wait_for_idle` | bool | - | Wait for agent to be ready (default: false) |
-| `timeout_seconds` | int | - | Max wait time if wait_for_idle (default: 300) |
-
-**Use Cases:**
-- Provide additional instructions
-- Answer questions the agent asked
-- Request changes to completed work
-- Give feedback and ask for revisions
-
-**Response:** Updated agent object
-
-**Errors:**
-- `400 Bad Request` - Agent not in running/idle state
-
----
-
-### `GET /agents/{id}/logs`
-
-Get agent container logs.
-
-**Query Parameters:**
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `stream` | bool | false | Enable SSE streaming |
-| `tail` | int | 100 | Lines from end (0 = all) |
-| `since` | datetime | - | Show logs since (RFC3339) |
-| `timestamps` | bool | false | Include timestamps |
-
-**Response (polling):**
-```json
-{
-  "logs": "Starting Claude Code...\nAnalyzing task...\n...",
-  "truncated": false
-}
-```
-
-**Response (streaming):** `text/event-stream`
-```
-data: Starting Claude Code...
-data: Analyzing task...
-data: Reading file src/auth.go...
-```
-
----
-
-### `POST /agents/{id}/exec`
-
-Execute a command inside the agent container.
-
-**Request Body:**
-```json
-{
-  "command": ["git", "status"],
-  "working_dir": "/workspace",
-  "timeout_seconds": 30
-}
-```
-
-**Response:**
-```json
-{
-  "exit_code": 0,
-  "stdout": "On branch main\nnothing to commit, working tree clean\n",
-  "stderr": ""
-}
-```
-
----
-
-### `GET /agents/{id}/files`
-
-List files modified by the agent.
-
-**Response:**
-```json
-{
-  "files": [
-    {
-      "path": "src/auth.go",
-      "status": "modified",
-      "size_bytes": 2048,
-      "modified_at": "2025-01-21T10:15:00Z"
+      "output": "",
+      "error": "",
+      "session_id": "",
+      "created_at": "2025-01-22T10:00:00Z",
+      "updated_at": "2025-01-22T10:00:05Z"
     },
     {
-      "path": "src/auth_test.go",
-      "status": "added",
-      "size_bytes": 1024,
-      "modified_at": "2025-01-21T10:16:00Z"
+      "id": "job-xyz789ghi012",
+      "status": "completed",
+      "output": "Task completed successfully",
+      "session_id": "sess-abc123",
+      "created_at": "2025-01-22T09:00:00Z",
+      "updated_at": "2025-01-22T09:05:00Z"
     }
   ]
 }
 ```
 
----
+#### `GET /jobs/{id}`
 
-### `GET /agents/{id}/files/{path}`
+Get the status and result of a specific async job.
 
-Download a specific file from the agent workspace.
+**Path Parameters:**
+- `id` - Job ID returned from `/run/async`
 
-**Response:** File content as `application/octet-stream` or `text/plain`
-
----
-
-## Workspace Endpoints
-
-### `GET /workspaces`
-
-List registered workspaces.
-
-**Response:**
+**Response:** `200 OK`
 ```json
 {
-  "workspaces": [
-    {
-      "id": "ws-123",
-      "name": "my-project",
-      "git_url": "https://github.com/user/repo.git",
-      "default_branch": "main",
-      "created_at": "2025-01-20T09:00:00Z"
-    }
+  "id": "job-abc123def456",
+  "status": "completed",
+  "output": "Here is your code...",
+  "error": "",
+  "session_id": "sess-abc123",
+  "created_at": "2025-01-22T10:00:00Z",
+  "updated_at": "2025-01-22T10:05:00Z"
+}
+```
+
+**Status Values:**
+- `pending` - Job created but not started
+- `running` - Execution in progress
+- `completed` - Execution finished successfully
+- `failed` - Execution failed (see `error` field)
+- `cancelled` - Job was cancelled before completion
+
+**Error Response:** `404 Not Found`
+```json
+{
+  "status": "error",
+  "error": "job not found"
+}
+```
+
+#### `DELETE /jobs/{id}`
+
+Cancel a pending or running async job.
+
+**Path Parameters:**
+- `id` - Job ID to cancel
+
+**Response:** `200 OK`
+```json
+{
+  "cancelled": true,
+  "job_id": "job-abc123def456"
+}
+```
+
+**Error Responses:**
+
+`404 Not Found` - Job doesn't exist:
+```json
+{
+  "status": "error",
+  "error": "job not found"
+}
+```
+
+`409 Conflict` - Job cannot be cancelled (already completed/failed):
+```json
+{
+  "status": "error",
+  "error": "cannot cancel job (already completed, failed, or cancelled)"
+}
+```
+
+---
+
+### Session Management
+
+#### `GET /sessions`
+
+List all existing Claude sessions stored on disk.
+
+**Response:** `200 OK`
+```json
+{
+  "sessions": [
+    "sess-abc123def456",
+    "sess-xyz789ghi012"
   ]
 }
 ```
 
----
-
-### `POST /workspaces`
-
-Register a new workspace.
-
-**Request Body:**
+**Error Response:** `500 Internal Server Error`
 ```json
 {
-  "name": "my-project",
-  "git_url": "https://github.com/user/repo.git",
-  "default_branch": "main"
+  "error": "failed to list sessions: ..."
 }
 ```
 
-**Response:** `201 Created` with workspace object
+#### `DELETE /sessions/{id}`
 
----
+Destroy a session and remove all its stored data.
 
-## Agent Status Values
+**Path Parameters:**
+- `id` - Session ID to destroy
 
-| Status | Description |
-|--------|-------------|
-| `pending` | Container being created |
-| `starting` | Container starting up |
-| `running` | Agent actively working |
-| `idle` | Agent waiting for input |
-| `stopping` | Graceful shutdown in progress |
-| `stopped` | Container stopped |
-| `failed` | Container crashed or error |
-| `completed` | Task completed successfully |
-
----
-
-## Error Responses
-
-All errors follow this format:
-
+**Response:** `200 OK`
 ```json
 {
-  "error": "error_code",
-  "message": "Human-readable description",
-  "details": {
-    "field": "workspace.git_url",
-    "reason": "must be a valid git URL"
-  }
+  "success": true,
+  "session_id": "sess-abc123def456"
 }
 ```
 
-### Common Error Codes
+**Error Responses:**
 
-| Code | HTTP Status | Description |
-|------|-------------|-------------|
-| `bad_request` | 400 | Invalid request body or parameters |
-| `unauthorized` | 401 | Missing or invalid auth token |
-| `forbidden` | 403 | Insufficient permissions |
-| `not_found` | 404 | Agent or resource not found |
-| `invalid_state` | 400 | Agent not in expected state |
-| `limit_exceeded` | 429 | Too many concurrent agents |
-| `internal_error` | 500 | Server error |
+`400 Bad Request` - Invalid session ID:
+```json
+{
+  "success": false,
+  "error": "invalid session ID"
+}
+```
+
+`404 Not Found` - Session doesn't exist:
+```json
+{
+  "success": false,
+  "error": "session not found: sess-abc123"
+}
+```
+
+---
+
+## Request/Response Schemas
+
+### RunRequest
+
+Main request object for Claude execution.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `prompt` | string | ✅ | Task/prompt for Claude |
+| `workspace` | string | - | Host path to mount into container as `/workspace` |
+| `webhook_url` | string | - | URL to POST job result when complete (async only) |
+| `claude` | [ClaudeOptions](#claudeoptions) | - | Claude CLI configuration |
+| `podman` | [PodmanOptions](#podmanoptions) | - | Container resource limits |
+
+### ClaudeOptions
+
+Complete configuration for Claude CLI (all 40+ options).
+
+#### Session Management
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `session_id` | string | Session UUID for persistence |
+| `resume` | boolean | Resume existing session (requires `session_id`) |
+| `continue` | boolean | Continue most recent conversation (ignores `session_id`) |
+| `fork_session` | boolean | Create new session ID when resuming |
+| `no_persistence` | boolean | Don't save session to disk |
+
+#### Model Configuration
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `model` | string | Model alias: `sonnet`, `opus`, `haiku` or full name |
+| `fallback_model` | string | Fallback when primary model overloaded |
+
+#### System Prompt
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `system_prompt` | string | Replace default system prompt |
+| `append_system_prompt` | string | Append to default system prompt |
+
+#### Tools Configuration
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `tools` | []string | Built-in tools to enable (e.g., `["Bash", "Read", "Edit"]`) |
+| `allowed_tools` | []string | Allowed tools with patterns (e.g., `["Bash(git:*)"]`) |
+| `disallowed_tools` | []string | Tools to deny |
+
+#### Permissions
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `permission_mode` | string | Mode: `acceptEdits`, `bypassPermissions`, `default`, `delegate`, `dontAsk`, `plan` |
+| `dangerously_skip_permissions` | boolean | Bypass all permission checks (sandboxed environments only) |
+| `allow_dangerously_skip_permissions` | boolean | Enable bypass as option without enabling by default |
+
+#### Input/Output Format
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `input_format` | string | Input format: `text`, `stream-json` |
+| `output_format` | string | Output format: `text`, `json`, `stream-json` |
+| `include_partial_messages` | boolean | Include partial message chunks (stream-json only) |
+| `replay_user_messages` | boolean | Re-emit user messages on stdout |
+
+#### Structured Output
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `json_schema` | string | JSON Schema for structured output validation |
+
+#### Budget Control
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `max_budget_usd` | float | Maximum dollar amount for API calls |
+
+#### MCP Configuration
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `mcp_configs` | []string | MCP server config files or JSON strings |
+| `strict_mcp_config` | boolean | Only use MCP servers from `mcp_configs` |
+
+#### Agents
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agent` | string | Agent for current session |
+| `agents` | map[string]any | Custom agents definition (JSON object) |
+
+#### Additional Resources
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `add_dirs` | []string | Additional directories for tool access |
+| `plugin_dirs` | []string | Plugin directories |
+| `files` | []string | File resources (format: `file_id:path`) |
+
+#### Settings
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `settings` | string | Path to settings JSON file or JSON string |
+| `setting_sources` | []string | Sources to load: `user`, `project`, `local` |
+
+#### Beta Features
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `betas` | []string | Beta headers for API requests |
+
+#### Miscellaneous
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `verbose` | boolean | Enable verbose mode |
+| `debug` | string | Debug mode with optional category filter (e.g., `api,hooks`) |
+| `disable_slash_commands` | boolean | Disable all slash commands/skills |
+
+### PodmanOptions
+
+Container resource configuration.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `volumes` | []string | Volume mounts in `host:container` or `host:container:options` format |
+| `timeout` | string | Container timeout (e.g., `5m`, `1h`, `30s`) |
+| `memory` | string | Memory limit (e.g., `512m`, `1g`, `2g`) |
+| `cpus` | string | CPU limit (e.g., `0.5`, `1`, `2`) |
+| `cpu_shares` | integer | CPU shares (relative weight, default 1024) |
+
+**Example:**
+```json
+{
+  "volumes": [
+    "/data:/data:ro",
+    "/cache:/cache:rw"
+  ],
+  "timeout": "10m",
+  "memory": "2g",
+  "cpus": "2",
+  "cpu_shares": 2048
+}
+```
+
+---
+
+## Webhooks
+
+When you provide a `webhook_url` in an async execution request, Stromboli will POST the job result to that URL when execution completes.
+
+### Webhook Payload
+
+```json
+{
+  "job_id": "job-abc123def456",
+  "status": "completed",
+  "output": "Here is your code...",
+  "error": "",
+  "session_id": "sess-abc123"
+}
+```
+
+**Fields:**
+- `job_id` - The job ID
+- `status` - Job status: `completed`, `failed`, or `cancelled`
+- `output` - Claude's output (when successful)
+- `error` - Error message (when failed)
+- `session_id` - Session ID for conversation continuation
+
+### Webhook Behavior
+
+- Webhooks are sent in the background (non-blocking)
+- Failed webhook deliveries are logged but don't affect job status
+- No retry mechanism (single delivery attempt)
+- Timeout: 30 seconds
+
+**Example webhook handler:**
+```go
+func handleWebhook(w http.ResponseWriter, r *http.Request) {
+    var payload struct {
+        JobID     string `json:"job_id"`
+        Status    string `json:"status"`
+        Output    string `json:"output"`
+        Error     string `json:"error"`
+        SessionID string `json:"session_id"`
+    }
+
+    json.NewDecoder(r.Body).Decode(&payload)
+
+    if payload.Status == "completed" {
+        // Handle successful completion
+    } else {
+        // Handle failure
+    }
+
+    w.WriteHeader(http.StatusOK)
+}
+```
+
+---
+
+## Server-Sent Events (SSE)
+
+The `/run/stream` endpoint uses Server-Sent Events for real-time output streaming.
+
+### Event Format
+
+**Data Events:**
+```
+data: <output line>
+```
+
+**Completion Event:**
+```
+event: done
+data: {"id":"run-abc123","session_id":"sess-def456","status":"completed"}
+```
+
+**Error Event:**
+```
+event: error
+data: <error message>
+```
+
+### Client Example (JavaScript)
+
+```javascript
+const eventSource = new EventSource(
+  'http://localhost:8080/run/stream?prompt=Hello%20Claude'
+);
+
+eventSource.onmessage = (event) => {
+  console.log('Output:', event.data);
+};
+
+eventSource.addEventListener('done', (event) => {
+  const result = JSON.parse(event.data);
+  console.log('Completed:', result);
+  eventSource.close();
+});
+
+eventSource.addEventListener('error', (event) => {
+  console.error('Error:', event.data);
+  eventSource.close();
+});
+```
+
+### Client Example (curl)
+
+```bash
+curl -N "http://localhost:8080/run/stream?prompt=Write%20hello%20world"
+```
+
+---
+
+## Error Handling
+
+All endpoints return consistent error responses.
+
+### Error Response Format
+
+```json
+{
+  "status": "error",
+  "error": "Human-readable error message"
+}
+```
+
+### HTTP Status Codes
+
+| Code | Description |
+|------|-------------|
+| `200` | Success |
+| `202` | Accepted (async job created) |
+| `400` | Bad Request (invalid input) |
+| `401` | Unauthorized (missing/invalid auth token) |
+| `404` | Not Found (resource doesn't exist) |
+| `409` | Conflict (invalid state transition) |
+| `500` | Internal Server Error |
+| `503` | Service Unavailable (Claude not configured) |
 
 ---
 
 ## Rate Limits
 
-- **100 requests/minute** per user
-- **10 concurrent agents** per user (configurable)
+Default rate limits (configurable):
 
-Rate limit headers:
+- **100 requests/minute** per API token
+- **10 concurrent agents** per API token
+
+Rate limit headers (when implemented):
 ```
 X-RateLimit-Limit: 100
 X-RateLimit-Remaining: 95
-X-RateLimit-Reset: 1705834800
+X-RateLimit-Reset: 1737536400
 ```
 
 ---
 
-## OpenAPI Generation
+## OpenAPI/Swagger Specification
 
-The OpenAPI 3.1 specification is auto-generated from Go code using [swaggo/swag](https://github.com/swaggo/swag).
+Stromboli includes Swagger annotations for automatic OpenAPI spec generation.
+
+### Generate Swagger Docs
 
 ```bash
-# Generate OpenAPI spec
-make swagger
-
-# Output: api/openapi.yaml
+make docs-swagger
 ```
 
-See handler functions in `internal/api/handlers/` for swagger annotations.
+This generates:
+- `docs/swagger/swagger.json` - OpenAPI 3.0 specification
+- `docs/swagger/swagger.yaml` - YAML format
+- `docs/swagger/docs.go` - Go embedded docs
+
+### View Swagger UI
+
+```bash
+make docs-serve
+```
+
+Opens Swagger UI at http://localhost:8081
+
+---
+
+## Best Practices
+
+### Security
+
+1. **Enable authentication in production**:
+   ```bash
+   export STROMBOLI_AUTH_ENABLED=true
+   export STROMBOLI_API_TOKENS="secure-random-token"
+   ```
+
+2. **Use workspace allowlisting**: Configure allowed workspace paths in `main.go`
+
+3. **Set resource limits**: Always specify `podman.timeout`, `podman.memory`, and `podman.cpus`
+
+4. **Use secrets for tokens**: Never pass Claude tokens in API requests; configure via `.claude-secrets`
+
+### Performance
+
+1. **Use async execution for long tasks**: Use `/run/async` for tasks that take >30 seconds
+
+2. **Stream for real-time feedback**: Use `/run/stream` when you need immediate output visibility
+
+3. **Reuse sessions**: Pass `session_id` and `resume: true` to continue conversations efficiently
+
+4. **Set appropriate timeouts**: Match `podman.timeout` to expected task duration
+
+### Reliability
+
+1. **Implement webhook handlers**: For async execution, always provide a `webhook_url`
+
+2. **Poll job status**: If webhook fails, poll `/jobs/{id}` as fallback
+
+3. **Clean up sessions**: Regularly delete unused sessions via `/sessions/{id}`
+
+4. **Monitor metrics**: Use `/metrics` endpoint for observability
+
+---
+
+## Examples
+
+See [EXAMPLES.md](EXAMPLES.md) for comprehensive usage examples including:
+- Basic synchronous execution
+- Async execution with polling
+- Streaming output
+- Session management
+- Webhook integration
+- Resource limits
+- Error handling
