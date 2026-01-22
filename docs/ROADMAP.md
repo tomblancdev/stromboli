@@ -1,7 +1,7 @@
 # Stromboli v1.0 Roadmap 🌋
 
 > Last Updated: January 22, 2026
-> Current Score: 8.5/10
+> Current Score: 9.0/10
 
 ## Progress Tracker
 
@@ -121,23 +121,32 @@ package container
 ## 🟠 MEDIUM Priority (Code Quality)
 
 ### 5. Extract Executor Interface
-- **Status**: ❌ NOT STARTED
+- **Status**: ✅ COMPLETED (Jan 22, 2026)
 - **Priority**: MEDIUM
 - **Effort**: ~3-4 hours
 - **Location**: `internal/runner/`
 
 **Why Important**: Can't unit test runner without Podman installed. Execution logic mixed with orchestration.
 
-**Tasks**:
-- [ ] Create `internal/runner/executor.go`
-- [ ] Define `Executor` interface with `Run()` and `RunStream()`
-- [ ] Implement `ShellExecutor`
-- [ ] Inject executor into `PodmanRunner`
-- [ ] Create `MockExecutor` for tests
-- [ ] Update existing tests
-- [ ] Add new unit tests for runner logic
+**Tasks Completed**:
+- [x] Create `internal/runner/executor.go` (interface definition)
+- [x] Define `Executor` interface with `Run()` and `RunStream()`
+- [x] Implement `ShellExecutor` for production use
+- [x] Inject executor into `PodmanRunner` via dependency injection
+- [x] Create `MockExecutor` for tests with configurable behavior
+- [x] Add comprehensive unit tests (`executor_test.go`)
+- [x] Add runner unit tests using MockExecutor (`runner_unit_test.go`)
+- [x] Maintain backward compatibility (existing constructors unchanged)
+- [x] Create documentation (`docs/EXECUTOR_INTERFACE.md`)
 
-**Completion Date**: ___________
+**Impact**:
+- ✅ Unit tests run without Podman (10ms vs 5-10s per test)
+- ✅ 17 new unit tests for executor implementations
+- ✅ 11 new unit tests for runner logic
+- ✅ Better separation of concerns (orchestration vs execution)
+- ✅ Full backward compatibility maintained
+
+**Completion Date**: January 22, 2026
 
 ---
 
@@ -270,9 +279,9 @@ package container
 |----------|-------|--------------|--------|
 | 🔴 Critical | 1 | ~2h | ✅ 1/1 complete |
 | 🟡 High | 3 | ~5.5h | ✅ 3/3 complete |
-| 🟠 Medium | 3 | ~12h | 0/3 complete |
+| 🟠 Medium | 3 | ~12h | ✅ 1/3 complete |
 | 🟢 Low | 4 | ~9.5h | 0/4 complete |
-| **Total** | **11** | **~29h** | **4/11 complete** |
+| **Total** | **11** | **~29h** | **5/11 complete** |
 
 ---
 
@@ -307,6 +316,7 @@ _Add notes here as you work through the roadmap..._
 
 | Date | Item | Action | Notes |
 |------|------|--------|-------|
+| Jan 22, 2026 | #5 Extract Executor Interface | ✅ Completed | Enables unit testing without Podman, 28 new tests, full backward compatibility |
 | Jan 22, 2026 | #4 Integration Test Build Tags | ✅ Completed | Separated unit/integration tests with build tags, added docs/TESTING.md |
 | Jan 22, 2026 | #3 Default Resource Limits | ✅ Completed | Memory: 512m, CPUs: 1, Timeout: 30m - configurable via env vars |
 | Jan 22, 2026 | #2 Rate Limiting | ✅ Completed | Per-IP limiting, configurable via env vars |

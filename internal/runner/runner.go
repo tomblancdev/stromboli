@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -58,6 +57,7 @@ type PodmanRunner struct {
 	sessionMgr         *session.Manager
 	workspaceValidator *workspace.Validator
 	defaults           ResourceDefaults
+	executor           Executor
 }
 
 // NewPodmanRunner creates a new Podman-based runner with no default resource limits
@@ -66,9 +66,21 @@ func NewPodmanRunner(image, secretsFile, sessionsDir string, allowedWorkspaces [
 	return NewPodmanRunnerWithDefaults(image, secretsFile, sessionsDir, allowedWorkspaces, ResourceDefaults{})
 }
 
+// NewPodmanRunnerWithExecutor creates a new Podman-based runner with a custom executor
+// This is primarily useful for testing
+func NewPodmanRunnerWithExecutor(image, secretsFile, sessionsDir string, allowedWorkspaces []string, executor Executor) (*PodmanRunner, error) {
+	return NewPodmanRunnerWithDefaultsAndExecutor(image, secretsFile, sessionsDir, allowedWorkspaces, ResourceDefaults{}, executor)
+}
+
 // NewPodmanRunnerWithDefaults creates a new Podman-based runner with default resource limits
 // It ensures the Podman secret exists for secure token handling
 func NewPodmanRunnerWithDefaults(image, secretsFile, sessionsDir string, allowedWorkspaces []string, defaults ResourceDefaults) (*PodmanRunner, error) {
+	return NewPodmanRunnerWithDefaultsAndExecutor(image, secretsFile, sessionsDir, allowedWorkspaces, defaults, NewShellExecutor())
+}
+
+// NewPodmanRunnerWithDefaultsAndExecutor creates a new Podman-based runner with default resource limits and custom executor
+// This is the most flexible constructor, primarily useful for testing
+func NewPodmanRunnerWithDefaultsAndExecutor(image, secretsFile, sessionsDir string, allowedWorkspaces []string, defaults ResourceDefaults, executor Executor) (*PodmanRunner, error) {
 	// Create secrets manager and ensure secret exists
 	// Use background context for startup initialization
 	secretsMgr := secrets.NewManager("")
@@ -82,6 +94,7 @@ func NewPodmanRunnerWithDefaults(image, secretsFile, sessionsDir string, allowed
 		sessionMgr:         session.NewManager(sessionsDir),
 		workspaceValidator: workspace.NewValidator(allowedWorkspaces),
 		defaults:           defaults,
+		executor:           executor,
 	}, nil
 }
 
@@ -170,9 +183,8 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	metrics.IncActiveContainers()
 	defer metrics.DecActiveContainers()
 
-	// Execute command
-	cmd := exec.CommandContext(ctx, fullCmd[0], fullCmd[1:]...)
-	output, err := cmd.CombinedOutput()
+	// Execute command using executor
+	output, err := r.executor.Run(ctx, fullCmd)
 	if err != nil {
 		return nil, fmt.Errorf("execution failed: %w, output: %s", err, string(output))
 	}
@@ -265,22 +277,14 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	metrics.IncActiveContainers()
 	defer metrics.DecActiveContainers()
 
-	// Execute command with streaming
-	cmd := exec.CommandContext(ctx, fullCmd[0], fullCmd[1:]...)
-
-	// Get stdout and stderr pipes
-	stdoutPipe, err := cmd.StdoutPipe()
+	// Execute command with streaming using executor
+	stdoutPipe, stderrPipe, start, wait, err := r.executor.RunStream(ctx, fullCmd)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get stdout pipe: %w", err)
-	}
-
-	stderrPipe, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get stderr pipe: %w", err)
+		return nil, fmt.Errorf("failed to setup streaming: %w", err)
 	}
 
 	// Start command
-	if err := cmd.Start(); err != nil {
+	if err := start(); err != nil {
 		return nil, fmt.Errorf("failed to start command: %w", err)
 	}
 
@@ -321,7 +325,7 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	<-done
 
 	// Wait for command to finish
-	cmdErr := cmd.Wait()
+	cmdErr := wait()
 
 	if cmdErr != nil {
 		return nil, fmt.Errorf("execution failed: %w", cmdErr)
