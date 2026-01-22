@@ -35,29 +35,28 @@ Use this checklist to track implementation progress. Update status as items are 
 ## 🟡 HIGH Priority (Production Readiness)
 
 ### 2. Implement Rate Limiting
-- **Status**: ❌ NOT STARTED
+- **Status**: ✅ COMPLETED (Jan 22, 2026)
 - **Priority**: HIGH
 - **Effort**: ~4 hours
-- **Location**: `internal/api/middleware.go`
+- **Location**: `internal/api/ratelimit.go`
 
 **Why Important**: API currently has no protection against abuse or DoS attacks.
 
 **Implementation**:
 ```go
-import "github.com/ulule/limiter/v3"
-// Limit to 10 requests per second per IP
-rate := limiter.Rate{Limit: 10, Period: time.Second}
+import "golang.org/x/time/rate"
+// Per-IP rate limiting with token bucket algorithm
 ```
 
-**Tasks**:
-- [ ] Add limiter dependency
-- [ ] Create rate limit middleware
-- [ ] Apply to protected routes
-- [ ] Add configuration options (env vars)
-- [ ] Add tests
-- [ ] Update documentation
+**Tasks Completed**:
+- [x] Add `golang.org/x/time/rate` dependency
+- [x] Create rate limit middleware (`internal/api/ratelimit.go`)
+- [x] Apply to protected routes (excludes /health and /metrics)
+- [x] Add configuration options (env vars: STROMBOLI_RATE_LIMIT_ENABLED, _RPS, _BURST)
+- [x] Add tests (`internal/api/ratelimit_test.go`)
+- [x] Update documentation (`docs/RATE_LIMITING.md`)
 
-**Completion Date**: ___________
+**Completion Date**: January 22, 2026
 
 ---
 
@@ -266,10 +265,10 @@ package container
 | Priority | Items | Total Effort | Status |
 |----------|-------|--------------|--------|
 | 🔴 Critical | 1 | ~2h | ✅ 1/1 complete |
-| 🟡 High | 3 | ~5.5h | 0/3 complete |
+| 🟡 High | 3 | ~5.5h | ✅ 1/3 complete |
 | 🟠 Medium | 3 | ~12h | 0/3 complete |
 | 🟢 Low | 4 | ~9.5h | 0/4 complete |
-| **Total** | **11** | **~29h** | **1/11 complete** |
+| **Total** | **11** | **~29h** | **2/11 complete** |
 
 ---
 
@@ -279,7 +278,10 @@ package container
 - [x] Item #1: Session tests (Jan 22, 2026)
 
 ### v1.0-beta (Production Ready)
-- [ ] Items #1-4: Critical + High priority
+- [x] Item #1: Session tests (Jan 22, 2026)
+- [x] Item #2: Rate limiting (Jan 22, 2026)
+- [ ] Item #3: Default resource limits
+- [ ] Item #4: Integration test build tags
 
 ### v1.0-rc (Release Candidate)
 - [ ] Items #1-7: All critical, high, and medium
@@ -301,6 +303,7 @@ _Add notes here as you work through the roadmap..._
 
 | Date | Item | Action | Notes |
 |------|------|--------|-------|
+| Jan 22, 2026 | #2 Rate Limiting | ✅ Completed | Per-IP limiting, configurable via env vars |
 | Jan 22, 2026 | #1 Session Tests | ✅ Completed | 21 tests, all passing |
 | Jan 22, 2026 | Roadmap | Created | Initial planning document |
 
