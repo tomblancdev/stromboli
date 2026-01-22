@@ -26,8 +26,10 @@ package main
 import (
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/tomblanc/stromboli/internal/api"
+	"github.com/tomblanc/stromboli/internal/auth"
 	"github.com/tomblanc/stromboli/internal/claude"
 	"github.com/tomblanc/stromboli/internal/runner"
 )
@@ -38,6 +40,28 @@ const (
 	defaultSessionsDir = ".stromboli/sessions"
 	defaultAddr        = ":8080"
 )
+
+// getAuthConfig loads authentication configuration from environment variables.
+// Auth is disabled by default for backward compatibility.
+func getAuthConfig() auth.Config {
+	enabled := os.Getenv("STROMBOLI_AUTH_ENABLED") == "true"
+	tokensEnv := os.Getenv("STROMBOLI_API_TOKENS")
+
+	var tokens []string
+	if tokensEnv != "" {
+		tokens = strings.Split(tokensEnv, ",")
+	}
+
+	return auth.Config{
+		Enabled:     enabled,
+		ValidTokens: tokens,
+	}
+}
+
+// allowedWorkspaces restricts which host paths can be mounted as workspaces.
+// Empty slice allows all paths (backward compatible).
+// In production, configure this to restrict access to specific directories.
+var allowedWorkspaces = []string{}
 
 func main() {
 	// Setup structured logging
@@ -50,10 +74,17 @@ func main() {
 
 	// Create dependencies
 	claudeClient := claude.NewClient(defaultSecretsFile)
-	podmanRunner := runner.NewPodmanRunner(defaultImage, defaultSecretsFile, defaultSessionsDir)
+	podmanRunner := runner.NewPodmanRunner(defaultImage, defaultSecretsFile, defaultSessionsDir, allowedWorkspaces)
+	authConfig := getAuthConfig()
+
+	if authConfig.Enabled {
+		slog.Info("Authentication enabled", "tokens", len(authConfig.ValidTokens))
+	} else {
+		slog.Info("Authentication disabled")
+	}
 
 	// Start the API server
-	server := api.NewServer(podmanRunner, claudeClient)
+	server := api.NewServer(podmanRunner, claudeClient, authConfig)
 	if err := server.Run(defaultAddr); err != nil {
 		slog.Error("Server failed", "error", err)
 		os.Exit(1)

@@ -8,29 +8,41 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tomblanc/stromboli/internal/session"
+	"github.com/tomblanc/stromboli/internal/types"
 )
 
 func TestNewPodmanRunner(t *testing.T) {
-	runner := NewPodmanRunner("stromboli-agent:latest", ".claude-secrets", "/tmp/sessions")
+	runner := NewPodmanRunner("stromboli-agent:latest", ".claude-secrets", "/tmp/sessions", []string{})
 	assert.NotNil(t, runner)
 	assert.Equal(t, "stromboli-agent:latest", runner.image)
 	assert.Equal(t, ".claude-secrets", runner.secretsFile)
-	assert.Equal(t, "/tmp/sessions", runner.sessionsDir)
 }
 
-func TestRun_MissingToken_ReturnsError(t *testing.T) {
+func TestRun_SecretsPathResolution(t *testing.T) {
+	// Create temp directories
 	tmpDir := t.TempDir()
-	runner := NewPodmanRunner("stromboli-agent:latest", "/nonexistent/secrets", tmpDir)
+	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
 
-	_, err := runner.Run(context.Background(), Request{
+	// Create secrets file (required for mounting)
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+
+	runner := NewPodmanRunner("stromboli-agent:latest", secretsFile, sessionsDir, []string{})
+
+	// This test will fail because podman isn't available in unit tests
+	// but it verifies the secrets path resolution works
+	_, err = runner.Run(context.Background(), Request{
 		Prompt: "hello",
 	})
 
+	// Expected to fail due to no podman, not due to secrets path resolution
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to get token")
+	assert.NotContains(t, err.Error(), "failed to resolve secrets path")
 }
 
-func TestRun_WithValidToken_BuildsCorrectCommand(t *testing.T) {
+func TestRun_WithValidSecretsFile_BuildsCorrectCommand(t *testing.T) {
 	// Create temp directories
 	tmpDir := t.TempDir()
 	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
@@ -38,7 +50,7 @@ func TestRun_WithValidToken_BuildsCorrectCommand(t *testing.T) {
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
 
-	runner := NewPodmanRunner("stromboli-agent:latest", secretsFile, sessionsDir)
+	runner := NewPodmanRunner("stromboli-agent:latest", secretsFile, sessionsDir, []string{})
 
 	// This test will fail because podman isn't available in unit tests
 	// but it verifies the setup is correct
@@ -46,9 +58,9 @@ func TestRun_WithValidToken_BuildsCorrectCommand(t *testing.T) {
 		Prompt: "hello",
 	})
 
-	// Expected to fail due to no podman, but not due to token
+	// Expected to fail due to no podman, but not due to secrets file
 	assert.Error(t, err)
-	assert.NotContains(t, err.Error(), "failed to get token")
+	assert.NotContains(t, err.Error(), "failed to resolve secrets path")
 }
 
 func TestRun_WithClaudeOptions(t *testing.T) {
@@ -59,14 +71,14 @@ func TestRun_WithClaudeOptions(t *testing.T) {
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
 
-	runner := NewPodmanRunner("stromboli-agent:latest", secretsFile, sessionsDir)
+	runner := NewPodmanRunner("stromboli-agent:latest", secretsFile, sessionsDir, []string{})
 
 	// This test will fail because podman isn't available
 	// but it verifies the options are processed
 	_, err = runner.Run(context.Background(), Request{
 		Prompt:    "hello",
 		Workspace: "/project",
-		Claude: ClaudeOptions{
+		Claude: types.ClaudeOptions{
 			SessionID:                  "sess-123",
 			Model:                      "opus",
 			SystemPrompt:               "You are a tester",
@@ -78,20 +90,20 @@ func TestRun_WithClaudeOptions(t *testing.T) {
 			MaxBudgetUSD:               5.00,
 			Verbose:                    true,
 		},
-		Podman: PodmanOptions{
+		Podman: types.PodmanOptions{
 			Volumes: []string{"/data:/data"},
 		},
 	})
 
 	// Expected to fail due to no podman
 	assert.Error(t, err)
-	assert.NotContains(t, err.Error(), "failed to get token")
+	assert.NotContains(t, err.Error(), "failed to resolve secrets path")
 }
 
 func TestDestroySession(t *testing.T) {
 	tmpDir := t.TempDir()
 	sessionsDir := filepath.Join(tmpDir, "sessions")
-	runner := NewPodmanRunner("test", "test", sessionsDir)
+	runner := NewPodmanRunner("test", "test", sessionsDir, []string{})
 
 	// Create a session directory
 	sessionID := "test-session-123"
@@ -114,7 +126,7 @@ func TestDestroySession(t *testing.T) {
 
 func TestDestroySession_NotFound(t *testing.T) {
 	tmpDir := t.TempDir()
-	runner := NewPodmanRunner("test", "test", tmpDir)
+	runner := NewPodmanRunner("test", "test", tmpDir, []string{})
 
 	err := runner.DestroySession("nonexistent")
 	assert.Error(t, err)
@@ -123,7 +135,7 @@ func TestDestroySession_NotFound(t *testing.T) {
 
 func TestDestroySession_PathTraversal(t *testing.T) {
 	tmpDir := t.TempDir()
-	runner := NewPodmanRunner("test", "test", tmpDir)
+	runner := NewPodmanRunner("test", "test", tmpDir, []string{})
 
 	err := runner.DestroySession("../../../etc")
 	assert.Error(t, err)
@@ -137,7 +149,7 @@ func TestDestroySession_PathTraversal(t *testing.T) {
 func TestListSessions(t *testing.T) {
 	tmpDir := t.TempDir()
 	sessionsDir := filepath.Join(tmpDir, "sessions")
-	runner := NewPodmanRunner("test", "test", sessionsDir)
+	runner := NewPodmanRunner("test", "test", sessionsDir, []string{})
 
 	// Initially empty
 	sessions, err := runner.ListSessions()
@@ -158,51 +170,10 @@ func TestListSessions(t *testing.T) {
 	assert.Contains(t, sessions, "sess-3")
 }
 
-// MockRunner for testing API handlers
-type MockRunner struct {
-	RunFunc            func(ctx context.Context, req Request) (*Result, error)
-	DestroySessionFunc func(sessionID string) error
-	ListSessionsFunc   func() ([]string, error)
-}
-
-func (m *MockRunner) Run(ctx context.Context, req Request) (*Result, error) {
-	return m.RunFunc(ctx, req)
-}
-
-func (m *MockRunner) DestroySession(sessionID string) error {
-	if m.DestroySessionFunc != nil {
-		return m.DestroySessionFunc(sessionID)
-	}
-	return nil
-}
-
-func (m *MockRunner) ListSessions() ([]string, error) {
-	if m.ListSessionsFunc != nil {
-		return m.ListSessionsFunc()
-	}
-	return []string{}, nil
-}
-
-func TestMockRunner(t *testing.T) {
-	mock := &MockRunner{
-		RunFunc: func(ctx context.Context, req Request) (*Result, error) {
-			return &Result{
-				ID:     "test-123",
-				Output: "Hello from Claude!",
-			}, nil
-		},
-	}
-
-	result, err := mock.Run(context.Background(), Request{Prompt: "hello"})
-	assert.NoError(t, err)
-	assert.Equal(t, "test-123", result.ID)
-	assert.Equal(t, "Hello from Claude!", result.Output)
-}
-
 func TestGenerateSessionID_IsUnique(t *testing.T) {
 	ids := make(map[string]bool)
 	for i := 0; i < 100; i++ {
-		id := generateSessionID()
+		id := session.GenerateID()
 		assert.NotEmpty(t, id)
 		// UUID format: 8-4-4-4-12 hex digits
 		assert.Regexp(t, `^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`, id)

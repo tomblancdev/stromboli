@@ -12,34 +12,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tomblanc/stromboli/internal/auth"
 	"github.com/tomblanc/stromboli/internal/claude"
+	strerrors "github.com/tomblanc/stromboli/internal/errors"
 	"github.com/tomblanc/stromboli/internal/runner"
 )
-
-// MockRunner implements runner.Runner for testing
-type MockRunner struct {
-	RunFunc            func(ctx context.Context, req runner.Request) (*runner.Result, error)
-	DestroySessionFunc func(sessionID string) error
-	ListSessionsFunc   func() ([]string, error)
-}
-
-func (m *MockRunner) Run(ctx context.Context, req runner.Request) (*runner.Result, error) {
-	return m.RunFunc(ctx, req)
-}
-
-func (m *MockRunner) DestroySession(sessionID string) error {
-	if m.DestroySessionFunc != nil {
-		return m.DestroySessionFunc(sessionID)
-	}
-	return nil
-}
-
-func (m *MockRunner) ListSessions() ([]string, error) {
-	if m.ListSessionsFunc != nil {
-		return m.ListSessionsFunc()
-	}
-	return []string{}, nil
-}
 
 func newTestServer(t *testing.T, mockRunner runner.Runner, configured bool) *Server {
 	tmpDir := t.TempDir()
@@ -49,7 +26,9 @@ func newTestServer(t *testing.T, mockRunner runner.Runner, configured bool) *Ser
 		require.NoError(t, err)
 	}
 	claudeClient := claude.NewClient(secretsFile)
-	return NewServer(mockRunner, claudeClient)
+	// Auth disabled for tests (backward compatibility)
+	authConfig := auth.Config{Enabled: false}
+	return NewServer(mockRunner, claudeClient, authConfig)
 }
 
 func TestHealthCheck(t *testing.T) {
@@ -151,7 +130,7 @@ func TestRun_NotConfigured_ReturnsServiceUnavailable(t *testing.T) {
 }
 
 func TestRun_Success(t *testing.T) {
-	mockRunner := &MockRunner{
+	mockRunner := &runner.MockRunner{
 		RunFunc: func(ctx context.Context, req runner.Request) (*runner.Result, error) {
 			return &runner.Result{
 				ID:        "run-123",
@@ -185,7 +164,7 @@ func TestRun_Success(t *testing.T) {
 
 func TestRun_WithWorkspace(t *testing.T) {
 	var capturedReq runner.Request
-	mockRunner := &MockRunner{
+	mockRunner := &runner.MockRunner{
 		RunFunc: func(ctx context.Context, req runner.Request) (*runner.Result, error) {
 			capturedReq = req
 			return &runner.Result{ID: "run-1", Output: "done"}, nil
@@ -208,7 +187,7 @@ func TestRun_WithWorkspace(t *testing.T) {
 
 func TestRun_WithModel(t *testing.T) {
 	var capturedReq runner.Request
-	mockRunner := &MockRunner{
+	mockRunner := &runner.MockRunner{
 		RunFunc: func(ctx context.Context, req runner.Request) (*runner.Result, error) {
 			capturedReq = req
 			return &runner.Result{ID: "run-1", Output: "done"}, nil
@@ -231,7 +210,7 @@ func TestRun_WithModel(t *testing.T) {
 
 func TestRun_WithAllClaudeOptions(t *testing.T) {
 	var capturedReq runner.Request
-	mockRunner := &MockRunner{
+	mockRunner := &runner.MockRunner{
 		RunFunc: func(ctx context.Context, req runner.Request) (*runner.Result, error) {
 			capturedReq = req
 			return &runner.Result{ID: "run-1", Output: "done"}, nil
@@ -282,7 +261,7 @@ func TestRun_WithAllClaudeOptions(t *testing.T) {
 }
 
 func TestListSessions_Success(t *testing.T) {
-	mockRunner := &MockRunner{
+	mockRunner := &runner.MockRunner{
 		ListSessionsFunc: func() ([]string, error) {
 			return []string{"sess-1", "sess-2", "sess-3"}, nil
 		},
@@ -309,7 +288,7 @@ func TestListSessions_Success(t *testing.T) {
 }
 
 func TestListSessions_Empty(t *testing.T) {
-	mockRunner := &MockRunner{
+	mockRunner := &runner.MockRunner{
 		ListSessionsFunc: func() ([]string, error) {
 			return []string{}, nil
 		},
@@ -334,7 +313,7 @@ func TestListSessions_Empty(t *testing.T) {
 
 func TestDestroySession_Success(t *testing.T) {
 	var destroyedID string
-	mockRunner := &MockRunner{
+	mockRunner := &runner.MockRunner{
 		DestroySessionFunc: func(sessionID string) error {
 			destroyedID = sessionID
 			return nil
@@ -361,9 +340,9 @@ func TestDestroySession_Success(t *testing.T) {
 }
 
 func TestDestroySession_NotFound(t *testing.T) {
-	mockRunner := &MockRunner{
+	mockRunner := &runner.MockRunner{
 		DestroySessionFunc: func(sessionID string) error {
-			return runner.ErrSessionNotFound(sessionID)
+			return strerrors.SessionNotFound(sessionID)
 		},
 	}
 

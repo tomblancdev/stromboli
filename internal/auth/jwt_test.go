@@ -1,0 +1,231 @@
+package auth
+
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func init() {
+	gin.SetMode(gin.TestMode)
+}
+
+func setupTestRouter(cfg Config) *gin.Engine {
+	router := gin.New()
+	router.Use(Middleware(cfg))
+	router.GET("/protected", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "success"})
+	})
+	return router
+}
+
+func TestMiddleware_AuthDisabled_AllowsAllRequests(t *testing.T) {
+	cfg := Config{
+		Enabled:     false,
+		ValidTokens: []string{},
+	}
+	router := setupTestRouter(cfg)
+
+	req, err := http.NewRequest(http.MethodGet, "/protected", nil)
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, "success", response["message"])
+}
+
+func TestMiddleware_MissingAuthHeader_Returns401(t *testing.T) {
+	cfg := Config{
+		Enabled:     true,
+		ValidTokens: []string{"valid-token"},
+	}
+	router := setupTestRouter(cfg)
+
+	req, err := http.NewRequest(http.MethodGet, "/protected", nil)
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, ErrMissingAuthHeader.Error(), response["error"])
+}
+
+func TestMiddleware_InvalidAuthFormat_NoBearerPrefix_Returns401(t *testing.T) {
+	cfg := Config{
+		Enabled:     true,
+		ValidTokens: []string{"valid-token"},
+	}
+	router := setupTestRouter(cfg)
+
+	req, err := http.NewRequest(http.MethodGet, "/protected", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "valid-token")
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, ErrInvalidAuthHeader.Error(), response["error"])
+}
+
+func TestMiddleware_InvalidAuthFormat_WrongPrefix_Returns401(t *testing.T) {
+	cfg := Config{
+		Enabled:     true,
+		ValidTokens: []string{"valid-token"},
+	}
+	router := setupTestRouter(cfg)
+
+	req, err := http.NewRequest(http.MethodGet, "/protected", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Basic valid-token")
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, ErrInvalidAuthHeader.Error(), response["error"])
+}
+
+func TestMiddleware_InvalidToken_Returns401(t *testing.T) {
+	cfg := Config{
+		Enabled:     true,
+		ValidTokens: []string{"valid-token"},
+	}
+	router := setupTestRouter(cfg)
+
+	req, err := http.NewRequest(http.MethodGet, "/protected", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer invalid-token")
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, ErrInvalidToken.Error(), response["error"])
+}
+
+func TestMiddleware_ValidToken_AllowsRequest(t *testing.T) {
+	cfg := Config{
+		Enabled:     true,
+		ValidTokens: []string{"valid-token"},
+	}
+	router := setupTestRouter(cfg)
+
+	req, err := http.NewRequest(http.MethodGet, "/protected", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer valid-token")
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, "success", response["message"])
+}
+
+func TestMiddleware_CaseInsensitiveBearerPrefix(t *testing.T) {
+	cfg := Config{
+		Enabled:     true,
+		ValidTokens: []string{"valid-token"},
+	}
+	router := setupTestRouter(cfg)
+
+	testCases := []string{
+		"Bearer valid-token",
+		"bearer valid-token",
+		"BEARER valid-token",
+		"BeArEr valid-token",
+	}
+
+	for _, authHeader := range testCases {
+		t.Run(authHeader, func(t *testing.T) {
+			req, err := http.NewRequest(http.MethodGet, "/protected", nil)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", authHeader)
+
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+
+			assert.Equal(t, http.StatusOK, rec.Code)
+
+			var response map[string]string
+			err = json.Unmarshal(rec.Body.Bytes(), &response)
+			require.NoError(t, err)
+			assert.Equal(t, "success", response["message"])
+		})
+	}
+}
+
+func TestMiddleware_MultipleValidTokens(t *testing.T) {
+	cfg := Config{
+		Enabled:     true,
+		ValidTokens: []string{"token-1", "token-2", "token-3"},
+	}
+	router := setupTestRouter(cfg)
+
+	for _, token := range cfg.ValidTokens {
+		t.Run(token, func(t *testing.T) {
+			req, err := http.NewRequest(http.MethodGet, "/protected", nil)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", "Bearer "+token)
+
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+
+			assert.Equal(t, http.StatusOK, rec.Code)
+		})
+	}
+}
+
+func TestMiddleware_EmptyToken_Returns401(t *testing.T) {
+	cfg := Config{
+		Enabled:     true,
+		ValidTokens: []string{"valid-token"},
+	}
+	router := setupTestRouter(cfg)
+
+	req, err := http.NewRequest(http.MethodGet, "/protected", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer ")
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, ErrInvalidToken.Error(), response["error"])
+}

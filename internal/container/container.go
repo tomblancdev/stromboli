@@ -4,10 +4,9 @@ import (
 	"errors"
 	"os/exec"
 	"strings"
-)
 
-var ErrContainerNotFound = errors.New("container not found")
-var ErrCommandFailed = errors.New("podman command failed")
+	strerrors "github.com/tomblanc/stromboli/internal/errors"
+)
 
 // Mount represents a volume mount
 type Mount struct {
@@ -55,7 +54,7 @@ func (m *Manager) Create(spec Spec) (string, error) {
 	cmd := exec.Command("podman", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", errors.Join(ErrCommandFailed, errors.New(string(output)))
+		return "", errors.Join(strerrors.ErrCommandFailed, errors.New(string(output)))
 	}
 
 	return strings.TrimSpace(string(output)), nil
@@ -66,7 +65,7 @@ func (m *Manager) Start(nameOrID string) error {
 	cmd := exec.Command("podman", "start", nameOrID)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return errors.Join(ErrCommandFailed, errors.New(string(output)))
+		return errors.Join(strerrors.ErrCommandFailed, errors.New(string(output)))
 	}
 	return nil
 }
@@ -76,7 +75,7 @@ func (m *Manager) Stop(nameOrID string) error {
 	cmd := exec.Command("podman", "stop", nameOrID)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return errors.Join(ErrCommandFailed, errors.New(string(output)))
+		return errors.Join(strerrors.ErrCommandFailed, errors.New(string(output)))
 	}
 	return nil
 }
@@ -86,7 +85,7 @@ func (m *Manager) Remove(nameOrID string) error {
 	cmd := exec.Command("podman", "rm", nameOrID)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return errors.Join(ErrCommandFailed, errors.New(string(output)))
+		return errors.Join(strerrors.ErrCommandFailed, errors.New(string(output)))
 	}
 	return nil
 }
@@ -114,7 +113,7 @@ func (m *Manager) VolumeExists(name string) (bool, error) {
 		if strings.Contains(string(output), "no such volume") {
 			return false, nil
 		}
-		return false, errors.Join(ErrCommandFailed, errors.New(string(output)))
+		return false, errors.Join(strerrors.ErrCommandFailed, errors.New(string(output)))
 	}
 	return true, nil
 }
@@ -124,7 +123,7 @@ func (m *Manager) VolumeCreate(name string) error {
 	cmd := exec.Command("podman", "volume", "create", name)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return errors.Join(ErrCommandFailed, errors.New(string(output)))
+		return errors.Join(strerrors.ErrCommandFailed, errors.New(string(output)))
 	}
 	return nil
 }
@@ -134,7 +133,7 @@ func (m *Manager) VolumeRemove(name string) error {
 	cmd := exec.Command("podman", "volume", "rm", name)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return errors.Join(ErrCommandFailed, errors.New(string(output)))
+		return errors.Join(strerrors.ErrCommandFailed, errors.New(string(output)))
 	}
 	return nil
 }

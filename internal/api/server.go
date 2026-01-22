@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tomblanc/stromboli/internal/auth"
 	"github.com/tomblanc/stromboli/internal/claude"
 	"github.com/tomblanc/stromboli/internal/runner"
 )
@@ -14,10 +15,11 @@ type Server struct {
 	router       *gin.Engine
 	runner       runner.Runner
 	claudeClient *claude.Client
+	authConfig   auth.Config
 }
 
 // NewServer creates a new API server
-func NewServer(r runner.Runner, claudeClient *claude.Client) *Server {
+func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Config) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -27,6 +29,7 @@ func NewServer(r runner.Runner, claudeClient *claude.Client) *Server {
 		router:       router,
 		runner:       r,
 		claudeClient: claudeClient,
+		authConfig:   authConfig,
 	}
 	s.setupRoutes()
 
@@ -41,13 +44,20 @@ func (s *Server) Run(addr string) error {
 
 // setupRoutes configures all API routes
 func (s *Server) setupRoutes() {
+	// Health check is public (no auth required)
 	s.router.GET("/health", s.healthCheck)
-	s.router.GET("/claude/status", s.claudeStatus)
-	s.router.POST("/run", s.runClaude)
 
-	// Session management
-	s.router.GET("/sessions", s.listSessions)
-	s.router.DELETE("/sessions/:id", s.destroySession)
+	// Protected routes (require auth when enabled)
+	protected := s.router.Group("/")
+	protected.Use(auth.Middleware(s.authConfig))
+	{
+		protected.GET("/claude/status", s.claudeStatus)
+		protected.POST("/run", s.runClaude)
+
+		// Session management
+		protected.GET("/sessions", s.listSessions)
+		protected.DELETE("/sessions/:id", s.destroySession)
+	}
 }
 
 // loggerMiddleware logs HTTP requests
@@ -129,12 +139,12 @@ func (s *Server) runClaude(c *gin.Context) {
 		return
 	}
 
-	// Map API types to runner types
+	// Build runner request (types are now shared)
 	runnerReq := runner.Request{
 		Prompt:    req.Prompt,
 		Workspace: req.Workspace,
-		Claude:    mapClaudeOptions(req.Claude),
-		Podman:    mapPodmanOptions(req.Podman),
+		Claude:    req.Claude,
+		Podman:    req.Podman,
 	}
 
 	// Run Claude
@@ -153,80 +163,6 @@ func (s *Server) runClaude(c *gin.Context) {
 		Output:    result.Output,
 		SessionID: result.SessionID,
 	})
-}
-
-// mapClaudeOptions converts API ClaudeOptions to runner ClaudeOptions
-func mapClaudeOptions(opts ClaudeOptions) runner.ClaudeOptions {
-	return runner.ClaudeOptions{
-		// Session management
-		SessionID:     opts.SessionID,
-		Resume:        opts.Resume,
-		Continue:      opts.Continue,
-		ForkSession:   opts.ForkSession,
-		NoPersistence: opts.NoPersistence,
-
-		// Model
-		Model:         opts.Model,
-		FallbackModel: opts.FallbackModel,
-
-		// System prompt
-		SystemPrompt:       opts.SystemPrompt,
-		AppendSystemPrompt: opts.AppendSystemPrompt,
-
-		// Tools
-		Tools:           opts.Tools,
-		AllowedTools:    opts.AllowedTools,
-		DisallowedTools: opts.DisallowedTools,
-
-		// Permissions
-		PermissionMode:                  opts.PermissionMode,
-		DangerouslySkipPermissions:      opts.DangerouslySkipPermissions,
-		AllowDangerouslySkipPermissions: opts.AllowDangerouslySkipPermissions,
-
-		// I/O format
-		InputFormat:            opts.InputFormat,
-		OutputFormat:           opts.OutputFormat,
-		IncludePartialMessages: opts.IncludePartialMessages,
-		ReplayUserMessages:     opts.ReplayUserMessages,
-
-		// Structured output
-		JSONSchema: opts.JSONSchema,
-
-		// Budget
-		MaxBudgetUSD: opts.MaxBudgetUSD,
-
-		// MCP
-		MCPConfigs:      opts.MCPConfigs,
-		StrictMCPConfig: opts.StrictMCPConfig,
-
-		// Agents
-		Agent:  opts.Agent,
-		Agents: opts.Agents,
-
-		// Resources
-		AddDirs:    opts.AddDirs,
-		PluginDirs: opts.PluginDirs,
-		Files:      opts.Files,
-
-		// Settings
-		Settings:       opts.Settings,
-		SettingSources: opts.SettingSources,
-
-		// Beta
-		Betas: opts.Betas,
-
-		// Misc
-		Verbose:              opts.Verbose,
-		Debug:                opts.Debug,
-		DisableSlashCommands: opts.DisableSlashCommands,
-	}
-}
-
-// mapPodmanOptions converts API PodmanOptions to runner PodmanOptions
-func mapPodmanOptions(opts PodmanOptions) runner.PodmanOptions {
-	return runner.PodmanOptions{
-		Volumes: opts.Volumes,
-	}
 }
 
 // listSessions returns all existing sessions

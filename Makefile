@@ -31,7 +31,7 @@ deps:
 
 # Build the agent Docker image
 build-agent-image:
-	podman build -t stromboli-agent:latest -f deployments/docker/Dockerfile.agent .
+	podman build -t stromboli-agent:latest -f deployments/docker/Dockerfile.agent deployments/docker
 
 # Clean build artifacts
 clean:
@@ -123,7 +123,7 @@ claude-setup:
 claude-status:
 	@if [ -f $(CLAUDE_SECRETS) ]; then \
 		podman run --rm \
-			-e CLAUDE_CODE_OAUTH_TOKEN="$$(cat $(CLAUDE_SECRETS))" \
+			-v "$$(pwd)/$(CLAUDE_SECRETS):/run/secrets/claude-token:ro" \
 			stromboli-agent:latest \
 			-p "respond with 'ok'" 2>&1 | grep -q "Invalid\|Error" \
 			&& echo "❌ Token invalid - run 'make claude-setup'" \

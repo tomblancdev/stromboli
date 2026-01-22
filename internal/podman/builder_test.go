@@ -60,6 +60,15 @@ func TestWithVolumeReadOnly(t *testing.T) {
 	assert.Contains(t, cmd, "/host:/container:ro")
 }
 
+func TestWithSecretFile(t *testing.T) {
+	cmd := NewCommand().
+		WithSecretFile("/path/to/secrets", "/run/secrets/claude-token").
+		WithImage("alpine").
+		Build()
+	assert.Contains(t, cmd, "-v")
+	assert.Contains(t, cmd, "/path/to/secrets:/run/secrets/claude-token:ro")
+}
+
 func TestWithWorkdir(t *testing.T) {
 	cmd := NewCommand().
 		WithWorkdir("/workspace").
@@ -99,7 +108,8 @@ func TestWithCommand(t *testing.T) {
 func TestFullBuilder(t *testing.T) {
 	cmd := NewCommand().
 		WithName("test-agent").
-		WithEnv("CLAUDE_CODE_OAUTH_TOKEN", "my-token").
+		WithSecretFile("/path/to/.claude-secrets", "/run/secrets/claude-token").
+		WithEnv("HOME", "/home/claude").
 		WithVolume("/home/user/project", "/workspace").
 		WithWorkdir("/workspace").
 		WithImage("stromboli-agent:latest").
@@ -111,9 +121,10 @@ func TestFullBuilder(t *testing.T) {
 	assert.Contains(t, cmd, "--rm")
 	assert.Contains(t, cmd, "--name")
 	assert.Contains(t, cmd, "test-agent")
-	assert.Contains(t, cmd, "-e")
-	assert.Contains(t, cmd, "CLAUDE_CODE_OAUTH_TOKEN=my-token")
 	assert.Contains(t, cmd, "-v")
+	assert.Contains(t, cmd, "/path/to/.claude-secrets:/run/secrets/claude-token:ro")
+	assert.Contains(t, cmd, "-e")
+	assert.Contains(t, cmd, "HOME=/home/claude")
 	assert.Contains(t, cmd, "/home/user/project:/workspace")
 	assert.Contains(t, cmd, "-w")
 	assert.Contains(t, cmd, "/workspace")
@@ -122,4 +133,9 @@ func TestFullBuilder(t *testing.T) {
 	assert.Equal(t, "claude", cmd[len(cmd)-3])
 	assert.Equal(t, "-p", cmd[len(cmd)-2])
 	assert.Equal(t, "hello", cmd[len(cmd)-1])
+
+	// SECURITY: Verify token is NOT in command line
+	for _, arg := range cmd {
+		assert.NotContains(t, arg, "CLAUDE_CODE_OAUTH_TOKEN")
+	}
 }

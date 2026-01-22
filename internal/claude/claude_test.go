@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	strerrors "github.com/tomblanc/stromboli/internal/errors"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -38,7 +40,7 @@ func TestIsConfigured_WhenFileExists_ReturnsTrue(t *testing.T) {
 func TestGetToken_WhenFileDoesNotExist_ReturnsError(t *testing.T) {
 	client := NewClient("/nonexistent/path/secrets")
 	token, err := client.GetToken()
-	assert.ErrorIs(t, err, ErrTokenNotFound)
+	assert.ErrorIs(t, err, strerrors.ErrTokenNotFound)
 	assert.Empty(t, token)
 }
 

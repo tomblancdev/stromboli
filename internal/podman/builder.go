@@ -63,6 +63,13 @@ func (b *CommandBuilder) WithVolumeChown(hostPath, containerPath string) *Comman
 	return b
 }
 
+// WithSecretFile mounts a file read-only at the specified container path
+// This is used for securely passing secrets without exposing them in process listings
+func (b *CommandBuilder) WithSecretFile(hostPath, containerPath string) *CommandBuilder {
+	b.volumes = append(b.volumes, hostPath+":"+containerPath+":ro")
+	return b
+}
+
 // WithTmpfs adds a tmpfs mount (ephemeral in-memory storage)
 // Useful for session isolation - data is lost when container stops
 func (b *CommandBuilder) WithTmpfs(containerPath string) *CommandBuilder {

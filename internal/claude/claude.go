@@ -1,12 +1,11 @@
 package claude
 
 import (
-	"errors"
 	"os"
 	"strings"
-)
 
-var ErrTokenNotFound = errors.New("token not found")
+	strerrors "github.com/tomblanc/stromboli/internal/errors"
+)
 
 const DefaultSecretsFile = ".claude-secrets"
 
@@ -36,7 +35,7 @@ func (c *Client) GetToken() (string, error) {
 	data, err := os.ReadFile(c.secretsFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", ErrTokenNotFound
+			return "", strerrors.ErrTokenNotFound
 		}
 		return "", err
 	}
