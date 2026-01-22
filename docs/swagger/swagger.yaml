@@ -1,0 +1,316 @@
+basePath: /
+definitions:
+  internal_api.ClaudeOptions:
+    description: All available Claude CLI options for headless execution
+    properties:
+      add_dirs:
+        description: Additional directories for tool access
+        items:
+          type: string
+        type: array
+      agent:
+        description: Agent for current session
+        example: reviewer
+        type: string
+      agents:
+        additionalProperties: {}
+        description: Custom agents definition (JSON object)
+        type: object
+      allow_dangerously_skip_permissions:
+        description: Enable bypass as an option without enabling by default
+        example: false
+        type: boolean
+      allowed_tools:
+        description: Allowed tools with patterns (e.g., "Bash(git:*)")
+        example:
+        - Bash(git:*)
+        - Read
+        items:
+          type: string
+        type: array
+      append_system_prompt:
+        description: Append to default system prompt
+        example: Focus on security best practices
+        type: string
+      betas:
+        description: Beta headers for API requests
+        items:
+          type: string
+        type: array
+      continue:
+        description: Continue most recent conversation in workspace
+        example: false
+        type: boolean
+      dangerously_skip_permissions:
+        description: Bypass all permission checks (use in sandboxed environments only)
+        example: true
+        type: boolean
+      debug:
+        description: Debug mode with optional category filter
+        example: api,hooks
+        type: string
+      disable_slash_commands:
+        description: Disable all slash commands/skills
+        example: false
+        type: boolean
+      disallowed_tools:
+        description: Denied tools
+        example:
+        - Write
+        items:
+          type: string
+        type: array
+      fallback_model:
+        description: Fallback model when default is overloaded
+        example: haiku
+        type: string
+      files:
+        description: 'File resources (format: file_id:path)'
+        items:
+          type: string
+        type: array
+      fork_session:
+        description: Create new session ID when resuming
+        example: false
+        type: boolean
+      include_partial_messages:
+        description: Include partial message chunks (stream-json only)
+        example: false
+        type: boolean
+      input_format:
+        description: 'Input format: text, stream-json'
+        example: text
+        type: string
+      json_schema:
+        description: JSON Schema for structured output validation
+        example: '{"type":"object"}'
+        type: string
+      max_budget_usd:
+        description: Maximum dollar amount for API calls
+        example: 5
+        type: number
+      mcp_configs:
+        description: MCP server config files or JSON strings
+        items:
+          type: string
+        type: array
+      model:
+        description: Model alias (sonnet, opus, haiku) or full name
+        example: sonnet
+        type: string
+      no_persistence:
+        description: Don't save session to disk
+        example: false
+        type: boolean
+      output_format:
+        description: 'Output format: text, json, stream-json'
+        example: json
+        type: string
+      permission_mode:
+        description: 'Permission mode: acceptEdits, bypassPermissions, default, delegate,
+          dontAsk, plan'
+        example: bypassPermissions
+        type: string
+      plugin_dirs:
+        description: Plugin directories
+        items:
+          type: string
+        type: array
+      replay_user_messages:
+        description: Re-emit user messages on stdout
+        example: false
+        type: boolean
+      session_id:
+        description: Resume by session ID (UUID)
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      setting_sources:
+        description: 'Setting sources to load: user, project, local'
+        example:
+        - user
+        - project
+        items:
+          type: string
+        type: array
+      settings:
+        description: Path to settings JSON file or JSON string
+        type: string
+      strict_mcp_config:
+        description: Only use MCP servers from mcp_configs
+        example: false
+        type: boolean
+      system_prompt:
+        description: Replace default system prompt
+        example: You are a senior Go developer
+        type: string
+      tools:
+        description: Built-in tools ("", "default", or specific names)
+        example:
+        - Bash
+        - Read
+        - Edit
+        items:
+          type: string
+        type: array
+      verbose:
+        description: Enable verbose mode
+        example: false
+        type: boolean
+    type: object
+  internal_api.ClaudeStatusResponse:
+    description: Claude configuration status
+    properties:
+      configured:
+        example: true
+        type: boolean
+      message:
+        example: Claude is configured
+        type: string
+    type: object
+  internal_api.HealthResponse:
+    description: Health check response
+    properties:
+      name:
+        example: stromboli
+        type: string
+      status:
+        example: ok
+        type: string
+    type: object
+  internal_api.PodmanOptions:
+    description: Podman container mount configuration
+    properties:
+      volumes:
+        description: Volume mounts (host:container or host:container:options format)
+        example:
+        - /data:/data:ro
+        items:
+          type: string
+        type: array
+    type: object
+  internal_api.RunRequest:
+    description: Request to execute Claude Code in an isolated container
+    properties:
+      claude:
+        allOf:
+        - $ref: '#/definitions/internal_api.ClaudeOptions'
+        description: Claude configuration - all CLI options exposed
+      podman:
+        allOf:
+        - $ref: '#/definitions/internal_api.PodmanOptions'
+        description: Podman configuration
+      prompt:
+        description: 'Required: the prompt to send to Claude'
+        example: Analyze this code and suggest improvements
+        type: string
+      workspace:
+        description: Workspace to mount (host path -> /workspace in container)
+        example: /home/user/project
+        type: string
+    required:
+    - prompt
+    type: object
+  internal_api.RunResponse:
+    description: Response from Claude execution
+    properties:
+      error:
+        description: Error message (when failed)
+        example: ""
+        type: string
+      id:
+        description: Unique run identifier
+        example: run-abc123def456
+        type: string
+      output:
+        description: Claude's output (when successful)
+        example: Here is my analysis...
+        type: string
+      session_id:
+        description: Session ID for conversation continuation
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      status:
+        description: 'Execution status: completed, error'
+        example: completed
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    name: API Support
+    url: https://github.com/tomblanc/stromboli/issues
+  description: Claude Code container orchestration API - secure, isolated AI execution
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: https://github.com/tomblanc/stromboli
+  title: Stromboli API
+  version: "1.0"
+paths:
+  /claude/status:
+    get:
+      description: Checks if Claude credentials are configured
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.ClaudeStatusResponse'
+      summary: Claude status
+      tags:
+      - system
+  /health:
+    get:
+      description: Returns the health status of the API
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.HealthResponse'
+      summary: Health check
+      tags:
+      - system
+  /run:
+    post:
+      consumes:
+      - application/json
+      description: Executes Claude Code in an isolated Podman container
+      parameters:
+      - description: Run request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.RunRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.RunResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_api.RunResponse'
+        "500":
+          description: Execution failed
+          schema:
+            $ref: '#/definitions/internal_api.RunResponse'
+        "503":
+          description: Claude not configured
+          schema:
+            $ref: '#/definitions/internal_api.RunResponse'
+      summary: Run Claude
+      tags:
+      - execution
+securityDefinitions:
+  BearerAuth:
+    description: OAuth2 Bearer token (future)
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

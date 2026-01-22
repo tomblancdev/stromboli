@@ -6,6 +6,7 @@ type CommandBuilder struct {
 	image       string
 	env         map[string]string
 	volumes     []string
+	tmpfs       []string // tmpfs mounts for isolation
 	workdir     string
 	interactive bool
 	command     []string
@@ -42,9 +43,36 @@ func (b *CommandBuilder) WithVolume(hostPath, containerPath string) *CommandBuil
 	return b
 }
 
+// WithVolumeRaw adds a raw volume string (for complex mounts like :ro, :Z, etc.)
+func (b *CommandBuilder) WithVolumeRaw(volume string) *CommandBuilder {
+	b.volumes = append(b.volumes, volume)
+	return b
+}
+
 // WithVolumeReadOnly adds a read-only volume mount
 func (b *CommandBuilder) WithVolumeReadOnly(hostPath, containerPath string) *CommandBuilder {
 	b.volumes = append(b.volumes, hostPath+":"+containerPath+":ro")
+	return b
+}
+
+// WithVolumeChown adds a volume mount with :U flag
+// The :U flag tells Podman to recursively chown the volume to match the container user
+// This is essential for rootless containers writing to mounted volumes
+func (b *CommandBuilder) WithVolumeChown(hostPath, containerPath string) *CommandBuilder {
+	b.volumes = append(b.volumes, hostPath+":"+containerPath+":U")
+	return b
+}
+
+// WithTmpfs adds a tmpfs mount (ephemeral in-memory storage)
+// Useful for session isolation - data is lost when container stops
+func (b *CommandBuilder) WithTmpfs(containerPath string) *CommandBuilder {
+	b.tmpfs = append(b.tmpfs, containerPath)
+	return b
+}
+
+// WithTmpfsSized adds a tmpfs mount with size limit
+func (b *CommandBuilder) WithTmpfsSized(containerPath, size string) *CommandBuilder {
+	b.tmpfs = append(b.tmpfs, containerPath+":size="+size)
 	return b
 }
 
@@ -84,6 +112,10 @@ func (b *CommandBuilder) Build() []string {
 
 	for _, vol := range b.volumes {
 		args = append(args, "-v", vol)
+	}
+
+	for _, tmpfs := range b.tmpfs {
+		args = append(args, "--tmpfs", tmpfs)
 	}
 
 	if b.workdir != "" {

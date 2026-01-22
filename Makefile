@@ -1,4 +1,4 @@
-.PHONY: build run test lint dev clean claude-setup claude-status claude-logout
+.PHONY: build run test lint dev clean claude-setup claude-status claude-logout docs docs-swagger docs-godoc
 
 # Binary name
 BINARY=stromboli
@@ -37,10 +37,70 @@ build-agent-image:
 clean:
 	rm -rf bin/
 	rm -f coverage.out coverage.html
+	rm -rf docs/swagger docs/godoc
 
 # Development: run with hot reload (requires air)
 dev:
 	air -c .air.toml || go run ./cmd/stromboli
+
+# ============================================================================
+# Documentation
+# ============================================================================
+
+# Generate all documentation
+docs: docs-swagger docs-godoc
+	@echo "📚 Documentation generated in docs/"
+
+# Generate OpenAPI/Swagger documentation
+docs-swagger:
+	@echo "📝 Generating OpenAPI/Swagger docs..."
+	@mkdir -p docs/swagger
+	@podman run --rm -v $(PWD):/app -w /app golang:1.24 sh -c '\
+		go install github.com/swaggo/swag/cmd/swag@latest && \
+		swag init -g cmd/stromboli/main.go -o docs/swagger --parseDependency --parseInternal'
+	@echo "✅ Swagger docs: docs/swagger/"
+	@echo "   - swagger.json"
+	@echo "   - swagger.yaml"
+	@echo "   - docs.go (for embedding)"
+
+# Generate Go code documentation
+docs-godoc:
+	@echo "📖 Generating Go documentation..."
+	@mkdir -p docs/godoc
+	@podman run --rm -v $(PWD):/app -w /app golang:1.24 sh -c '\
+		echo "# Stromboli Code Documentation" > /app/docs/godoc/README.md && \
+		echo "" >> /app/docs/godoc/README.md && \
+		echo "Generated: $$(date)" >> /app/docs/godoc/README.md && \
+		echo "" >> /app/docs/godoc/README.md && \
+		for pkg in api claude podman runner container; do \
+			echo "## Package $$pkg" >> /app/docs/godoc/README.md; \
+			echo "" >> /app/docs/godoc/README.md; \
+			echo "\`\`\`" >> /app/docs/godoc/README.md; \
+			go doc -all ./internal/$$pkg 2>/dev/null >> /app/docs/godoc/README.md || true; \
+			echo "\`\`\`" >> /app/docs/godoc/README.md; \
+			echo "" >> /app/docs/godoc/README.md; \
+		done'
+	@echo "✅ Code docs: docs/godoc/README.md"
+
+# Serve documentation locally (interactive)
+docs-serve:
+	@echo "🌐 Starting documentation server..."
+	@echo "   Swagger UI: http://localhost:8081"
+	@echo "   Godoc:      http://localhost:6060"
+	@echo ""
+	@echo "Press Ctrl+C to stop"
+	@podman run --rm -d --name stromboli-swagger -p 8081:8080 \
+		-v $(PWD)/docs/swagger:/usr/share/nginx/html/swagger:ro \
+		-e SWAGGER_JSON=/usr/share/nginx/html/swagger/swagger.json \
+		swaggerapi/swagger-ui 2>/dev/null || echo "Swagger UI container already running or docs not generated"
+
+# Stop documentation servers
+docs-stop:
+	@podman stop stromboli-swagger 2>/dev/null || true
+
+# ============================================================================
+# Claude Token Management
+# ============================================================================
 
 # Claude secrets file
 CLAUDE_SECRETS=.claude-secrets
@@ -75,3 +135,38 @@ claude-status:
 # Remove Claude token
 claude-logout:
 	@rm -f $(CLAUDE_SECRETS) && echo "✅ Token removed" || echo "ℹ️  No token found"
+
+# ============================================================================
+# Help
+# ============================================================================
+
+help:
+	@echo "Stromboli - Claude Code Container Orchestration"
+	@echo ""
+	@echo "Usage: make [target]"
+	@echo ""
+	@echo "Build & Run:"
+	@echo "  build            Build the binary"
+	@echo "  run              Build and run"
+	@echo "  dev              Run with hot reload"
+	@echo "  clean            Clean build artifacts"
+	@echo ""
+	@echo "Testing:"
+	@echo "  test             Run all tests"
+	@echo "  test-coverage    Run tests with coverage report"
+	@echo "  lint             Run linter"
+	@echo ""
+	@echo "Documentation:"
+	@echo "  docs             Generate all documentation"
+	@echo "  docs-swagger     Generate OpenAPI/Swagger docs"
+	@echo "  docs-godoc       Generate Go code documentation"
+	@echo "  docs-serve       Serve docs locally (Swagger UI)"
+	@echo "  docs-stop        Stop documentation servers"
+	@echo ""
+	@echo "Claude:"
+	@echo "  claude-setup     Extract and save Claude token"
+	@echo "  claude-status    Check Claude token validity"
+	@echo "  claude-logout    Remove saved token"
+	@echo ""
+	@echo "Docker:"
+	@echo "  build-agent-image  Build the agent container image"

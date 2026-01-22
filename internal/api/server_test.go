@@ -18,11 +18,27 @@ import (
 
 // MockRunner implements runner.Runner for testing
 type MockRunner struct {
-	RunFunc func(ctx context.Context, req runner.Request) (*runner.Result, error)
+	RunFunc            func(ctx context.Context, req runner.Request) (*runner.Result, error)
+	DestroySessionFunc func(sessionID string) error
+	ListSessionsFunc   func() ([]string, error)
 }
 
 func (m *MockRunner) Run(ctx context.Context, req runner.Request) (*runner.Result, error) {
 	return m.RunFunc(ctx, req)
+}
+
+func (m *MockRunner) DestroySession(sessionID string) error {
+	if m.DestroySessionFunc != nil {
+		return m.DestroySessionFunc(sessionID)
+	}
+	return nil
+}
+
+func (m *MockRunner) ListSessions() ([]string, error) {
+	if m.ListSessionsFunc != nil {
+		return m.ListSessionsFunc()
+	}
+	return []string{}, nil
 }
 
 func newTestServer(t *testing.T, mockRunner runner.Runner, configured bool) *Server {
@@ -147,7 +163,7 @@ func TestRun_Success(t *testing.T) {
 
 	server := newTestServer(t, mockRunner, true)
 
-	body := bytes.NewBufferString(`{"prompt": "say hello", "session_id": "session-456"}`)
+	body := bytes.NewBufferString(`{"prompt": "say hello", "claude": {"session_id": "session-456"}}`)
 	req, err := http.NewRequest(http.MethodPost, "/run", body)
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
@@ -201,7 +217,7 @@ func TestRun_WithModel(t *testing.T) {
 
 	server := newTestServer(t, mockRunner, true)
 
-	body := bytes.NewBufferString(`{"prompt": "hello", "model": "opus"}`)
+	body := bytes.NewBufferString(`{"prompt": "hello", "claude": {"model": "opus"}}`)
 	req, err := http.NewRequest(http.MethodPost, "/run", body)
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
@@ -210,5 +226,161 @@ func TestRun_WithModel(t *testing.T) {
 	server.router.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Equal(t, "opus", capturedReq.Model)
+	assert.Equal(t, "opus", capturedReq.Claude.Model)
+}
+
+func TestRun_WithAllClaudeOptions(t *testing.T) {
+	var capturedReq runner.Request
+	mockRunner := &MockRunner{
+		RunFunc: func(ctx context.Context, req runner.Request) (*runner.Result, error) {
+			capturedReq = req
+			return &runner.Result{ID: "run-1", Output: "done"}, nil
+		},
+	}
+
+	server := newTestServer(t, mockRunner, true)
+
+	requestBody := `{
+		"prompt": "test",
+		"workspace": "/project",
+		"claude": {
+			"session_id": "sess-123",
+			"model": "opus",
+			"system_prompt": "You are a tester",
+			"allowed_tools": ["Bash", "Read"],
+			"disallowed_tools": ["Write"],
+			"permission_mode": "bypassPermissions",
+			"output_format": "json",
+			"max_budget_usd": 5.00,
+			"verbose": true
+		},
+		"podman": {
+			"volumes": ["/data:/data:ro"]
+		}
+	}`
+
+	req, err := http.NewRequest(http.MethodPost, "/run", bytes.NewBufferString(requestBody))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+
+	rec := httptest.NewRecorder()
+	server.router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	// Verify all options were captured
+	assert.Equal(t, "sess-123", capturedReq.Claude.SessionID)
+	assert.Equal(t, "opus", capturedReq.Claude.Model)
+	assert.Equal(t, "You are a tester", capturedReq.Claude.SystemPrompt)
+	assert.Equal(t, []string{"Bash", "Read"}, capturedReq.Claude.AllowedTools)
+	assert.Equal(t, []string{"Write"}, capturedReq.Claude.DisallowedTools)
+	assert.Equal(t, "bypassPermissions", capturedReq.Claude.PermissionMode)
+	assert.Equal(t, "json", capturedReq.Claude.OutputFormat)
+	assert.Equal(t, 5.00, capturedReq.Claude.MaxBudgetUSD)
+	assert.True(t, capturedReq.Claude.Verbose)
+	assert.Equal(t, []string{"/data:/data:ro"}, capturedReq.Podman.Volumes)
+}
+
+func TestListSessions_Success(t *testing.T) {
+	mockRunner := &MockRunner{
+		ListSessionsFunc: func() ([]string, error) {
+			return []string{"sess-1", "sess-2", "sess-3"}, nil
+		},
+	}
+
+	server := newTestServer(t, mockRunner, true)
+
+	req, err := http.NewRequest(http.MethodGet, "/sessions", nil)
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	server.router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response SessionListResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	assert.Len(t, response.Sessions, 3)
+	assert.Contains(t, response.Sessions, "sess-1")
+	assert.Contains(t, response.Sessions, "sess-2")
+	assert.Contains(t, response.Sessions, "sess-3")
+}
+
+func TestListSessions_Empty(t *testing.T) {
+	mockRunner := &MockRunner{
+		ListSessionsFunc: func() ([]string, error) {
+			return []string{}, nil
+		},
+	}
+
+	server := newTestServer(t, mockRunner, true)
+
+	req, err := http.NewRequest(http.MethodGet, "/sessions", nil)
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	server.router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response SessionListResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	assert.Empty(t, response.Sessions)
+}
+
+func TestDestroySession_Success(t *testing.T) {
+	var destroyedID string
+	mockRunner := &MockRunner{
+		DestroySessionFunc: func(sessionID string) error {
+			destroyedID = sessionID
+			return nil
+		},
+	}
+
+	server := newTestServer(t, mockRunner, true)
+
+	req, err := http.NewRequest(http.MethodDelete, "/sessions/sess-123", nil)
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	server.router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "sess-123", destroyedID)
+
+	var response SessionDestroyResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	assert.True(t, response.Success)
+	assert.Equal(t, "sess-123", response.SessionID)
+}
+
+func TestDestroySession_NotFound(t *testing.T) {
+	mockRunner := &MockRunner{
+		DestroySessionFunc: func(sessionID string) error {
+			return runner.ErrSessionNotFound(sessionID)
+		},
+	}
+
+	server := newTestServer(t, mockRunner, true)
+
+	req, err := http.NewRequest(http.MethodDelete, "/sessions/nonexistent", nil)
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	server.router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+
+	var response SessionDestroyResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	assert.False(t, response.Success)
+	assert.Contains(t, response.Error, "session not found")
 }
