@@ -4,11 +4,13 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/tomblanc/stromboli/internal/job"
 	"github.com/tomblanc/stromboli/internal/runner"
+	"github.com/tomblanc/stromboli/internal/webhook"
 )
 
 // AsyncRunResponse represents the response from starting an async run
@@ -78,14 +80,47 @@ func (s *Server) runAsync(c *gin.Context) {
 		Podman:    req.Podman,
 	}
 
+	// Capture webhook URL
+	webhookURL := req.WebhookURL
+
 	// Start async execution
 	// Use background context since the HTTP request context will be cancelled
 	s.runner.RunAsync(context.Background(), runnerReq, jobID, func(result *runner.Result, err error) {
+		var status job.Status
+		var output, errMsg, sessionID string
+
 		if err != nil {
-			s.jobMgr.Update(jobID, job.StatusFailed, "", err.Error(), "")
-			return
+			status = job.StatusFailed
+			errMsg = err.Error()
+		} else {
+			status = job.StatusCompleted
+			output = result.Output
+			sessionID = result.SessionID
 		}
-		s.jobMgr.Update(jobID, job.StatusCompleted, result.Output, "", result.SessionID)
+
+		s.jobMgr.Update(jobID, status, output, errMsg, sessionID)
+
+		// Send webhook notification if URL provided
+		if webhookURL != "" {
+			notifier := webhook.NewNotifier()
+			payload := webhook.JobResult{
+				JobID:     jobID,
+				Status:    string(status),
+				Output:    output,
+				Error:     errMsg,
+				SessionID: sessionID,
+			}
+
+			// Send webhook in background, don't block on failure
+			go func() {
+				if err := notifier.Notify(webhookURL, payload); err != nil {
+					slog.Warn("Failed to send webhook notification",
+						"job_id", jobID,
+						"webhook_url", webhookURL,
+						"error", err)
+				}
+			}()
+		}
 	})
 
 	c.JSON(http.StatusAccepted, AsyncRunResponse{
@@ -151,6 +186,45 @@ func (s *Server) listJobs(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, resp)
+}
+
+// cancelJob cancels a pending or running job
+// @Summary Cancel job
+// @Description Cancels a pending or running job
+// @Tags jobs
+// @Produce json
+// @Param id path string true "Job ID"
+// @Success 200 {object} map[string]interface{}
+// @Failure 404 {object} RunResponse "Job not found"
+// @Failure 409 {object} RunResponse "Job cannot be cancelled"
+// @Router /jobs/{id} [delete]
+func (s *Server) cancelJob(c *gin.Context) {
+	jobID := c.Param("id")
+
+	// Check if job exists
+	_, ok := s.jobMgr.Get(jobID)
+	if !ok {
+		c.JSON(http.StatusNotFound, RunResponse{
+			Status: "error",
+			Error:  "job not found",
+		})
+		return
+	}
+
+	// Try to cancel
+	cancelled := s.jobMgr.Cancel(jobID)
+	if !cancelled {
+		c.JSON(http.StatusConflict, RunResponse{
+			Status: "error",
+			Error:  "cannot cancel job (already completed, failed, or cancelled)",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"cancelled": true,
+		"job_id":    jobID,
+	})
 }
 
 // generateJobID creates a unique job ID

@@ -27,6 +27,9 @@ type RunRequest struct {
 	// Workspace to mount (host path -> /workspace in container)
 	Workspace string `json:"workspace,omitempty" example:"/home/user/project"`
 
+	// Webhook URL to notify when job completes (async only)
+	WebhookURL string `json:"webhook_url,omitempty" example:"https://example.com/webhook"`
+
 	// Claude configuration - all CLI options exposed
 	Claude types.ClaudeOptions `json:"claude,omitempty"`
 

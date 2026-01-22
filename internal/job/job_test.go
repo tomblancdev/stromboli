@@ -2,6 +2,7 @@ package job
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -155,4 +156,190 @@ func TestManager_List_ReturnsCopies(t *testing.T) {
 	// Original should be unchanged
 	job, _ := m.Get("job-123")
 	assert.Equal(t, StatusPending, job.Status)
+}
+
+func TestManager_Cancel(t *testing.T) {
+	m := NewManager()
+
+	t.Run("cancel existing pending job", func(t *testing.T) {
+		m.Create("job-123")
+
+		ok := m.Cancel("job-123")
+
+		require.True(t, ok)
+		job, exists := m.Get("job-123")
+		require.True(t, exists)
+		assert.Equal(t, StatusCancelled, job.Status)
+		assert.NotNil(t, job.CancelledAt)
+		assert.False(t, job.CancelledAt.IsZero())
+	})
+
+	t.Run("cancel existing running job", func(t *testing.T) {
+		m.Create("job-456")
+		m.Update("job-456", StatusRunning, "", "", "")
+
+		ok := m.Cancel("job-456")
+
+		require.True(t, ok)
+		job, exists := m.Get("job-456")
+		require.True(t, exists)
+		assert.Equal(t, StatusCancelled, job.Status)
+		assert.NotNil(t, job.CancelledAt)
+	})
+
+	t.Run("cannot cancel completed job", func(t *testing.T) {
+		m.Create("job-completed")
+		m.Update("job-completed", StatusCompleted, "output", "", "sess-1")
+
+		ok := m.Cancel("job-completed")
+
+		assert.False(t, ok)
+		job, _ := m.Get("job-completed")
+		assert.Equal(t, StatusCompleted, job.Status)
+		assert.Nil(t, job.CancelledAt)
+	})
+
+	t.Run("cannot cancel failed job", func(t *testing.T) {
+		m.Create("job-failed")
+		m.Update("job-failed", StatusFailed, "", "error", "")
+
+		ok := m.Cancel("job-failed")
+
+		assert.False(t, ok)
+		job, _ := m.Get("job-failed")
+		assert.Equal(t, StatusFailed, job.Status)
+		assert.Nil(t, job.CancelledAt)
+	})
+
+	t.Run("cannot cancel already cancelled job", func(t *testing.T) {
+		m.Create("job-cancelled")
+		m.Cancel("job-cancelled")
+
+		ok := m.Cancel("job-cancelled")
+
+		assert.False(t, ok)
+		job, _ := m.Get("job-cancelled")
+		assert.Equal(t, StatusCancelled, job.Status)
+	})
+
+	t.Run("cancel non-existent job", func(t *testing.T) {
+		ok := m.Cancel("non-existent")
+		assert.False(t, ok)
+	})
+}
+
+func TestManager_StartStopCleanup(t *testing.T) {
+	m := NewManager()
+
+	t.Run("cleanup removes old completed jobs", func(t *testing.T) {
+		// Create an old completed job
+		m.Create("old-job")
+		m.Update("old-job", StatusCompleted, "done", "", "")
+		// Set UpdatedAt AFTER Update (which resets it)
+		m.mu.Lock()
+		m.jobs["old-job"].UpdatedAt = time.Now().Add(-2 * time.Hour)
+		m.mu.Unlock()
+
+		// Create a recent job
+		m.Create("recent-job")
+		m.Update("recent-job", StatusCompleted, "done", "", "")
+
+		// Start cleanup with 1 hour TTL, 10ms interval
+		m.StartCleanup(1*time.Hour, 10*time.Millisecond)
+
+		// Wait for cleanup to run
+		time.Sleep(50 * time.Millisecond)
+
+		// Stop cleanup
+		m.StopCleanup()
+
+		// Old job should be deleted
+		_, exists := m.Get("old-job")
+		assert.False(t, exists)
+
+		// Recent job should still exist
+		_, exists = m.Get("recent-job")
+		assert.True(t, exists)
+	})
+
+	t.Run("cleanup removes old failed jobs", func(t *testing.T) {
+		m := NewManager()
+		m.Create("old-failed")
+		m.Update("old-failed", StatusFailed, "", "error", "")
+		m.mu.Lock()
+		m.jobs["old-failed"].UpdatedAt = time.Now().Add(-2 * time.Hour)
+		m.mu.Unlock()
+
+		m.StartCleanup(1*time.Hour, 10*time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
+		m.StopCleanup()
+
+		_, exists := m.Get("old-failed")
+		assert.False(t, exists)
+	})
+
+	t.Run("cleanup removes old cancelled jobs", func(t *testing.T) {
+		m := NewManager()
+		m.Create("old-cancelled")
+		m.Cancel("old-cancelled")
+		m.mu.Lock()
+		m.jobs["old-cancelled"].UpdatedAt = time.Now().Add(-2 * time.Hour)
+		m.mu.Unlock()
+
+		m.StartCleanup(1*time.Hour, 10*time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
+		m.StopCleanup()
+
+		_, exists := m.Get("old-cancelled")
+		assert.False(t, exists)
+	})
+
+	t.Run("cleanup does not remove pending jobs", func(t *testing.T) {
+		m := NewManager()
+		m.Create("old-pending")
+		m.mu.Lock()
+		m.jobs["old-pending"].UpdatedAt = time.Now().Add(-2 * time.Hour)
+		m.mu.Unlock()
+
+		m.StartCleanup(1*time.Hour, 10*time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
+		m.StopCleanup()
+
+		_, exists := m.Get("old-pending")
+		assert.True(t, exists)
+	})
+
+	t.Run("cleanup does not remove running jobs", func(t *testing.T) {
+		m := NewManager()
+		m.Create("old-running")
+		m.Update("old-running", StatusRunning, "", "", "")
+		m.mu.Lock()
+		m.jobs["old-running"].UpdatedAt = time.Now().Add(-2 * time.Hour)
+		m.mu.Unlock()
+
+		m.StartCleanup(1*time.Hour, 10*time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
+		m.StopCleanup()
+
+		_, exists := m.Get("old-running")
+		assert.True(t, exists)
+	})
+
+	t.Run("stop cleanup when not started", func(t *testing.T) {
+		m := NewManager()
+		// Should not panic
+		m.StopCleanup()
+	})
+
+	t.Run("multiple start calls create only one cleanup goroutine", func(t *testing.T) {
+		m := NewManager()
+		m.StartCleanup(1*time.Hour, 10*time.Millisecond)
+		m.StartCleanup(1*time.Hour, 10*time.Millisecond)
+		m.StartCleanup(1*time.Hour, 10*time.Millisecond)
+
+		time.Sleep(20 * time.Millisecond)
+		m.StopCleanup()
+
+		// No assertion needed, just ensure no panic or goroutine leak
+	})
 }

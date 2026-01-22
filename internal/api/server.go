@@ -69,6 +69,7 @@ func (s *Server) setupRoutes() {
 		protected.POST("/run/async", s.runAsync)
 		protected.GET("/jobs", s.listJobs)
 		protected.GET("/jobs/:id", s.getJob)
+		protected.DELETE("/jobs/:id", s.cancelJob)
 
 		// Session management
 		protected.GET("/sessions", s.listSessions)

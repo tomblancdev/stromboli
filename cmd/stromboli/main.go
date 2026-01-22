@@ -96,6 +96,10 @@ func main() {
 	// Create job manager for async execution
 	jobMgr := job.NewManager()
 
+	// Start job cleanup with 1 hour TTL, 5 minute interval
+	jobMgr.StartCleanup(1*time.Hour, 5*time.Minute)
+	slog.Info("Job cleanup started", "ttl", "1h", "interval", "5m")
+
 	// Setup signal handling for graceful shutdown
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -120,6 +124,10 @@ func main() {
 	// Wait for shutdown signal
 	<-ctx.Done()
 	slog.Info("Shutdown signal received, gracefully shutting down...")
+
+	// Stop job cleanup
+	jobMgr.StopCleanup()
+	slog.Info("Job cleanup stopped")
 
 	// Create shutdown context with timeout
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
