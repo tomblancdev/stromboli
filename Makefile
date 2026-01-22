@@ -11,9 +11,17 @@ build:
 run: build
 	./bin/$(BINARY)
 
-# Run tests
+# Run unit tests only (no integration tag)
 test:
 	go test -v ./...
+
+# Run integration tests only (requires Podman)
+test-integration:
+	go test -v -tags=integration ./...
+
+# Run all tests (unit + integration)
+test-all:
+	go test -v ./... && go test -v -tags=integration ./...
 
 # Run tests with coverage
 test-coverage:
@@ -152,7 +160,9 @@ help:
 	@echo "  clean            Clean build artifacts"
 	@echo ""
 	@echo "Testing:"
-	@echo "  test             Run all tests"
+	@echo "  test             Run unit tests only"
+	@echo "  test-integration Run integration tests (requires Podman)"
+	@echo "  test-all         Run all tests (unit + integration)"
 	@echo "  test-coverage    Run tests with coverage report"
 	@echo "  lint             Run linter"
 	@echo ""

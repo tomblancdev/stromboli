@@ -1,3 +1,5 @@
+//go:build integration
+
 package secrets
 
 import (
@@ -15,14 +17,6 @@ func skipIfNoPodman(t *testing.T) {
 	if _, err := exec.LookPath("podman"); err != nil {
 		t.Skip("podman not available, skipping test")
 	}
-}
-
-func TestNewManager(t *testing.T) {
-	m := NewManager("")
-	assert.Equal(t, DefaultSecretName, m.SecretName())
-
-	m = NewManager("custom-secret")
-	assert.Equal(t, "custom-secret", m.SecretName())
 }
 
 func TestSecretLifecycle(t *testing.T) {

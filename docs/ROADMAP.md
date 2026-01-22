@@ -92,7 +92,7 @@ const (
 ---
 
 ### 4. Add Integration Test Build Tags
-- **Status**: ❌ NOT STARTED
+- **Status**: ✅ COMPLETED (Jan 22, 2026)
 - **Priority**: HIGH
 - **Effort**: ~30 minutes
 - **Location**: `internal/container/container_test.go`, other integration tests
@@ -102,18 +102,19 @@ const (
 **Implementation**:
 ```go
 //go:build integration
-// +build integration
 
 package container
 ```
 
-**Tasks**:
-- [ ] Add build tags to container tests
-- [ ] Add build tags to secrets tests (if needed)
-- [ ] Update Makefile: `make test-integration`
-- [ ] Update CI/CD documentation
+**Tasks Completed**:
+- [x] Add build tags to container tests
+- [x] Add build tags to secrets tests
+- [x] Add build tags to runner tests
+- [x] Extract unit tests to separate files (manager_test.go, id_test.go)
+- [x] Update Makefile: `make test`, `make test-integration`, `make test-all`
+- [x] Create comprehensive documentation (`docs/TESTING.md`)
 
-**Completion Date**: ___________
+**Completion Date**: January 22, 2026
 
 ---
 
@@ -268,10 +269,10 @@ package container
 | Priority | Items | Total Effort | Status |
 |----------|-------|--------------|--------|
 | 🔴 Critical | 1 | ~2h | ✅ 1/1 complete |
-| 🟡 High | 3 | ~5.5h | ✅ 2/3 complete |
+| 🟡 High | 3 | ~5.5h | ✅ 3/3 complete |
 | 🟠 Medium | 3 | ~12h | 0/3 complete |
 | 🟢 Low | 4 | ~9.5h | 0/4 complete |
-| **Total** | **11** | **~29h** | **3/11 complete** |
+| **Total** | **11** | **~29h** | **4/11 complete** |
 
 ---
 
@@ -280,11 +281,11 @@ package container
 ### v1.0-alpha (Critical Complete) ✅
 - [x] Item #1: Session tests (Jan 22, 2026)
 
-### v1.0-beta (Production Ready)
+### v1.0-beta (Production Ready) ✅
 - [x] Item #1: Session tests (Jan 22, 2026)
 - [x] Item #2: Rate limiting (Jan 22, 2026)
 - [x] Item #3: Default resource limits (Jan 22, 2026)
-- [ ] Item #4: Integration test build tags
+- [x] Item #4: Integration test build tags (Jan 22, 2026)
 
 ### v1.0-rc (Release Candidate)
 - [ ] Items #1-7: All critical, high, and medium
@@ -306,6 +307,7 @@ _Add notes here as you work through the roadmap..._
 
 | Date | Item | Action | Notes |
 |------|------|--------|-------|
+| Jan 22, 2026 | #4 Integration Test Build Tags | ✅ Completed | Separated unit/integration tests with build tags, added docs/TESTING.md |
 | Jan 22, 2026 | #3 Default Resource Limits | ✅ Completed | Memory: 512m, CPUs: 1, Timeout: 30m - configurable via env vars |
 | Jan 22, 2026 | #2 Rate Limiting | ✅ Completed | Per-IP limiting, configurable via env vars |
 | Jan 22, 2026 | #1 Session Tests | ✅ Completed | 21 tests, all passing |

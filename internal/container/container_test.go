@@ -1,3 +1,5 @@
+//go:build integration
+
 package container
 
 import (
@@ -13,11 +15,6 @@ func skipIfNoPodman(t *testing.T) {
 	if _, err := exec.LookPath("podman"); err != nil {
 		t.Skip("podman not available, skipping test")
 	}
-}
-
-func TestNewManager(t *testing.T) {
-	manager := NewManager()
-	assert.NotNil(t, manager)
 }
 
 func TestCreate_SimpleContainer(t *testing.T) {
