@@ -14,15 +14,16 @@ import (
 
 // Server represents the HTTP API server
 type Server struct {
-	router       *gin.Engine
-	runner       runner.Runner
-	claudeClient *claude.Client
-	authConfig   auth.Config
-	jobMgr       *job.Manager
+	router          *gin.Engine
+	runner          runner.Runner
+	claudeClient    *claude.Client
+	authConfig      auth.Config
+	rateLimitConfig RateLimitConfig
+	jobMgr          *job.Manager
 }
 
 // NewServer creates a new API server
-func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Config, jobMgr *job.Manager) *Server {
+func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Config, rateLimitConfig RateLimitConfig, jobMgr *job.Manager) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -30,11 +31,12 @@ func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Con
 	router.Use(EnhancedLoggingMiddleware())
 
 	s := &Server{
-		router:       router,
-		runner:       r,
-		claudeClient: claudeClient,
-		authConfig:   authConfig,
-		jobMgr:       jobMgr,
+		router:          router,
+		runner:          r,
+		claudeClient:    claudeClient,
+		authConfig:      authConfig,
+		rateLimitConfig: rateLimitConfig,
+		jobMgr:          jobMgr,
 	}
 	s.setupRoutes()
 
@@ -54,12 +56,13 @@ func (s *Server) Handler() http.Handler {
 
 // setupRoutes configures all API routes
 func (s *Server) setupRoutes() {
-	// Health check and metrics are public (no auth required)
+	// Health check and metrics are public (no auth required, no rate limiting)
 	s.router.GET("/health", s.healthCheck)
 	s.router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
-	// Protected routes (require auth when enabled)
+	// Protected routes (require auth when enabled, rate limited when enabled)
 	protected := s.router.Group("/")
+	protected.Use(RateLimitMiddleware(s.rateLimitConfig))
 	protected.Use(auth.Middleware(s.authConfig))
 	{
 		protected.GET("/claude/status", s.claudeStatus)

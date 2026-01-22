@@ -29,6 +29,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -64,6 +65,33 @@ func getAuthConfig() auth.Config {
 	}
 }
 
+// getRateLimitConfig loads rate limiting configuration from environment variables.
+// Rate limiting is disabled by default.
+func getRateLimitConfig() api.RateLimitConfig {
+	enabled := os.Getenv("STROMBOLI_RATE_LIMIT_ENABLED") == "true"
+
+	rate := 10 // default: 10 requests per second
+	if rateStr := os.Getenv("STROMBOLI_RATE_LIMIT_RPS"); rateStr != "" {
+		if r, err := strconv.Atoi(rateStr); err == nil && r > 0 {
+			rate = r
+		}
+	}
+
+	burst := 20 // default: burst of 20
+	if burstStr := os.Getenv("STROMBOLI_RATE_LIMIT_BURST"); burstStr != "" {
+		if b, err := strconv.Atoi(burstStr); err == nil && b > 0 {
+			burst = b
+		}
+	}
+
+	return api.RateLimitConfig{
+		Enabled: enabled,
+		Rate:    rate,
+		Period:  time.Second,
+		Burst:   burst,
+	}
+}
+
 // allowedWorkspaces restricts which host paths can be mounted as workspaces.
 // Empty slice allows all paths (backward compatible).
 // In production, configure this to restrict access to specific directories.
@@ -93,6 +121,14 @@ func main() {
 		slog.Info("Authentication disabled")
 	}
 
+	rateLimitConfig := getRateLimitConfig()
+
+	if rateLimitConfig.Enabled {
+		slog.Info("Rate limiting enabled", "rate", rateLimitConfig.Rate, "burst", rateLimitConfig.Burst)
+	} else {
+		slog.Info("Rate limiting disabled")
+	}
+
 	// Create job manager for async execution
 	jobMgr := job.NewManager()
 
@@ -105,7 +141,7 @@ func main() {
 	defer stop()
 
 	// Create the API server
-	server := api.NewServer(podmanRunner, claudeClient, authConfig, jobMgr)
+	server := api.NewServer(podmanRunner, claudeClient, authConfig, rateLimitConfig, jobMgr)
 
 	srv := &http.Server{
 		Addr:    defaultAddr,

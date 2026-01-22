@@ -206,6 +206,9 @@ curl -X POST http://localhost:8080/run \
 |----------|---------|-------------|
 | `STROMBOLI_AUTH_ENABLED` | `false` | Enable token-based authentication |
 | `STROMBOLI_API_TOKENS` | - | Comma-separated list of valid API tokens |
+| `STROMBOLI_RATE_LIMIT_ENABLED` | `false` | Enable rate limiting |
+| `STROMBOLI_RATE_LIMIT_RPS` | `10` | Requests per second limit |
+| `STROMBOLI_RATE_LIMIT_BURST` | `20` | Maximum burst size |
 
 ### Authentication
 
@@ -217,6 +220,20 @@ curl -X POST http://localhost:8080/run \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Hello"}'
 ```
+
+### Rate Limiting
+
+Protect your API from abuse by enabling rate limiting:
+
+```bash
+export STROMBOLI_RATE_LIMIT_ENABLED=true
+export STROMBOLI_RATE_LIMIT_RPS=10     # 10 requests per second
+export STROMBOLI_RATE_LIMIT_BURST=20   # Allow burst of 20
+
+./bin/stromboli
+```
+
+Rate limits are applied per IP address. When exceeded, the API returns `429 Too Many Requests`. See [docs/RATE_LIMITING.md](docs/RATE_LIMITING.md) for details.
 
 ### Resource Limits
 

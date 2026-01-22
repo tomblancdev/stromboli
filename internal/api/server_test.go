@@ -29,8 +29,10 @@ func newTestServer(t *testing.T, mockRunner runner.Runner, configured bool) *Ser
 	claudeClient := claude.NewClient(secretsFile)
 	// Auth disabled for tests (backward compatibility)
 	authConfig := auth.Config{Enabled: false}
+	// Rate limiting disabled for tests (backward compatibility)
+	rateLimitConfig := RateLimitConfig{Enabled: false}
 	jobMgr := job.NewManager()
-	return NewServer(mockRunner, claudeClient, authConfig, jobMgr)
+	return NewServer(mockRunner, claudeClient, authConfig, rateLimitConfig, jobMgr)
 }
 
 func TestHealthCheck(t *testing.T) {
