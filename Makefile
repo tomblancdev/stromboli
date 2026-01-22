@@ -1,4 +1,4 @@
-.PHONY: build run test lint dev clean claude-setup claude-status claude-logout docs docs-swagger docs-godoc
+.PHONY: build run test test-integration test-e2e test-all test-coverage lint dev clean claude-setup claude-status claude-logout docs docs-swagger docs-godoc
 
 # Binary name
 BINARY=stromboli
@@ -19,9 +19,13 @@ test:
 test-integration:
 	go test -v -tags=integration ./...
 
-# Run all tests (unit + integration)
+# Run E2E tests only (requires server setup and optionally Claude token)
+test-e2e:
+	go test -v -tags=e2e ./tests/e2e/...
+
+# Run all tests (unit + integration + e2e)
 test-all:
-	go test -v ./... && go test -v -tags=integration ./...
+	go test -v ./... && go test -v -tags=integration ./... && go test -v -tags=e2e ./tests/e2e/...
 
 # Run tests with coverage
 test-coverage:
@@ -162,7 +166,8 @@ help:
 	@echo "Testing:"
 	@echo "  test             Run unit tests only"
 	@echo "  test-integration Run integration tests (requires Podman)"
-	@echo "  test-all         Run all tests (unit + integration)"
+	@echo "  test-e2e         Run E2E tests (requires server and optionally Claude token)"
+	@echo "  test-all         Run all tests (unit + integration + E2E)"
 	@echo "  test-coverage    Run tests with coverage report"
 	@echo "  lint             Run linter"
 	@echo ""
