@@ -1,10 +1,12 @@
 package runner
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os/exec"
 	"strings"
 
@@ -19,6 +21,7 @@ import (
 // Runner executes Claude in a container
 type Runner interface {
 	Run(ctx context.Context, req Request) (*Result, error)
+	RunStream(ctx context.Context, req Request, output chan<- string) (*Result, error)
 	RunAsync(ctx context.Context, req Request, jobID string, onComplete func(*Result, error))
 	DestroySession(sessionID string) error
 	ListSessions() ([]string, error)
@@ -131,6 +134,127 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	return &Result{
 		ID:        generateRunID(),
 		Output:    strings.TrimSpace(string(output)),
+		SessionID: sessionID,
+	}, nil
+}
+
+// RunStream executes Claude in a Podman container and streams output in real-time
+func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<- string) (*Result, error) {
+	defer close(output)
+
+	// Create or get session directory
+	sessionID, absSessionPath, err := r.sessionMgr.Create(req.Claude.SessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build Claude command with all options
+	claudeBuilder := claude.NewCommandBuilder().WithPrompt(req.Prompt)
+
+	// Session handling
+	claudeBuilder.WithSessionID(sessionID)
+	if req.Claude.Resume {
+		claudeBuilder.WithResume()
+	}
+
+	// Apply all other Claude options
+	r.applyClaudeOptions(claudeBuilder, req.Claude)
+
+	claudeCmd := claudeBuilder.Build()
+
+	// Build Podman command
+	podmanBuilder := podman.NewCommand().
+		WithSecret(r.secretsMgr.SecretName()).
+		WithEnv("HOME", "/home/claude").
+		WithImage(r.image)
+
+	// Mount session-specific directory
+	podmanBuilder.WithVolumeChown(absSessionPath, "/home/claude/.claude")
+
+	// Mount workspace with :U flag for container user write access
+	if req.Workspace != "" {
+		validatedPath, err := r.workspaceValidator.Validate(req.Workspace)
+		if err != nil {
+			return nil, fmt.Errorf("workspace validation failed: %w", err)
+		}
+		podmanBuilder.
+			WithVolumeChown(validatedPath, "/workspace").
+			WithWorkdir("/workspace")
+	}
+
+	// Add additional volumes from request
+	for _, vol := range req.Podman.Volumes {
+		podmanBuilder.WithVolumeRaw(vol)
+	}
+
+	podmanBuilder.WithCommand(claudeCmd)
+	fullCmd := podmanBuilder.Build()
+
+	// Execute command with streaming
+	cmd := exec.CommandContext(ctx, fullCmd[0], fullCmd[1:]...)
+
+	// Get stdout and stderr pipes
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get stdout pipe: %w", err)
+	}
+
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get stderr pipe: %w", err)
+	}
+
+	// Start command
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("failed to start command: %w", err)
+	}
+
+	// Collect all output for final result
+	var allOutput strings.Builder
+	done := make(chan struct{})
+
+	// Stream stdout and stderr concurrently
+	streamPipe := func(pipe io.ReadCloser) {
+		scanner := bufio.NewScanner(pipe)
+		for scanner.Scan() {
+			line := scanner.Text()
+			allOutput.WriteString(line)
+			allOutput.WriteString("\n")
+
+			// Send to output channel (non-blocking if context cancelled)
+			select {
+			case output <- line:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}
+
+	// Start streaming both pipes
+	go func() {
+		streamPipe(stdoutPipe)
+		done <- struct{}{}
+	}()
+
+	go func() {
+		streamPipe(stderrPipe)
+		done <- struct{}{}
+	}()
+
+	// Wait for both pipes to finish
+	<-done
+	<-done
+
+	// Wait for command to finish
+	cmdErr := cmd.Wait()
+
+	if cmdErr != nil {
+		return nil, fmt.Errorf("execution failed: %w", cmdErr)
+	}
+
+	return &Result{
+		ID:        generateRunID(),
+		Output:    strings.TrimSpace(allOutput.String()),
 		SessionID: sessionID,
 	}, nil
 }

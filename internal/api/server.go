@@ -64,6 +64,7 @@ func (s *Server) setupRoutes() {
 	{
 		protected.GET("/claude/status", s.claudeStatus)
 		protected.POST("/run", s.runClaude)
+		protected.GET("/run/stream", s.runStream)
 
 		// Async execution
 		protected.POST("/run/async", s.runAsync)

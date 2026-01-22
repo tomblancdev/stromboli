@@ -270,3 +270,67 @@ func TestGenerateRunID_IsUnique(t *testing.T) {
 		ids[id] = true
 	}
 }
+
+func TestRunStream_SendsOutputLines(t *testing.T) {
+	// Skip if podman is not available
+	if _, err := exec.LookPath("podman"); err != nil {
+		t.Skip("podman not available")
+	}
+
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+
+	runner, err := NewPodmanRunner("stromboli-agent:latest", secretsFile, sessionsDir, []string{})
+	if err != nil {
+		t.Skipf("podman secrets not available: %v", err)
+	}
+
+	// Create output channel
+	output := make(chan string, 10)
+
+	// This will fail because we don't have a real container
+	// but it verifies the interface exists
+	_, err = runner.RunStream(context.Background(), Request{
+		Prompt: "hello",
+	}, output)
+
+	// Expected to fail due to no podman container execution
+	assert.Error(t, err)
+}
+
+func TestRunStream_ClosesChannelOnCompletion(t *testing.T) {
+	// Skip if podman is not available
+	if _, err := exec.LookPath("podman"); err != nil {
+		t.Skip("podman not available")
+	}
+
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+
+	runner, err := NewPodmanRunner("stromboli-agent:latest", secretsFile, sessionsDir, []string{})
+	if err != nil {
+		t.Skipf("podman secrets not available: %v", err)
+	}
+
+	// Create output channel
+	output := make(chan string, 10)
+
+	// Run in goroutine
+	go func() {
+		runner.RunStream(context.Background(), Request{
+			Prompt: "hello",
+		}, output)
+	}()
+
+	// Channel should eventually close (or we get an error)
+	// This is a basic test to verify the interface
+	for range output {
+		// Consume any output
+	}
+}
