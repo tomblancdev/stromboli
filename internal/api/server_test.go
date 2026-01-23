@@ -33,8 +33,8 @@ func newTestServer(t *testing.T, mockRunner runner.Runner, configured bool) *Ser
 	// Rate limiting disabled for tests (backward compatibility)
 	rateLimitConfig := RateLimitConfig{Enabled: false}
 	jobMgr := job.NewManager()
-	// Health checker and blacklist are nil for basic tests
-	return NewServer(mockRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, nil, nil)
+	// Health checker, blacklist nil and tracing disabled for basic tests
+	return NewServer(mockRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, nil, nil, false)
 }
 
 func TestHealthCheck(t *testing.T) {
@@ -75,7 +75,7 @@ func TestHealthCheck_WithHealthChecker(t *testing.T) {
 	}
 	healthChecker := NewHealthChecker(mockExecutor, healthConfig)
 
-	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, nil)
+	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, nil, false)
 
 	req, err := http.NewRequest(http.MethodGet, "/health", nil)
 	require.NoError(t, err)
@@ -121,7 +121,7 @@ func TestHealthCheck_Degraded(t *testing.T) {
 	}
 	healthChecker := NewHealthChecker(mockExecutor, healthConfig)
 
-	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, nil)
+	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, nil, false)
 
 	req, err := http.NewRequest(http.MethodGet, "/health", nil)
 	require.NoError(t, err)

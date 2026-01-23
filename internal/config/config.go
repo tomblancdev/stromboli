@@ -22,6 +22,7 @@ type Config struct {
 	RateLimit RateLimitConfig
 	JWT       JWTConfig
 	Jobs      JobsConfig
+	Tracing   TracingConfig
 }
 
 // ServerConfig holds HTTP server configuration
@@ -78,23 +79,33 @@ type JobsConfig struct {
 	CleanupInterval time.Duration // How often to run cleanup
 }
 
+// TracingConfig holds OpenTelemetry tracing configuration
+type TracingConfig struct {
+	Enabled     bool   // Enable tracing
+	ServiceName string // Service name in traces
+	Endpoint    string // OTLP collector endpoint (e.g., "localhost:4317")
+	Insecure    bool   // Use insecure connection (no TLS)
+}
+
 // Default values
 const (
-	defaultServerAddress   = ":8080"
-	defaultAgentImage      = "stromboli-agent"
-	defaultAgentImageTag   = "latest"
-	defaultSecretsFile     = ".claude-secrets"
-	defaultSessionsDir     = ".stromboli/sessions"
-	defaultMemory          = "512m"
-	defaultCPUs            = "1"
-	defaultTimeout         = "30m"
-	defaultRateLimitRate   = 10
-	defaultRateLimitBurst  = 20
-	defaultJWTAccessExpiry = 24 * time.Hour
-	defaultJWTRefresh      = 7 * 24 * time.Hour
-	defaultCleanupTTL      = 1 * time.Hour
-	defaultCleanupInterval = 5 * time.Minute
-	defaultTokenCacheTTL   = 5 * time.Minute
+	defaultServerAddress     = ":8080"
+	defaultAgentImage        = "stromboli-agent"
+	defaultAgentImageTag     = "latest"
+	defaultSecretsFile       = ".claude-secrets"
+	defaultSessionsDir       = ".stromboli/sessions"
+	defaultMemory            = "512m"
+	defaultCPUs              = "1"
+	defaultTimeout           = "30m"
+	defaultRateLimitRate     = 10
+	defaultRateLimitBurst    = 20
+	defaultJWTAccessExpiry   = 24 * time.Hour
+	defaultJWTRefresh        = 7 * 24 * time.Hour
+	defaultCleanupTTL        = 1 * time.Hour
+	defaultCleanupInterval   = 5 * time.Minute
+	defaultTokenCacheTTL     = 5 * time.Minute
+	defaultTracingEndpoint   = "localhost:4317"
+	defaultTracingService    = "stromboli"
 )
 
 // Load reads configuration from environment variables, config files, and defaults.
@@ -158,6 +169,10 @@ func setupViper(v *viper.Viper) {
 	v.SetDefault("jwt.refresh_expiry", defaultJWTRefresh.String())
 	v.SetDefault("jobs.cleanup_ttl", defaultCleanupTTL.String())
 	v.SetDefault("jobs.cleanup_interval", defaultCleanupInterval.String())
+	v.SetDefault("tracing.enabled", false)
+	v.SetDefault("tracing.service_name", defaultTracingService)
+	v.SetDefault("tracing.endpoint", defaultTracingEndpoint)
+	v.SetDefault("tracing.insecure", true)
 
 	// Environment variable configuration
 	v.SetEnvPrefix("STROMBOLI")
@@ -185,6 +200,10 @@ func setupViper(v *viper.Viper) {
 	v.BindEnv("jwt.refresh_expiry", "STROMBOLI_JWT_REFRESH_EXPIRY")
 	v.BindEnv("jobs.cleanup_ttl", "STROMBOLI_JOBS_CLEANUP_TTL")
 	v.BindEnv("jobs.cleanup_interval", "STROMBOLI_JOBS_CLEANUP_INTERVAL")
+	v.BindEnv("tracing.enabled", "STROMBOLI_TRACING_ENABLED")
+	v.BindEnv("tracing.service_name", "STROMBOLI_TRACING_SERVICE_NAME")
+	v.BindEnv("tracing.endpoint", "STROMBOLI_TRACING_ENDPOINT")
+	v.BindEnv("tracing.insecure", "STROMBOLI_TRACING_INSECURE")
 }
 
 // parseConfig extracts and validates configuration from viper
@@ -255,6 +274,14 @@ func parseConfig(v *viper.Viper) (*Config, error) {
 	}
 	cfg.Jobs.CleanupInterval = cleanupInterval
 
+	// Parse tracing config
+	cfg.Tracing = TracingConfig{
+		Enabled:     v.GetBool("tracing.enabled"),
+		ServiceName: v.GetString("tracing.service_name"),
+		Endpoint:    v.GetString("tracing.endpoint"),
+		Insecure:    v.GetBool("tracing.insecure"),
+	}
+
 	// Validate configuration
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
@@ -317,6 +344,11 @@ func (c *Config) Validate() error {
 	// Validate token cache config
 	if c.Agent.TokenCache.Enabled && c.Agent.TokenCache.TTL <= 0 {
 		return fmt.Errorf("token cache TTL must be positive when cache is enabled")
+	}
+
+	// Validate tracing config
+	if c.Tracing.Enabled && c.Tracing.Endpoint == "" {
+		return fmt.Errorf("tracing endpoint must be set when tracing is enabled")
 	}
 
 	return nil

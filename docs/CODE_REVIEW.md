@@ -391,11 +391,13 @@ type Config struct {
 
 ### Priority 2 - Enhancements (Optional)
 
-2. **Add Request Tracing** (OpenTelemetry)
-   - Add OpenTelemetry tracing
-   - Propagate trace IDs through context
-   - Effort: 4 hours
-   - Status: Deferred - not critical for v1.x
+2. **Add Request Tracing** (OpenTelemetry) - FIXED in v1.4
+   - ✅ Added OpenTelemetry tracing package (`internal/tracing/`)
+   - ✅ Configurable via env vars and config file
+   - ✅ OTLP gRPC exporter for Jaeger/Grafana Tempo/etc
+   - ✅ HTTP request tracing via otelgin middleware
+   - ✅ Internal spans for runner execution
+   - ✅ Noop provider when disabled (zero overhead)
 
 3. **Health Check Enhancement** - FIXED in v1.2
    - ✅ Added Podman connectivity check via `podman version`
@@ -484,7 +486,7 @@ type Config struct {
 - Pin container image versions (low priority)
 
 **Nice to Have** (Future enhancements):
-- OpenTelemetry tracing (deferred - not critical)
+- ✅ OpenTelemetry tracing (IMPLEMENTED in v1.4)
 - Container package integration
 - ✅ Token blacklist for logout (IMPLEMENTED in v1.3)
 
@@ -518,6 +520,15 @@ This codebase is ready for production deployment and serves as an excellent exam
 ---
 
 ## Review Changelog
+
+### V1.4 Changes (January 23, 2026)
+- ✅ Added OpenTelemetry distributed tracing support
+- ✅ Created `internal/tracing/` package with OTLP gRPC exporter
+- ✅ Added otelgin middleware for HTTP request tracing
+- ✅ Added internal spans for runner execution (Run, RunStream, RunAsync)
+- ✅ Configuration via env vars: `STROMBOLI_TRACING_ENABLED`, `_SERVICE_NAME`, `_ENDPOINT`, `_INSECURE`
+- ✅ Noop provider when disabled (zero overhead in production)
+- ✅ Full test coverage for tracing initialization and span creation
 
 ### V1.3 Changes (January 23, 2026)
 - ✅ Added Token Blacklist for logout support
@@ -555,6 +566,7 @@ This codebase is ready for production deployment and serves as an excellent exam
 - Improved overall score from 8.5/10 to 9.0/10
 
 ### Issues Resolved from Code Reviews
+- ✅ OpenTelemetry tracing (LOW -> RESOLVED in V1.4)
 - ✅ Token blacklist for logout (LOW -> RESOLVED in V1.3)
 - ✅ String-based error matching (MINOR -> RESOLVED in V1.1)
 - ✅ Rate limiter memory leak (MINOR -> RESOLVED in V1.1)

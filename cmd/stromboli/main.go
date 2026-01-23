@@ -38,6 +38,7 @@ import (
 	"stromboli/internal/config"
 	"stromboli/internal/job"
 	"stromboli/internal/runner"
+	"stromboli/internal/tracing"
 )
 
 // defaultHealthTimeout is the timeout for each health check component
@@ -70,6 +71,28 @@ func main() {
 	slog.Info("Configuration loaded",
 		"server_address", cfg.Server.Address,
 		"agent_image", fullImage)
+
+	// Initialize tracing
+	tracingCfg := tracing.Config{
+		Enabled:     cfg.Tracing.Enabled,
+		ServiceName: cfg.Tracing.ServiceName,
+		Endpoint:    cfg.Tracing.Endpoint,
+		Insecure:    cfg.Tracing.Insecure,
+	}
+
+	shutdownTracing, err := tracing.Init(context.Background(), tracingCfg)
+	if err != nil {
+		slog.Error("Failed to initialize tracing", "error", err)
+		os.Exit(1)
+	}
+
+	if cfg.Tracing.Enabled {
+		slog.Info("Tracing enabled",
+			"service_name", cfg.Tracing.ServiceName,
+			"endpoint", cfg.Tracing.Endpoint)
+	} else {
+		slog.Info("Tracing disabled")
+	}
 
 	// Create dependencies
 	claudeClient := claude.NewClientWithCache(
@@ -174,7 +197,7 @@ func main() {
 	defer stop()
 
 	// Create the API server
-	server := api.NewServer(podmanRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, blacklist)
+	server := api.NewServer(podmanRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, blacklist, cfg.Tracing.Enabled)
 
 	srv := &http.Server{
 		Addr:    cfg.Server.Address,
@@ -201,6 +224,12 @@ func main() {
 	// Stop blacklist cleanup
 	blacklist.StopCleanup()
 	slog.Info("Token blacklist cleanup stopped")
+
+	// Shutdown tracing
+	if err := shutdownTracing(context.Background()); err != nil {
+		slog.Error("Failed to shutdown tracing", "error", err)
+	}
+	slog.Info("Tracing shutdown completed")
 
 	// Create shutdown context with timeout
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

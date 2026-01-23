@@ -16,6 +16,7 @@ import (
 	"stromboli/internal/podman"
 	"stromboli/internal/secrets"
 	"stromboli/internal/session"
+	"stromboli/internal/tracing"
 	"stromboli/internal/types"
 	"stromboli/internal/workspace"
 )
@@ -101,6 +102,17 @@ func NewPodmanRunnerWithDefaultsAndExecutor(image, secretsFile, sessionsDir stri
 
 // Run executes Claude in a Podman container
 func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
+	ctx, span := tracing.StartSpanWithKind(ctx, "runner.Run", tracing.SpanKindInternal)
+	defer span.End()
+
+	// Add request attributes to span
+	tracing.AddSpanAttributes(ctx,
+		"runner.prompt_length", len(req.Prompt),
+		"runner.workspace", req.Workspace,
+		"runner.model", req.Claude.Model,
+		"runner.session_id", req.Claude.SessionID,
+	)
+
 	// Apply defaults to request if not specified
 	req.Podman = r.applyDefaults(req.Podman)
 
@@ -192,19 +204,42 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	// Execute command using executor
 	output, err := r.executor.Run(ctx, fullCmd)
 	if err != nil {
+		tracing.RecordError(ctx, err)
+		tracing.SetSpanStatus(ctx, tracing.StatusError, "execution failed")
 		return nil, fmt.Errorf("execution failed: %w, output: %s", err, string(output))
 	}
 
-	return &Result{
+	result := &Result{
 		ID:        generateRunID(),
 		Output:    strings.TrimSpace(string(output)),
 		SessionID: sessionID,
-	}, nil
+	}
+
+	// Add result attributes to span
+	tracing.AddSpanAttributes(ctx,
+		"runner.result_id", result.ID,
+		"runner.output_length", len(result.Output),
+		"runner.session_id", result.SessionID,
+	)
+	tracing.SetSpanStatus(ctx, tracing.StatusOK, "execution completed")
+
+	return result, nil
 }
 
 // RunStream executes Claude in a Podman container and streams output in real-time
 func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<- string) (*Result, error) {
+	ctx, span := tracing.StartSpanWithKind(ctx, "runner.RunStream", tracing.SpanKindInternal)
+	defer span.End()
 	defer close(output)
+
+	// Add request attributes to span
+	tracing.AddSpanAttributes(ctx,
+		"runner.prompt_length", len(req.Prompt),
+		"runner.workspace", req.Workspace,
+		"runner.model", req.Claude.Model,
+		"runner.session_id", req.Claude.SessionID,
+		"runner.streaming", true,
+	)
 
 	// Apply defaults to request if not specified
 	req.Podman = r.applyDefaults(req.Podman)
@@ -338,14 +373,26 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	cmdErr := wait()
 
 	if cmdErr != nil {
+		tracing.RecordError(ctx, cmdErr)
+		tracing.SetSpanStatus(ctx, tracing.StatusError, "execution failed")
 		return nil, fmt.Errorf("execution failed: %w", cmdErr)
 	}
 
-	return &Result{
+	result := &Result{
 		ID:        generateRunID(),
 		Output:    strings.TrimSpace(allOutput.String()),
 		SessionID: sessionID,
-	}, nil
+	}
+
+	// Add result attributes to span
+	tracing.AddSpanAttributes(ctx,
+		"runner.result_id", result.ID,
+		"runner.output_length", len(result.Output),
+		"runner.session_id", result.SessionID,
+	)
+	tracing.SetSpanStatus(ctx, tracing.StatusOK, "streaming completed")
+
+	return result, nil
 }
 
 // DestroySession removes a session and all its data
@@ -361,7 +408,21 @@ func (r *PodmanRunner) ListSessions() ([]string, error) {
 // RunAsync executes Claude in a goroutine and calls onComplete when done
 func (r *PodmanRunner) RunAsync(ctx context.Context, req Request, jobID string, onComplete func(*Result, error)) {
 	go func() {
+		ctx, span := tracing.StartSpanWithKind(ctx, "runner.RunAsync", tracing.SpanKindInternal)
+		defer span.End()
+
+		tracing.AddSpanAttributes(ctx,
+			"runner.job_id", jobID,
+			"runner.async", true,
+		)
+
 		result, err := r.Run(ctx, req)
+		if err != nil {
+			tracing.RecordError(ctx, err)
+			tracing.SetSpanStatus(ctx, tracing.StatusError, "async execution failed")
+		} else {
+			tracing.SetSpanStatus(ctx, tracing.StatusOK, "async execution completed")
+		}
 		onComplete(result, err)
 	}()
 }

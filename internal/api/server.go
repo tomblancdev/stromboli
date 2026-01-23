@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"stromboli/internal/auth"
 	"stromboli/internal/claude"
 	strerrors "stromboli/internal/errors"
@@ -24,15 +25,21 @@ type Server struct {
 	jobMgr          *job.Manager
 	healthChecker   *HealthChecker
 	blacklist       *auth.TokenBlacklist
+	tracingEnabled  bool
 }
 
 // NewServer creates a new API server
-func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Config, rateLimitConfig RateLimitConfig, jobMgr *job.Manager, healthChecker *HealthChecker, blacklist *auth.TokenBlacklist) *Server {
+func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Config, rateLimitConfig RateLimitConfig, jobMgr *job.Manager, healthChecker *HealthChecker, blacklist *auth.TokenBlacklist, tracingEnabled bool) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.Use(RequestIDMiddleware())
 	router.Use(EnhancedLoggingMiddleware())
+
+	// Add OpenTelemetry tracing middleware if enabled
+	if tracingEnabled {
+		router.Use(otelgin.Middleware("stromboli"))
+	}
 
 	// Wire blacklist into auth config if provided
 	if blacklist != nil {
@@ -48,6 +55,7 @@ func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Con
 		jobMgr:          jobMgr,
 		healthChecker:   healthChecker,
 		blacklist:       blacklist,
+		tracingEnabled:  tracingEnabled,
 	}
 	s.setupRoutes()
 
