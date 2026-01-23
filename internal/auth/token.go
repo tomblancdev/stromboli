@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 // JWTConfig holds JWT configuration
@@ -43,6 +44,7 @@ func GenerateToken(subject string, cfg JWTConfig) (string, error) {
 			Subject:   subject,
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(expiry)),
+			ID:        uuid.New().String(),
 		},
 		IsRefresh: false,
 	}
@@ -69,6 +71,7 @@ func GenerateRefreshToken(subject string, cfg JWTConfig) (string, error) {
 			Subject:   subject,
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(expiry)),
+			ID:        uuid.New().String(),
 		},
 		IsRefresh: true,
 	}

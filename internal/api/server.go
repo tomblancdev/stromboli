@@ -23,15 +23,21 @@ type Server struct {
 	rateLimitConfig RateLimitConfig
 	jobMgr          *job.Manager
 	healthChecker   *HealthChecker
+	blacklist       *auth.TokenBlacklist
 }
 
 // NewServer creates a new API server
-func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Config, rateLimitConfig RateLimitConfig, jobMgr *job.Manager, healthChecker *HealthChecker) *Server {
+func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Config, rateLimitConfig RateLimitConfig, jobMgr *job.Manager, healthChecker *HealthChecker, blacklist *auth.TokenBlacklist) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.Use(RequestIDMiddleware())
 	router.Use(EnhancedLoggingMiddleware())
+
+	// Wire blacklist into auth config if provided
+	if blacklist != nil {
+		authConfig.Blacklist = blacklist
+	}
 
 	s := &Server{
 		router:          router,
@@ -41,6 +47,7 @@ func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Con
 		rateLimitConfig: rateLimitConfig,
 		jobMgr:          jobMgr,
 		healthChecker:   healthChecker,
+		blacklist:       blacklist,
 	}
 	s.setupRoutes()
 

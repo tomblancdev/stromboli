@@ -193,10 +193,12 @@ if errors.Is(err, strerrors.ErrSessionIDRequired) || errors.Is(err, strerrors.Er
 - Default remains `latest` for backward compatibility
 - Documented in CONFIGURATION.md
 
-**LOW: Token Rotation**
-- Current: No automatic token rotation
-- Recommendation: Add token blacklist for logout
-- Impact: Enhanced session security
+**FIXED: Token Blacklist for Logout (v1.3)**
+- ✅ Added in-memory TokenBlacklist manager with automatic cleanup
+- ✅ JWT tokens now include JTI (JWT ID) claim for unique identification
+- ✅ Middleware checks blacklist before allowing access
+- ✅ Added POST /auth/logout endpoint to invalidate tokens
+- ✅ Comprehensive test coverage for all blacklist functionality
 
 ---
 
@@ -404,10 +406,10 @@ type Config struct {
 
 ### Priority 3 - Future Features
 
-6. **Token Blacklist for Logout**
-   - Add in-memory/Redis blacklist
-   - Check on validation
-   - Effort: 3 hours
+6. **Token Blacklist for Logout** - FIXED in v1.3
+   - ✅ Added TokenBlacklist manager with automatic cleanup
+   - ✅ JWT tokens include JTI claim
+   - ✅ POST /auth/logout endpoint added
 
 7. **Metrics Dashboard** - FIXED in v1.2
    - ✅ Added Grafana dashboard JSON (`deployments/grafana/stromboli-dashboard.json`)
@@ -484,7 +486,7 @@ type Config struct {
 **Nice to Have** (Future enhancements):
 - OpenTelemetry tracing (deferred - not critical)
 - Container package integration
-- Token blacklist for logout
+- ✅ Token blacklist for logout (IMPLEMENTED in v1.3)
 
 ### Comparison with Industry Standards
 
@@ -517,6 +519,15 @@ This codebase is ready for production deployment and serves as an excellent exam
 
 ## Review Changelog
 
+### V1.3 Changes (January 23, 2026)
+- ✅ Added Token Blacklist for logout support
+- ✅ JWT tokens now include JTI (JWT ID) claim for unique identification
+- ✅ Added `TokenBlacklist` manager in `internal/auth/blacklist.go` with automatic cleanup
+- ✅ Middleware checks blacklist before allowing access (rejects with "token revoked")
+- ✅ Added `POST /auth/logout` endpoint to invalidate tokens
+- ✅ Blacklist cleanup runs hourly to remove expired tokens
+- ✅ Comprehensive test coverage (10+ new tests)
+
 ### V1.2 Changes (January 23, 2026)
 - ✅ Added detailed health check endpoint with component breakdown
 - ✅ Health check now verifies Podman connectivity via `podman version`
@@ -544,6 +555,7 @@ This codebase is ready for production deployment and serves as an excellent exam
 - Improved overall score from 8.5/10 to 9.0/10
 
 ### Issues Resolved from Code Reviews
+- ✅ Token blacklist for logout (LOW -> RESOLVED in V1.3)
 - ✅ String-based error matching (MINOR -> RESOLVED in V1.1)
 - ✅ Rate limiter memory leak (MINOR -> RESOLVED in V1.1)
 - ✅ Session package testing (CRITICAL -> RESOLVED in V1.0)

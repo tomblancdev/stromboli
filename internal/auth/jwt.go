@@ -23,6 +23,9 @@ type Config struct {
 	// JWTConfig holds JWT-specific configuration
 	// If JWTConfig.Secret is set, JWT validation is enabled
 	JWTConfig JWTConfig
+	// Blacklist holds the token blacklist for logout support
+	// If set, tokens will be checked against the blacklist
+	Blacklist *TokenBlacklist
 }
 
 // Middleware returns a Gin middleware that validates JWT tokens
@@ -62,6 +65,11 @@ func Middleware(cfg Config) gin.HandlerFunc {
 		if !valid && cfg.JWTConfig.Secret != "" {
 			claims, err := ValidateToken(token, cfg.JWTConfig)
 			if err == nil && claims != nil {
+				// Check if token is blacklisted (logout support)
+				if cfg.Blacklist != nil && claims.ID != "" && cfg.Blacklist.IsBlacklisted(claims.ID) {
+					c.AbortWithStatusJSON(401, gin.H{"error": "token revoked"})
+					return
+				}
 				valid = true
 				// Store claims in context for handlers to use
 				c.Set("jwt_claims", claims)

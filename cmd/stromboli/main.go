@@ -152,6 +152,13 @@ func main() {
 		"ttl", cfg.Jobs.CleanupTTL,
 		"interval", cfg.Jobs.CleanupInterval)
 
+	// Create token blacklist for logout support
+	blacklist := auth.NewTokenBlacklist()
+
+	// Start blacklist cleanup (cleanup every hour - expired tokens are removed)
+	blacklist.StartCleanup(time.Hour)
+	slog.Info("Token blacklist started", "cleanup_interval", time.Hour)
+
 	// Create health checker with default config
 	healthConfig := api.HealthConfig{
 		Timeout:    defaultHealthTimeout,
@@ -167,7 +174,7 @@ func main() {
 	defer stop()
 
 	// Create the API server
-	server := api.NewServer(podmanRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker)
+	server := api.NewServer(podmanRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, blacklist)
 
 	srv := &http.Server{
 		Addr:    cfg.Server.Address,
@@ -190,6 +197,10 @@ func main() {
 	// Stop job cleanup
 	jobMgr.StopCleanup()
 	slog.Info("Job cleanup stopped")
+
+	// Stop blacklist cleanup
+	blacklist.StopCleanup()
+	slog.Info("Token blacklist cleanup stopped")
 
 	// Create shutdown context with timeout
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

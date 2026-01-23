@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -228,4 +229,114 @@ func TestMiddleware_EmptyToken_Returns401(t *testing.T) {
 	err = json.Unmarshal(rec.Body.Bytes(), &response)
 	require.NoError(t, err)
 	assert.Equal(t, ErrInvalidToken.Error(), response["error"])
+}
+
+func TestMiddleware_BlacklistedJWTToken_Returns401(t *testing.T) {
+	blacklist := NewTokenBlacklist()
+	jwtConfig := JWTConfig{
+		Secret:       "test-secret-key",
+		AccessExpiry: time.Hour,
+	}
+
+	cfg := Config{
+		Enabled:   true,
+		JWTConfig: jwtConfig,
+		Blacklist: blacklist,
+	}
+	router := setupTestRouter(cfg)
+
+	// Generate a valid JWT token
+	tokenString, err := GenerateToken("user123", jwtConfig)
+	require.NoError(t, err)
+
+	// Verify token works before blacklisting
+	req, err := http.NewRequest(http.MethodGet, "/protected", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+tokenString)
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusOK, rec.Code, "Token should work before blacklisting")
+
+	// Parse token to get JTI
+	claims, err := ValidateToken(tokenString, jwtConfig)
+	require.NoError(t, err)
+	require.NotEmpty(t, claims.ID)
+
+	// Blacklist the token
+	blacklist.Add(claims.ID, claims.ExpiresAt.Time)
+
+	// Verify token is now rejected
+	req, err = http.NewRequest(http.MethodGet, "/protected", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+tokenString)
+
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code, "Blacklisted token should be rejected")
+
+	var response map[string]string
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, "token revoked", response["error"])
+}
+
+func TestMiddleware_NilBlacklist_AllowsJWTToken(t *testing.T) {
+	jwtConfig := JWTConfig{
+		Secret:       "test-secret-key",
+		AccessExpiry: time.Hour,
+	}
+
+	cfg := Config{
+		Enabled:   true,
+		JWTConfig: jwtConfig,
+		Blacklist: nil, // No blacklist configured
+	}
+	router := setupTestRouter(cfg)
+
+	// Generate a valid JWT token
+	tokenString, err := GenerateToken("user123", jwtConfig)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, "/protected", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+tokenString)
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code, "Token should work when blacklist is nil")
+}
+
+func TestMiddleware_ValidJWTToken_NotBlacklisted_Succeeds(t *testing.T) {
+	blacklist := NewTokenBlacklist()
+	jwtConfig := JWTConfig{
+		Secret:       "test-secret-key",
+		AccessExpiry: time.Hour,
+	}
+
+	cfg := Config{
+		Enabled:   true,
+		JWTConfig: jwtConfig,
+		Blacklist: blacklist,
+	}
+	router := setupTestRouter(cfg)
+
+	// Generate a valid JWT token
+	tokenString, err := GenerateToken("user123", jwtConfig)
+	require.NoError(t, err)
+
+	// Blacklist a different token
+	blacklist.Add("different-jti", time.Now().Add(time.Hour))
+
+	// Our token should still work
+	req, err := http.NewRequest(http.MethodGet, "/protected", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+tokenString)
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code, "Non-blacklisted token should work")
 }

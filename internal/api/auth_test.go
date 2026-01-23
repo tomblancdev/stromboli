@@ -15,10 +15,15 @@ import (
 )
 
 func setupAuthTestRouter(authCfg auth.Config) *gin.Engine {
+	return setupAuthTestRouterWithBlacklist(authCfg, nil)
+}
+
+func setupAuthTestRouterWithBlacklist(authCfg auth.Config, blacklist *auth.TokenBlacklist) *gin.Engine {
 	router := gin.New()
 	s := &Server{
 		router:     router,
 		authConfig: authCfg,
+		blacklist:  blacklist,
 	}
 	s.setupAuthRoutes()
 	return router
@@ -354,6 +359,171 @@ func TestValidateTokenHandler_WithMissingToken_Returns401(t *testing.T) {
 	req, err := http.NewRequest(http.MethodGet, "/auth/validate", nil)
 	require.NoError(t, err)
 	// No Authorization header
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestLogoutHandler_WithValidToken_InvalidatesToken(t *testing.T) {
+	blacklist := auth.NewTokenBlacklist()
+	authCfg := auth.Config{
+		Enabled:     true,
+		ValidTokens: []string{"api-token-123"},
+		JWTConfig: auth.JWTConfig{
+			Secret:        "test-jwt-secret",
+			AccessExpiry:  time.Hour,
+			RefreshExpiry: 24 * time.Hour,
+		},
+		Blacklist: blacklist,
+	}
+	router := setupAuthTestRouterWithBlacklist(authCfg, blacklist)
+
+	// Generate a valid access token
+	accessToken, err := auth.GenerateToken("client-123", authCfg.JWTConfig)
+	require.NoError(t, err)
+
+	// Call logout
+	req, err := http.NewRequest(http.MethodPost, "/auth/logout", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response LogoutResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.True(t, response.Success)
+	assert.Equal(t, "token invalidated", response.Message)
+
+	// Verify token is now blacklisted
+	claims, err := auth.ValidateToken(accessToken, authCfg.JWTConfig)
+	require.NoError(t, err)
+	assert.True(t, blacklist.IsBlacklisted(claims.ID))
+}
+
+func TestLogoutHandler_WithMissingAuth_Returns401(t *testing.T) {
+	blacklist := auth.NewTokenBlacklist()
+	authCfg := auth.Config{
+		Enabled:     true,
+		ValidTokens: []string{"api-token-123"},
+		JWTConfig: auth.JWTConfig{
+			Secret:        "test-jwt-secret",
+			AccessExpiry:  time.Hour,
+			RefreshExpiry: 24 * time.Hour,
+		},
+		Blacklist: blacklist,
+	}
+	router := setupAuthTestRouterWithBlacklist(authCfg, blacklist)
+
+	req, err := http.NewRequest(http.MethodPost, "/auth/logout", nil)
+	require.NoError(t, err)
+	// No Authorization header
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestLogoutHandler_WithInvalidToken_Returns401(t *testing.T) {
+	blacklist := auth.NewTokenBlacklist()
+	authCfg := auth.Config{
+		Enabled:     true,
+		ValidTokens: []string{"api-token-123"},
+		JWTConfig: auth.JWTConfig{
+			Secret:        "test-jwt-secret",
+			AccessExpiry:  time.Hour,
+			RefreshExpiry: 24 * time.Hour,
+		},
+		Blacklist: blacklist,
+	}
+	router := setupAuthTestRouterWithBlacklist(authCfg, blacklist)
+
+	req, err := http.NewRequest(http.MethodPost, "/auth/logout", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer invalid-token")
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestLogoutHandler_WithNoBlacklist_Returns503(t *testing.T) {
+	authCfg := auth.Config{
+		Enabled:     true,
+		ValidTokens: []string{"api-token-123"},
+		JWTConfig: auth.JWTConfig{
+			Secret:        "test-jwt-secret",
+			AccessExpiry:  time.Hour,
+			RefreshExpiry: 24 * time.Hour,
+		},
+		// No blacklist
+	}
+	router := setupAuthTestRouterWithBlacklist(authCfg, nil)
+
+	// Generate a valid access token
+	accessToken, err := auth.GenerateToken("client-123", authCfg.JWTConfig)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPost, "/auth/logout", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
+}
+
+func TestLogoutHandler_WithNoJWTSecret_Returns503(t *testing.T) {
+	blacklist := auth.NewTokenBlacklist()
+	authCfg := auth.Config{
+		Enabled:     true,
+		ValidTokens: []string{"api-token-123"},
+		JWTConfig: auth.JWTConfig{
+			Secret: "", // No JWT secret
+		},
+		Blacklist: blacklist,
+	}
+	router := setupAuthTestRouterWithBlacklist(authCfg, blacklist)
+
+	req, err := http.NewRequest(http.MethodPost, "/auth/logout", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer some-token")
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
+}
+
+func TestLogoutHandler_WithExpiredToken_Returns401(t *testing.T) {
+	blacklist := auth.NewTokenBlacklist()
+	authCfg := auth.Config{
+		Enabled:     true,
+		ValidTokens: []string{"api-token-123"},
+		JWTConfig: auth.JWTConfig{
+			Secret:        "test-jwt-secret",
+			AccessExpiry:  -time.Hour, // Already expired
+			RefreshExpiry: 24 * time.Hour,
+		},
+		Blacklist: blacklist,
+	}
+	router := setupAuthTestRouterWithBlacklist(authCfg, blacklist)
+
+	// Generate an expired token
+	expiredToken, err := auth.GenerateToken("client-123", authCfg.JWTConfig)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPost, "/auth/logout", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+expiredToken)
 
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)

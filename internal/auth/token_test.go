@@ -47,6 +47,40 @@ func TestGenerateToken_TokenContainsValidClaims(t *testing.T) {
 	assert.False(t, claims.IsRefresh)
 	assert.WithinDuration(t, time.Now(), claims.IssuedAt.Time, 2*time.Second)
 	assert.WithinDuration(t, time.Now().Add(time.Hour), claims.ExpiresAt.Time, 2*time.Second)
+	assert.NotEmpty(t, claims.ID, "JTI claim should be set")
+}
+
+func TestGenerateToken_GeneratesUniqueJTI(t *testing.T) {
+	cfg := JWTConfig{
+		Secret:        "test-secret-key",
+		AccessExpiry:  time.Hour,
+		RefreshExpiry: 24 * time.Hour,
+	}
+
+	// Generate two tokens
+	token1, err := GenerateToken("user123", cfg)
+	require.NoError(t, err)
+
+	token2, err := GenerateToken("user123", cfg)
+	require.NoError(t, err)
+
+	// Parse both tokens
+	claims1 := parseTokenClaims(t, token1, cfg)
+	claims2 := parseTokenClaims(t, token2, cfg)
+
+	// JTIs should be unique
+	assert.NotEqual(t, claims1.ID, claims2.ID, "Each token should have a unique JTI")
+}
+
+func parseTokenClaims(t *testing.T, tokenString string, cfg JWTConfig) *Claims {
+	t.Helper()
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(cfg.Secret), nil
+	})
+	require.NoError(t, err)
+	claims, ok := token.Claims.(*Claims)
+	require.True(t, ok)
+	return claims
 }
 
 func TestGenerateRefreshToken_CreatesValidRefreshToken(t *testing.T) {
@@ -71,6 +105,7 @@ func TestGenerateRefreshToken_CreatesValidRefreshToken(t *testing.T) {
 	assert.Equal(t, "user123", claims.Subject)
 	assert.True(t, claims.IsRefresh)
 	assert.WithinDuration(t, time.Now().Add(7*24*time.Hour), claims.ExpiresAt.Time, 2*time.Second)
+	assert.NotEmpty(t, claims.ID, "JTI claim should be set on refresh token")
 }
 
 func TestValidateToken_AcceptsValidToken(t *testing.T) {

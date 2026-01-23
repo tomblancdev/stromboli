@@ -45,6 +45,9 @@ func (s *Server) setupAuthRoutes() {
 
 		// Validate a token (public endpoint - validates token internally)
 		authGroup.GET("/validate", s.validateToken)
+
+		// Logout - invalidate a token (validates token internally)
+		authGroup.POST("/logout", s.logout)
 	}
 }
 
@@ -227,5 +230,82 @@ func (s *Server) validateToken(c *gin.Context) {
 		Valid:     true,
 		Subject:   claims.Subject,
 		ExpiresAt: claims.ExpiresAt.Unix(),
+	})
+}
+
+// LogoutResponse represents a logout response
+type LogoutResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message,omitempty"`
+}
+
+// logout invalidates a JWT token by adding it to the blacklist
+// @Summary Logout (invalidate token)
+// @Description Invalidates a JWT token by adding it to the blacklist
+// @Tags auth
+// @Produce json
+// @Success 200 {object} LogoutResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 503 {object} ErrorResponse
+// @Security BearerAuth
+// @Router /auth/logout [post]
+func (s *Server) logout(c *gin.Context) {
+	// JWT must be enabled
+	if s.authConfig.JWTConfig.Secret == "" {
+		c.JSON(http.StatusServiceUnavailable, ErrorResponse{
+			Error: "JWT authentication not configured",
+		})
+		return
+	}
+
+	// Blacklist must be configured
+	if s.blacklist == nil {
+		c.JSON(http.StatusServiceUnavailable, ErrorResponse{
+			Error: "token blacklist not configured",
+		})
+		return
+	}
+
+	// Extract token from Authorization header
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: "missing authorization header",
+		})
+		return
+	}
+
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: "invalid authorization header format",
+		})
+		return
+	}
+	token := parts[1]
+
+	// Validate token
+	claims, err := auth.ValidateToken(token, s.authConfig.JWTConfig)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: "invalid or expired token",
+		})
+		return
+	}
+
+	// Check if token has a JTI
+	if claims.ID == "" {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "token does not have a JTI claim",
+		})
+		return
+	}
+
+	// Add token to blacklist
+	s.blacklist.Add(claims.ID, claims.ExpiresAt.Time)
+
+	c.JSON(http.StatusOK, LogoutResponse{
+		Success: true,
+		Message: "token invalidated",
 	})
 }
