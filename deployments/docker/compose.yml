@@ -41,6 +41,9 @@ services:
     ports:
       - "8080:8080"
 
+    # Map host user into container (required for socket access)
+    userns_mode: keep-id
+
     volumes:
       # Mount Podman socket (rootless)
       - ${XDG_RUNTIME_DIR:-/run/user/1000}/podman/podman.sock:/run/podman/podman.sock:ro

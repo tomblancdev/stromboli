@@ -232,7 +232,7 @@ container-start:
 	@cp $(CLAUDE_SECRETS) $(STROMBOLI_DATA_DIR)/secrets/.claude-secrets
 	@chmod 600 $(STROMBOLI_DATA_DIR)/secrets/.claude-secrets
 	@# Start container
-	STROMBOLI_DATA_DIR=$(STROMBOLI_DATA_DIR) podman-compose -f deployments/docker/compose.yml up -d
+	STROMBOLI_DATA_DIR=$(STROMBOLI_DATA_DIR) podman compose -f deployments/docker/compose.yml up -d
 	@echo ""
 	@echo "✅ Stromboli running at http://localhost:8080"
 	@echo "   Health:   http://localhost:8080/health"
@@ -246,12 +246,12 @@ container-start:
 # Stop Stromboli container
 container-stop:
 	@echo "🛑 Stopping Stromboli container..."
-	STROMBOLI_DATA_DIR=$(STROMBOLI_DATA_DIR) podman-compose -f deployments/docker/compose.yml down
+	STROMBOLI_DATA_DIR=$(STROMBOLI_DATA_DIR) podman compose -f deployments/docker/compose.yml down
 	@echo "✅ Container stopped"
 
 # View container logs
 container-logs:
-	STROMBOLI_DATA_DIR=$(STROMBOLI_DATA_DIR) podman-compose -f deployments/docker/compose.yml logs -f
+	STROMBOLI_DATA_DIR=$(STROMBOLI_DATA_DIR) podman compose -f deployments/docker/compose.yml logs -f
 
 # Restart container
 container-restart: container-stop container-start
