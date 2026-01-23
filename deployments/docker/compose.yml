@@ -9,6 +9,10 @@
 #   2. Setup Claude token: make claude-setup
 #   3. Enable Podman socket: systemctl --user enable --now podman.socket
 #
+# Services:
+#   - Stromboli API: http://localhost:8080
+#   - Swagger UI:    http://localhost:8081
+#
 # The secret is defined here and auto-created by compose on the host Podman.
 
 secrets:
@@ -16,6 +20,9 @@ secrets:
     file: ${CLAUDE_SECRETS_FILE:-../../.claude-secrets}
 
 services:
+  # ==========================================================================
+  # Stromboli API Server
+  # ==========================================================================
   stromboli:
     build:
       context: ../..
@@ -65,3 +72,26 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+  # ==========================================================================
+  # Swagger UI - API Documentation
+  # ==========================================================================
+  swagger:
+    image: docker.io/swaggerapi/swagger-ui:latest
+    container_name: stromboli-swagger
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    volumes:
+      - ../../docs/swagger/swagger.json:/swagger.json:ro
+    environment:
+      SWAGGER_JSON: /swagger.json
+      BASE_URL: /
+    depends_on:
+      - stromboli
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

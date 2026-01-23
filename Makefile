@@ -1,4 +1,4 @@
-.PHONY: build run test test-integration test-e2e test-all test-coverage lint dev clean claude-setup claude-status claude-logout docs docs-swagger docs-godoc
+.PHONY: build run test test-integration test-e2e test-all test-coverage lint dev clean claude-setup claude-status claude-logout docs docs-swagger docs-godoc docs-serve docs-stop docs-logs
 
 # Binary name
 BINARY=stromboli
@@ -137,21 +137,30 @@ docs-godoc:
 		done'
 	@echo "✅ Code docs: docs/godoc/README.md"
 
-# Serve documentation locally (interactive)
+# Serve documentation locally (uses compose)
 docs-serve:
-	@echo "🌐 Starting documentation server..."
-	@echo "   Swagger UI: http://localhost:8081"
-	@echo "   Godoc:      http://localhost:6060"
+	@echo "🌐 Starting documentation servers..."
+	@if [ ! -f docs/swagger/swagger.json ]; then \
+		echo "❌ Swagger docs not found. Run: make docs"; \
+		exit 1; \
+	fi
+	podman compose -f deployments/docker/compose.docs.yml up -d
 	@echo ""
-	@echo "Press Ctrl+C to stop"
-	@podman run --rm -d --name stromboli-swagger -p 8081:8080 \
-		-v $(PWD)/docs/swagger:/usr/share/nginx/html/swagger:ro \
-		-e SWAGGER_JSON=/usr/share/nginx/html/swagger/swagger.json \
-		swaggerapi/swagger-ui 2>/dev/null || echo "Swagger UI container already running or docs not generated"
+	@echo "✅ Documentation servers running:"
+	@echo "   📖 Swagger UI:    http://localhost:8081"
+	@echo "   📚 Godoc Server:  http://localhost:8082/docs/"
+	@echo ""
+	@echo "Stop with: make docs-stop"
 
 # Stop documentation servers
 docs-stop:
-	@podman stop stromboli-swagger 2>/dev/null || true
+	@echo "🛑 Stopping documentation servers..."
+	podman compose -f deployments/docker/compose.docs.yml down
+	@echo "✅ Documentation servers stopped"
+
+# View documentation server logs
+docs-logs:
+	podman compose -f deployments/docker/compose.docs.yml logs -f
 
 # ============================================================================
 # Claude Token Management
@@ -224,10 +233,14 @@ container-start:
 	@# Start container (compose handles secrets automatically)
 	podman compose -f deployments/docker/compose.yml up -d
 	@echo ""
-	@echo "✅ Stromboli running at http://localhost:8080"
-	@echo "   Health: http://localhost:8080/health"
-	@echo "   Logs:   make container-logs"
-	@echo "   Stop:   make container-stop"
+	@echo "✅ Stromboli running:"
+	@echo "   🚀 API:         http://localhost:8080"
+	@echo "   📖 Swagger UI:  http://localhost:8081"
+	@echo "   ❤️  Health:      http://localhost:8080/health"
+	@echo ""
+	@echo "Commands:"
+	@echo "   make container-logs    View logs"
+	@echo "   make container-stop    Stop containers"
 
 # Stop Stromboli container
 container-stop:
@@ -298,8 +311,9 @@ help:
 	@echo "  docs             Generate all documentation"
 	@echo "  docs-swagger     Generate OpenAPI/Swagger docs"
 	@echo "  docs-godoc       Generate Go code documentation"
-	@echo "  docs-serve       Serve docs locally (Swagger UI)"
+	@echo "  docs-serve       Serve docs locally (Swagger UI + Godoc)"
 	@echo "  docs-stop        Stop documentation servers"
+	@echo "  docs-logs        View documentation server logs"
 	@echo ""
 	@echo "Claude:"
 	@echo "  claude-setup     Extract and save Claude token"

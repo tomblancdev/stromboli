@@ -1,0 +1,63 @@
+# Stromboli Documentation Server
+#
+# Serves API documentation without running the main Stromboli service.
+# Useful for sharing docs or reviewing API before deployment.
+#
+# Usage:
+#   # Generate docs first
+#   make docs
+#
+#   # Start documentation server
+#   podman compose -f deployments/docker/compose.docs.yml up -d
+#
+#   # Or use make target
+#   make docs-serve
+#
+# Services:
+#   - Swagger UI:    http://localhost:8081 (Interactive API docs)
+#   - Godoc Server:  http://localhost:8082 (Go code documentation)
+#
+# Stop:
+#   podman compose -f deployments/docker/compose.docs.yml down
+#   # Or: make docs-stop
+
+services:
+  # ==========================================================================
+  # Swagger UI - Interactive API Documentation
+  # ==========================================================================
+  swagger:
+    image: docker.io/swaggerapi/swagger-ui:latest
+    container_name: stromboli-docs-swagger
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    volumes:
+      - ../../docs/swagger/swagger.json:/swagger.json:ro
+    environment:
+      SWAGGER_JSON: /swagger.json
+      BASE_URL: /
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # ==========================================================================
+  # Godoc Server - Go Code Documentation
+  # ==========================================================================
+  godoc:
+    image: docker.io/library/nginx:alpine
+    container_name: stromboli-docs-godoc
+    restart: unless-stopped
+    ports:
+      - "8082:80"
+    volumes:
+      - ../../docs:/usr/share/nginx/html/docs:ro
+      - ./nginx-docs.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
