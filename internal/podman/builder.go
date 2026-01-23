@@ -16,6 +16,8 @@ type CommandBuilder struct {
 	memory      string // memory limit (e.g., "512m", "1g")
 	cpus        string // CPU limit (e.g., "0.5", "2")
 	cpuShares   int    // CPU shares (relative weight)
+	user        string // user to run as (e.g., "1000:1000")
+	keepID      bool   // use --userns=keep-id for host user mapping
 }
 
 // NewCommand creates a new podman command builder
@@ -63,7 +65,7 @@ func (b *CommandBuilder) WithVolumeReadOnly(hostPath, containerPath string) *Com
 
 // WithVolumeChown adds a volume mount with :U flag
 // The :U flag tells Podman to adjust ownership for the container user
-// Combined with --userns=keep-id, this preserves host user ownership
+// This allows the container user to write to the mounted directory
 func (b *CommandBuilder) WithVolumeChown(hostPath, containerPath string) *CommandBuilder {
 	b.volumes = append(b.volumes, hostPath+":"+containerPath+":U")
 	return b
@@ -133,9 +135,30 @@ func (b *CommandBuilder) WithCPUShares(shares int) *CommandBuilder {
 	return b
 }
 
+// WithUser sets the user to run the container as (e.g., "1000:1000")
+func (b *CommandBuilder) WithUser(user string) *CommandBuilder {
+	b.user = user
+	return b
+}
+
+// WithKeepID enables --userns=keep-id for host user ID mapping
+// This maps the host user to the same UID inside the container
+func (b *CommandBuilder) WithKeepID() *CommandBuilder {
+	b.keepID = true
+	return b
+}
+
 // Build generates the final podman command
 func (b *CommandBuilder) Build() []string {
-	args := []string{"podman", "run", "--rm", "--userns=keep-id"}
+	args := []string{"podman", "run", "--rm"}
+
+	if b.keepID {
+		args = append(args, "--userns=keep-id")
+	}
+
+	if b.user != "" {
+		args = append(args, "--user", b.user)
+	}
 
 	if b.interactive {
 		args = append(args, "-it")

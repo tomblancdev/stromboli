@@ -81,7 +81,7 @@ type JobsConfig struct {
 // Default values
 const (
 	defaultServerAddress   = ":8080"
-	defaultAgentImage      = "stromboli-agent:latest"
+	defaultAgentImage      = "stromboli-agent"
 	defaultAgentImageTag   = "latest"
 	defaultSecretsFile     = ".claude-secrets"
 	defaultSessionsDir     = ".stromboli/sessions"

@@ -8,7 +8,7 @@ server:
 
 # Agent Container Configuration
 agent:
-  image: "stromboli-agent:latest"  # Container image to use
+  image: "stromboli-agent"  # Container image to use (without tag)
   image_tag: "latest"  # Container image tag (pin to specific version for production, e.g., "v1.0.0")
   secrets_file: ".claude-secrets"  # Path to Claude API secrets file
   sessions_dir: ".stromboli/sessions"  # Directory for session data

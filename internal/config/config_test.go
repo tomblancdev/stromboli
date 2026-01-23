@@ -21,7 +21,7 @@ func TestLoad_Defaults(t *testing.T) {
 	assert.Equal(t, ":8080", cfg.Server.Address)
 
 	// Test agent defaults
-	assert.Equal(t, "stromboli-agent:latest", cfg.Agent.Image)
+	assert.Equal(t, "stromboli-agent", cfg.Agent.Image)
 	assert.Equal(t, ".claude-secrets", cfg.Agent.SecretsFile)
 	assert.Equal(t, ".stromboli/sessions", cfg.Agent.SessionsDir)
 

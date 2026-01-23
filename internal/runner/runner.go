@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"time"
 
@@ -137,26 +138,31 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	claudeCmd := claudeBuilder.Build()
 
 	// Build Podman command
+	// Use --userns=keep-id with --user to run as host user, preserving file ownership
+	// Set HOME to mounted session directory so Claude writes there (not container's /home/claude)
+	currentUser := fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())
 	podmanBuilder := podman.NewCommand().
+		WithKeepID().
+		WithUser(currentUser).
 		WithSecret(r.secretsMgr.SecretName()).
-		WithEnv("HOME", "/home/claude").
+		WithEnv("HOME", "/home/user").
 		WithImage(r.image)
 
-	// SESSION ISOLATION: Mount session-specific directory
-	// Each session gets its own persistent storage
+	// SESSION ISOLATION: Mount session-specific directory as user's home
+	// Each session gets its own persistent storage at /home/user
+	// HOME env points here so Claude writes to host-owned directory
 	// Sessions are isolated from each other
 	// Data persists until explicitly destroyed
-	// :U flag ensures container user can write to the volume
-	podmanBuilder.WithVolumeChown(absSessionPath, "/home/claude/.claude")
+	podmanBuilder.WithVolume(absSessionPath, "/home/user")
 
-	// Mount workspace with :U flag for container user write access
+	// Mount workspace for container access
 	if req.Workspace != "" {
 		validatedPath, err := r.workspaceValidator.Validate(req.Workspace)
 		if err != nil {
 			return nil, fmt.Errorf("workspace validation failed: %w", err)
 		}
 		podmanBuilder.
-			WithVolumeChown(validatedPath, "/workspace").
+			WithVolume(validatedPath, "/workspace").
 			WithWorkdir("/workspace")
 	}
 
@@ -235,22 +241,26 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	claudeCmd := claudeBuilder.Build()
 
 	// Build Podman command
+	// Use --userns=keep-id with --user to run as host user, preserving file ownership
+	currentUser := fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())
 	podmanBuilder := podman.NewCommand().
+		WithKeepID().
+		WithUser(currentUser).
 		WithSecret(r.secretsMgr.SecretName()).
-		WithEnv("HOME", "/home/claude").
+		WithEnv("HOME", "/home/user").
 		WithImage(r.image)
 
-	// Mount session-specific directory
-	podmanBuilder.WithVolumeChown(absSessionPath, "/home/claude/.claude")
+	// Mount session-specific directory as user's home
+	podmanBuilder.WithVolume(absSessionPath, "/home/user")
 
-	// Mount workspace with :U flag for container user write access
+	// Mount workspace for container access
 	if req.Workspace != "" {
 		validatedPath, err := r.workspaceValidator.Validate(req.Workspace)
 		if err != nil {
 			return nil, fmt.Errorf("workspace validation failed: %w", err)
 		}
 		podmanBuilder.
-			WithVolumeChown(validatedPath, "/workspace").
+			WithVolume(validatedPath, "/workspace").
 			WithWorkdir("/workspace")
 	}
 
