@@ -231,6 +231,10 @@ container-start:
 	@# Copy secrets to data directory
 	@cp $(CLAUDE_SECRETS) $(STROMBOLI_DATA_DIR)/secrets/.claude-secrets
 	@chmod 600 $(STROMBOLI_DATA_DIR)/secrets/.claude-secrets
+	@# Update podman secret (recreate to ensure fresh token)
+	@echo "🔐 Updating podman secret..."
+	@podman secret rm claude-token 2>/dev/null || true
+	@podman secret create claude-token $(STROMBOLI_DATA_DIR)/secrets/.claude-secrets >/dev/null
 	@# Start container
 	STROMBOLI_DATA_DIR=$(STROMBOLI_DATA_DIR) podman compose -f deployments/docker/compose.yml up -d
 	@echo ""
