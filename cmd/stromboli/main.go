@@ -61,9 +61,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Combine image and tag for container operations
+	fullImage := cfg.Agent.Image + ":" + cfg.Agent.ImageTag
+
 	slog.Info("Configuration loaded",
 		"server_address", cfg.Server.Address,
-		"agent_image", cfg.Agent.Image)
+		"agent_image", fullImage)
 
 	// Create dependencies
 	claudeClient := claude.NewClientWithCache(
@@ -85,7 +88,7 @@ func main() {
 	}
 
 	podmanRunner, err := runner.NewPodmanRunnerWithDefaults(
-		cfg.Agent.Image,
+		fullImage,
 		cfg.Agent.SecretsFile,
 		cfg.Agent.SessionsDir,
 		allowedWorkspaces,

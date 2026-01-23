@@ -187,10 +187,11 @@ if errors.Is(err, strerrors.ErrSessionIDRequired) || errors.Is(err, strerrors.Er
 
 ### Remaining Security Recommendations
 
-**LOW: Container Image Pinning**
-- Current: Uses `stromboli-agent:latest`
-- Recommendation: Pin to specific version in production
-- Impact: Prevents unexpected breaking changes
+**FIXED: Container Image Pinning**
+- ✅ Added `image_tag` configuration option (v1.2)
+- Users can now pin to specific versions: `image: "stromboli-agent"`, `image_tag: "v1.0.0"`
+- Default remains `latest` for backward compatibility
+- Documented in CONFIGURATION.md
 
 **LOW: Token Rotation**
 - Current: No automatic token rotation

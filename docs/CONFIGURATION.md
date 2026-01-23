@@ -90,20 +90,23 @@ Container agent settings for Claude Code execution.
 
 | Setting | Environment Variable | YAML Path | Default | Description |
 |---------|---------------------|-----------|---------|-------------|
-| Image | `STROMBOLI_AGENT_IMAGE` | `agent.image` | `stromboli-agent:latest` | Container image for Claude Code |
+| Image | `STROMBOLI_AGENT_IMAGE` | `agent.image` | `stromboli-agent:latest` | Container image name for Claude Code |
+| Image Tag | `STROMBOLI_AGENT_IMAGE_TAG` | `agent.image_tag` | `latest` | Container image tag (pin to specific version for production) |
 | Secrets File | `STROMBOLI_AGENT_SECRETS_FILE` | `agent.secrets_file` | `.claude-secrets` | Path to Claude API token file |
 | Sessions Dir | `STROMBOLI_AGENT_SESSIONS_DIR` | `agent.sessions_dir` | `.stromboli/sessions` | Directory for session data |
 
 **Example:**
 ```yaml
 agent:
-  image: "ghcr.io/your-org/claude-agent:v1.0.0"
+  image: "ghcr.io/your-org/claude-agent"
+  image_tag: "v1.0.0"
   secrets_file: "/secrets/claude-token"
   sessions_dir: "/data/sessions"
 ```
 
 ```bash
-export STROMBOLI_AGENT_IMAGE="ghcr.io/your-org/claude-agent:v1.0.0"
+export STROMBOLI_AGENT_IMAGE="ghcr.io/your-org/claude-agent"
+export STROMBOLI_AGENT_IMAGE_TAG="v1.0.0"
 export STROMBOLI_AGENT_SECRETS_FILE="/secrets/claude-token"
 export STROMBOLI_AGENT_SESSIONS_DIR="/data/sessions"
 ```
@@ -272,7 +275,8 @@ server:
   address: ":8080"
 
 agent:
-  image: "ghcr.io/your-org/stromboli-agent:v1.0.0"
+  image: "ghcr.io/your-org/stromboli-agent"
+  image_tag: "v1.0.0"
   secrets_file: "/run/secrets/claude-token"
   sessions_dir: "/data/stromboli/sessions"
 
@@ -336,7 +340,8 @@ Using environment variables (12-factor app style):
 ```bash
 # All config via environment - no config file needed
 export STROMBOLI_SERVER_ADDRESS=":8080"
-export STROMBOLI_AGENT_IMAGE="ghcr.io/your-org/stromboli-agent:v1.0.0"
+export STROMBOLI_AGENT_IMAGE="ghcr.io/your-org/stromboli-agent"
+export STROMBOLI_AGENT_IMAGE_TAG="v1.0.0"
 export STROMBOLI_AGENT_SECRETS_FILE="/secrets/claude-token"
 export STROMBOLI_AGENT_SESSIONS_DIR="/data/sessions"
 export STROMBOLI_DEFAULT_MEMORY="2g"
@@ -359,7 +364,8 @@ metadata:
   name: stromboli-config
 data:
   STROMBOLI_SERVER_ADDRESS: ":8080"
-  STROMBOLI_AGENT_IMAGE: "ghcr.io/your-org/stromboli-agent:v1.0.0"
+  STROMBOLI_AGENT_IMAGE: "ghcr.io/your-org/stromboli-agent"
+  STROMBOLI_AGENT_IMAGE_TAG: "v1.0.0"
   STROMBOLI_DEFAULT_MEMORY: "2g"
   STROMBOLI_DEFAULT_CPUS: "2"
   STROMBOLI_AUTH_ENABLED: "true"

@@ -9,6 +9,7 @@ server:
 # Agent Container Configuration
 agent:
   image: "stromboli-agent:latest"  # Container image to use
+  image_tag: "latest"  # Container image tag (pin to specific version for production, e.g., "v1.0.0")
   secrets_file: ".claude-secrets"  # Path to Claude API secrets file
   sessions_dir: ".stromboli/sessions"  # Directory for session data
   token_cache:
@@ -51,7 +52,8 @@ jobs:
 #   address: ":8080"
 #
 # agent:
-#   image: "ghcr.io/your-org/stromboli-agent:v1.0.0"
+#   image: "ghcr.io/your-org/stromboli-agent"
+#   image_tag: "v1.0.0"
 #   secrets_file: "/secrets/claude-api-key"
 #   sessions_dir: "/data/sessions"
 #   token_cache:
