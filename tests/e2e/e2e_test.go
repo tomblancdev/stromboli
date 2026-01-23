@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"stromboli/internal/api"
+	"stromboli/internal/auth"
 	"stromboli/internal/claude"
 	"stromboli/internal/job"
 	"stromboli/internal/runner"
@@ -33,6 +34,9 @@ type testEnv struct {
 // setupE2EEnv creates a complete E2E test environment with a real server
 func setupE2EEnv(t *testing.T) *testEnv {
 	t.Helper()
+
+	// Skip if podman not available
+	skipIfNoPodman(t)
 
 	// Create temporary directory for test artifacts
 	tempDir, err := os.MkdirTemp("", "stromboli-e2e-*")
@@ -58,41 +62,63 @@ func setupE2EEnv(t *testing.T) *testEnv {
 		if err := os.WriteFile(secretsFile, []byte(claudeToken), 0600); err != nil {
 			t.Fatalf("failed to write secrets file: %v", err)
 		}
-	}
-
-	// Create Claude client (will be nil if no token)
-	var claudeClient *claude.Client
-	if hasClaude {
-		claudeClient, err = claude.NewClientFromSecretsFile(secretsFile)
-		if err != nil {
-			t.Logf("Warning: Failed to create Claude client: %v", err)
-			hasClaude = false
+	} else {
+		// Write dummy secrets file for podman secret creation
+		if err := os.WriteFile(secretsFile, []byte("dummy-token"), 0600); err != nil {
+			t.Fatalf("failed to write secrets file: %v", err)
 		}
 	}
 
+	// Create Claude client
+	claudeClient := claude.NewClient(secretsFile)
+
+	// Create resource defaults
+	defaults := runner.ResourceDefaults{
+		Memory:  "512m",
+		CPUs:    "1",
+		Timeout: "30m",
+	}
+
 	// Create Podman runner with defaults
-	podmanRunner := runner.NewPodmanRunnerWithDefaults(
+	podmanRunner, err := runner.NewPodmanRunnerWithDefaults(
 		"stromboli-agent:latest",
 		secretsFile,
 		sessionsDir,
-		nil, // No workspace restrictions
-		"512m",
-		"1",
-		"30m",
+		[]string{}, // No workspace restrictions
+		defaults,
 	)
+	if err != nil {
+		os.RemoveAll(tempDir)
+		t.Fatalf("failed to create podman runner: %v", err)
+	}
 
 	// Create job manager
-	jobManager := job.NewManager(1*time.Hour, 5*time.Minute)
+	jobManager := job.NewManager()
+	jobManager.StartCleanup(1*time.Hour, 5*time.Minute)
+
+	// Create health checker
+	healthChecker := api.NewHealthChecker(runner.NewShellExecutor(), api.DefaultHealthConfig())
+
+	// Create auth config (disabled for E2E tests)
+	authConfig := auth.Config{
+		Enabled: false,
+	}
+
+	// Create rate limit config (disabled for E2E tests)
+	rateLimitConfig := api.RateLimitConfig{
+		Enabled: false,
+	}
 
 	// Create server with test configuration
 	server := api.NewServer(
 		podmanRunner,
-		jobManager,
 		claudeClient,
-		false, // Auth disabled for E2E tests
-		false, // Rate limiting disabled for E2E tests
-		0,
-		0,
+		authConfig,
+		rateLimitConfig,
+		jobManager,
+		healthChecker,
+		nil,   // No blacklist needed for E2E tests
+		false, // Tracing disabled for E2E tests
 	)
 
 	// Find available port
@@ -155,6 +181,7 @@ serverReady:
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		srv.Shutdown(ctx)
+		jobManager.StopCleanup()
 		os.RemoveAll(tempDir)
 	}
 
@@ -172,6 +199,15 @@ serverReady:
 	t.Cleanup(cleanup)
 
 	return env
+}
+
+// skipIfNoPodman skips the test if podman is not available
+func skipIfNoPodman(t *testing.T) {
+	t.Helper()
+	_, err := runner.NewShellExecutor().Run(context.Background(), []string{"podman", "version"})
+	if err != nil {
+		t.Skip("podman not available, skipping E2E test")
+	}
 }
 
 // TestMain is the entry point for E2E tests
