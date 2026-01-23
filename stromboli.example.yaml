@@ -1,6 +1,13 @@
 # Stromboli Configuration Example
 # Copy this file to stromboli.yaml and customize as needed
 # Environment variables will override these settings
+#
+# RECOMMENDED: Use container deployment instead of config file:
+#   make claude-setup && make build-images && make container-start
+#
+# This config file is useful for:
+# - Host deployment (./bin/stromboli)
+# - Customizing settings beyond compose defaults
 
 # HTTP Server Configuration
 server:
@@ -53,7 +60,34 @@ tracing:
   endpoint: "localhost:4317" # OTLP collector endpoint (gRPC)
   insecure: true             # Use insecure connection (no TLS)
 
-# Example Production Configuration:
+# =============================================================================
+# Container Deployment (Recommended)
+# =============================================================================
+#
+# For production, use the included Podman Compose file:
+#
+#   # Setup
+#   systemctl --user enable --now podman.socket
+#   make claude-setup
+#   make build-images
+#
+#   # Configure via environment
+#   export STROMBOLI_AUTH_ENABLED=true
+#   export STROMBOLI_JWT_SECRET="$(openssl rand -base64 32)"
+#   export STROMBOLI_RESOURCES_MEMORY="2g"
+#
+#   # Start
+#   make container-start
+#
+# The compose file handles:
+# - Podman socket mount for spawning agents
+# - Compose-managed secrets for Claude token
+# - User namespace mapping (userns_mode: keep-id)
+# - Sessions persistence (/tmp/stromboli-sessions)
+#
+# =============================================================================
+# Example Host Deployment Configuration
+# =============================================================================
 #
 # server:
 #   address: ":8080"

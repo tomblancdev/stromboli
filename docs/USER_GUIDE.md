@@ -27,20 +27,53 @@
 ### Prerequisites
 
 - Podman installed and running
-- Claude API token (from [Anthropic Console](https://console.anthropic.com))
+- Claude credentials (logged in via `claude` CLI)
 
-### Setup in 3 Steps
+### Container Deployment (Recommended) 🐳
+
+The recommended way to run Stromboli is in a container with socket mount:
+
+```bash
+# 1. Enable Podman socket
+systemctl --user enable --now podman.socket
+
+# 2. Setup Claude token (extracts from ~/.claude/.credentials.json)
+make claude-setup
+
+# 3. Build images and start
+make build-images
+make container-start
+
+# 4. Test it works
+curl http://localhost:8080/health
+```
+
+**That's it!** Stromboli is now running at `http://localhost:8080`.
+
+```bash
+# Useful commands
+make container-logs    # View logs
+make container-status  # Check status
+make container-stop    # Stop container
+make container-restart # Restart
+```
+
+### Host Deployment (Alternative)
+
+Run directly on the host (useful for development):
 
 ```bash
 # 1. Configure Claude token
 make claude-setup
-# Paste your token when prompted
 
-# 2. Build and run
+# 2. Build the agent image
+make build-agent-image
+
+# 3. Build and run
 make build
-make run
+./bin/stromboli
 
-# 3. Test it works
+# 4. Test it works
 curl http://localhost:8080/health
 ```
 
@@ -486,11 +519,17 @@ make claude-setup
 
 ### "503 Service Unavailable"
 
-**Problem:** Podman not running
+**Problem:** Podman not running or socket not accessible
 
 **Solution:**
 ```bash
-systemctl --user start podman.socket
+# Enable and start Podman socket
+systemctl --user enable --now podman.socket
+
+# Verify socket exists
+ls -la ${XDG_RUNTIME_DIR}/podman/podman.sock
+
+# Test Podman
 podman system info
 ```
 
@@ -529,6 +568,63 @@ curl -X POST http://localhost:8080/auth/token \
 {
   "podman": {"timeout": "30m"}
 }
+```
+
+### Container Deployment Issues
+
+#### "Permission denied" on Podman socket
+
+**Problem:** Container can't access host's Podman socket
+
+**Solution:** The compose file uses `userns_mode: keep-id` to map your user. Verify:
+```bash
+# Check socket permissions
+ls -la ${XDG_RUNTIME_DIR}/podman/podman.sock
+
+# Restart the container
+make container-restart
+```
+
+#### "Claude token expired/invalid"
+
+**Problem:** OAuth token in `.claude-secrets` has expired
+
+**Solution:**
+```bash
+# Re-authenticate Claude CLI
+claude -p "say ok"
+
+# Re-extract token
+make claude-setup
+
+# Restart container (compose will update the secret)
+make container-restart
+```
+
+#### Container can't spawn agents
+
+**Problem:** Stromboli container can't create child containers
+
+**Solution:** Verify Podman socket mount and permissions:
+```bash
+# Check container has socket mounted
+podman exec stromboli ls -la /run/podman/podman.sock
+
+# Verify CONTAINER_HOST is set
+podman exec stromboli printenv | grep CONTAINER_HOST
+```
+
+#### Session files not persisting
+
+**Problem:** Sessions lost between restarts
+
+**Solution:** Sessions are stored in `/tmp/stromboli-sessions`. This directory is mounted from the host:
+```bash
+# Check sessions directory
+ls -la /tmp/stromboli-sessions
+
+# Verify mount in container
+podman exec stromboli ls -la /tmp/stromboli-sessions
 ```
 
 ---

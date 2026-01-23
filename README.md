@@ -23,45 +23,47 @@ Stromboli is a REST API that provides secure, isolated execution of Claude AI in
 ### Prerequisites
 
 - [Podman](https://podman.io/) v5+ installed and configured
-- [Go](https://golang.org/) 1.22+ (for building from source)
-- Claude API access token (from [Claude.ai](https://claude.ai))
+- Claude credentials (logged in via `claude` CLI)
 
-### 1. Build the Agent Image
-
-```bash
-make build-agent-image
-```
-
-This creates a `stromboli-agent:latest` image with Claude CLI installed.
-
-### 2. Configure Claude Token
-
-Extract your Claude token from existing credentials:
+### Container Deployment (Recommended) 🐳
 
 ```bash
+# 1. Enable Podman socket
+systemctl --user enable --now podman.socket
+
+# 2. Setup Claude token (extracts from ~/.claude/.credentials.json)
 make claude-setup
+
+# 3. Build images and start
+make build-images
+make container-start
+
+# 4. Test it works
+curl http://localhost:8080/health
 ```
 
-Or manually create `.claude-secrets`:
+**That's it!** Stromboli is now running at `http://localhost:8080`.
+
+### Host Deployment (Alternative)
+
+For development or when you prefer running directly on the host:
 
 ```bash
-echo "your-claude-api-token" > .claude-secrets
-chmod 600 .claude-secrets
-```
+# 1. Configure Claude token
+make claude-setup
 
-### 3. Build and Run
+# 2. Build the agent image
+make build-agent-image
 
-```bash
-# Build the binary
+# 3. Build and run
 make build
-
-# Run the server
 ./bin/stromboli
+
+# 4. Test it works
+curl http://localhost:8080/health
 ```
 
-The API server will start on `http://localhost:8080`.
-
-### 4. Test the API
+### Test the API
 
 ```bash
 # Health check
@@ -444,23 +446,85 @@ open coverage.html
 
 ## Production Deployment
 
-### Docker/Podman Compose
+### Container Deployment (Recommended)
+
+The easiest way to deploy Stromboli in production:
+
+```bash
+# 1. Enable Podman socket
+systemctl --user enable --now podman.socket
+
+# 2. Setup Claude token
+make claude-setup
+
+# 3. Build and start
+make build-images
+make container-start
+
+# 4. Verify
+curl http://localhost:8080/health
+```
+
+This uses `deployments/docker/compose.yml` which handles:
+- **Podman socket mount** - Stromboli talks to host Podman via socket
+- **Compose-managed secrets** - Claude token mounted automatically
+- **User namespace mapping** - `userns_mode: keep-id` for proper permissions
+- **Sessions persistence** - Stored in `/tmp/stromboli-sessions`
+
+**Container commands:**
+```bash
+make container-start    # Start Stromboli
+make container-stop     # Stop Stromboli
+make container-restart  # Restart
+make container-logs     # View logs
+make container-status   # Check status
+```
+
+### Custom Compose Configuration
+
+Override defaults with environment variables:
+
+```bash
+# Custom resources
+export STROMBOLI_RESOURCES_MEMORY="2g"
+export STROMBOLI_RESOURCES_CPUS="4"
+export STROMBOLI_RESOURCES_TIMEOUT="1h"
+
+# Enable authentication
+export STROMBOLI_AUTH_ENABLED="true"
+export STROMBOLI_JWT_SECRET="$(openssl rand -base64 32)"
+
+# Enable tracing
+export STROMBOLI_TRACING_ENABLED="true"
+export STROMBOLI_TRACING_ENDPOINT="jaeger:4317"
+
+# Start with custom config
+make container-start
+```
+
+### Podman Compose File Reference
 
 ```yaml
-version: '3.8'
+# deployments/docker/compose.yml
+secrets:
+  claude-token:
+    file: ${CLAUDE_SECRETS_FILE:-../../.claude-secrets}
+
 services:
   stromboli:
-    build: .
+    image: stromboli:latest
+    userns_mode: keep-id  # Critical for socket access
     ports:
       - "8080:8080"
-    environment:
-      - STROMBOLI_AUTH_ENABLED=true
-      - STROMBOLI_API_TOKENS=${API_TOKENS}
+    secrets:
+      - claude-token
     volumes:
-      - /var/run/podman/podman.sock:/var/run/podman/podman.sock
-      - ./.claude-secrets:/app/.claude-secrets:ro
-      - ./workspaces:/workspaces:rw
-    restart: unless-stopped
+      - ${XDG_RUNTIME_DIR}/podman/podman.sock:/run/podman/podman.sock:ro
+      - /tmp/stromboli-sessions:/tmp/stromboli-sessions
+    environment:
+      STROMBOLI_AGENT_SECRETS_FILE: "/run/secrets/claude-token"
+      STROMBOLI_AGENT_SESSIONS_DIR: "/tmp/stromboli-sessions"
+      CONTAINER_HOST: "unix:///run/podman/podman.sock"
 ```
 
 ### Security Considerations

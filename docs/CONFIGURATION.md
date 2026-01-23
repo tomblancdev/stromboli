@@ -366,9 +366,47 @@ jobs:
   cleanup_interval: "5m"
 ```
 
-### Container/Kubernetes Configuration
+### Container Deployment Configuration (Recommended)
 
-Using environment variables (12-factor app style):
+The simplest way to deploy Stromboli is using the included Podman Compose file:
+
+```bash
+# Quick start
+make claude-setup      # Extract Claude token
+make build-images      # Build server + agent images
+make container-start   # Start with compose
+```
+
+**Compose environment variables:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CLAUDE_SECRETS_FILE` | `../../.claude-secrets` | Path to Claude token file |
+| `XDG_RUNTIME_DIR` | `/run/user/1000` | User runtime directory (for socket) |
+| `STROMBOLI_RESOURCES_MEMORY` | `512m` | Default container memory |
+| `STROMBOLI_RESOURCES_CPUS` | `1` | Default container CPUs |
+| `STROMBOLI_RESOURCES_TIMEOUT` | `30m` | Default timeout |
+| `STROMBOLI_AUTH_ENABLED` | `false` | Enable authentication |
+| `STROMBOLI_TRACING_ENABLED` | `false` | Enable OpenTelemetry tracing |
+
+**Example with custom settings:**
+```bash
+export STROMBOLI_RESOURCES_MEMORY="2g"
+export STROMBOLI_RESOURCES_CPUS="4"
+export STROMBOLI_AUTH_ENABLED="true"
+export STROMBOLI_JWT_SECRET="$(openssl rand -base64 32)"
+
+make container-start
+```
+
+**Key paths inside container:**
+- `/run/secrets/claude-token` - Claude API token (mounted by compose)
+- `/tmp/stromboli-sessions` - Session data (shared with host)
+- `/run/podman/podman.sock` - Podman socket for spawning agents
+
+### Environment-Only Configuration (12-Factor)
+
+Using environment variables without config file:
 
 ```bash
 # All config via environment - no config file needed
