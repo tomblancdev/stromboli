@@ -402,24 +402,19 @@ type Config struct {
    - ✅ Uses 5 second timeout per check
    - ✅ Status is "ok" when all components healthy, "degraded" when any component unhealthy
 
-6. **Container Package Integration**
-   - `internal/container/` exists but unused
-   - Decision: Integrate or document as future work
-   - Effort: 4-6 hours if integrating
-
 ### Priority 3 - Future Features
 
-7. **Token Blacklist for Logout**
+6. **Token Blacklist for Logout**
    - Add in-memory/Redis blacklist
    - Check on validation
    - Effort: 3 hours
 
-8. **Metrics Dashboard**
+7. **Metrics Dashboard**
    - Add Grafana dashboard definitions
    - Document metrics meaning
    - Effort: 2 hours
 
-9. **Session Persistence Backend**
+8. **Session Persistence Backend**
    - Add optional SQLite/PostgreSQL backend
    - Enable session search/filter
    - Effort: 8-12 hours
