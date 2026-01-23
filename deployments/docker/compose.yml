@@ -1,0 +1,89 @@
+# Stromboli - Podman Compose Deployment
+#
+# Usage:
+#   make container-start
+#   # or manually:
+#   STROMBOLI_DATA_DIR=/opt/stromboli podman-compose up -d
+#
+# Prerequisites:
+#   1. Build agent image: make build-agent-image
+#   2. Setup Claude token: make claude-setup
+#   3. Enable Podman socket: make podman-socket-enable
+#   4. Create data directory: sudo mkdir -p /opt/stromboli && sudo chown $USER /opt/stromboli
+#
+# Architecture:
+#   ┌─────────────────────────────────────────────────────────────┐
+#   │                        HOST                                  │
+#   │                                                              │
+#   │  ┌──────────────┐      socket      ┌──────────────────────┐ │
+#   │  │  Stromboli   │ ───────────────► │    Host Podman       │ │
+#   │  │  Container   │                  │                      │ │
+#   │  └──────────────┘                  │  ┌────────────────┐  │ │
+#   │        │                           │  │ Claude Agent 1 │  │ │
+#   │        │ shared paths              │  └────────────────┘  │ │
+#   │        ▼                           │  ┌────────────────┐  │ │
+#   │  /opt/stromboli/                   │  │ Claude Agent 2 │  │ │
+#   │    ├── sessions/                   │  └────────────────┘  │ │
+#   │    └── secrets/                    └──────────────────────┘ │
+#   └─────────────────────────────────────────────────────────────┘
+#
+# IMPORTANT: Paths must be the same inside container and on host!
+# This is because Podman runs on the host and needs host paths for mounts.
+
+services:
+  stromboli:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile.server
+    image: stromboli:latest
+    container_name: stromboli
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+
+    volumes:
+      # Mount Podman socket (rootless)
+      - ${XDG_RUNTIME_DIR:-/run/user/1000}/podman/podman.sock:/run/podman/podman.sock:ro
+
+      # CRITICAL: Mount data directory at SAME PATH as host
+      # This ensures Podman volume mounts work correctly
+      - ${STROMBOLI_DATA_DIR:-/opt/stromboli}:${STROMBOLI_DATA_DIR:-/opt/stromboli}
+
+    environment:
+      # Server config
+      STROMBOLI_SERVER_ADDRESS: ":8080"
+
+      # Agent config - use HOST paths (same inside and outside container)
+      STROMBOLI_AGENT_IMAGE: "stromboli-agent"
+      STROMBOLI_AGENT_IMAGE_TAG: "latest"
+      STROMBOLI_AGENT_SECRETS_FILE: "${STROMBOLI_DATA_DIR:-/opt/stromboli}/secrets/.claude-secrets"
+      STROMBOLI_AGENT_SESSIONS_DIR: "${STROMBOLI_DATA_DIR:-/opt/stromboli}/sessions"
+
+      # Tell podman-remote where the socket is
+      CONTAINER_HOST: "unix:///run/podman/podman.sock"
+
+      # Resource defaults
+      STROMBOLI_RESOURCES_MEMORY: "${STROMBOLI_RESOURCES_MEMORY:-512m}"
+      STROMBOLI_RESOURCES_CPUS: "${STROMBOLI_RESOURCES_CPUS:-1}"
+      STROMBOLI_RESOURCES_TIMEOUT: "${STROMBOLI_RESOURCES_TIMEOUT:-30m}"
+
+      # Auth (disabled by default - enable in production!)
+      STROMBOLI_AUTH_ENABLED: "${STROMBOLI_AUTH_ENABLED:-false}"
+      STROMBOLI_AUTH_VALID_TOKENS: "${STROMBOLI_AUTH_VALID_TOKENS:-}"
+
+      # JWT (optional)
+      STROMBOLI_JWT_SECRET: "${STROMBOLI_JWT_SECRET:-}"
+
+      # Rate limiting (disabled by default)
+      STROMBOLI_RATE_LIMIT_ENABLED: "${STROMBOLI_RATE_LIMIT_ENABLED:-false}"
+
+      # Tracing (optional - connect to Jaeger/OTLP collector)
+      STROMBOLI_TRACING_ENABLED: "${STROMBOLI_TRACING_ENABLED:-false}"
+      STROMBOLI_TRACING_ENDPOINT: "${STROMBOLI_TRACING_ENDPOINT:-}"
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

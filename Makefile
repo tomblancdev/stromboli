@@ -192,6 +192,90 @@ claude-logout:
 	@rm -f $(CLAUDE_SECRETS) && echo "✅ Token removed" || echo "ℹ️  No token found"
 
 # ============================================================================
+# Container Deployment
+# ============================================================================
+
+# Build the server container image
+build-server-image:
+	@echo "🏗️  Building Stromboli server image..."
+	podman build -t stromboli:latest -f deployments/docker/Dockerfile.server .
+	@echo "✅ Server image built: stromboli:latest"
+
+# Build all images (server + agent)
+build-images: build-server-image build-agent-image
+	@echo "✅ All images built"
+
+# Default data directory for containerized deployment
+STROMBOLI_DATA_DIR ?= /opt/stromboli
+
+# Start Stromboli in container (requires Podman socket)
+container-start:
+	@echo "🚀 Starting Stromboli container..."
+	@# Check Podman socket
+	@if [ ! -S "$${XDG_RUNTIME_DIR:-/run/user/$$(id -u)}/podman/podman.sock" ]; then \
+		echo "❌ Podman socket not found. Enable it with:"; \
+		echo "   make podman-socket-enable"; \
+		exit 1; \
+	fi
+	@# Check Claude secrets
+	@if [ ! -f "$(CLAUDE_SECRETS)" ]; then \
+		echo "❌ Claude secrets not found. Run: make claude-setup"; \
+		exit 1; \
+	fi
+	@# Setup data directory
+	@echo "📁 Setting up data directory at $(STROMBOLI_DATA_DIR)..."
+	@mkdir -p $(STROMBOLI_DATA_DIR)/sessions $(STROMBOLI_DATA_DIR)/secrets || \
+		(echo "❌ Cannot create $(STROMBOLI_DATA_DIR). Run:"; \
+		 echo "   sudo mkdir -p $(STROMBOLI_DATA_DIR) && sudo chown $$USER $(STROMBOLI_DATA_DIR)"; \
+		 exit 1)
+	@# Copy secrets to data directory
+	@cp $(CLAUDE_SECRETS) $(STROMBOLI_DATA_DIR)/secrets/.claude-secrets
+	@chmod 600 $(STROMBOLI_DATA_DIR)/secrets/.claude-secrets
+	@# Start container
+	STROMBOLI_DATA_DIR=$(STROMBOLI_DATA_DIR) podman-compose -f deployments/docker/compose.yml up -d
+	@echo ""
+	@echo "✅ Stromboli running at http://localhost:8080"
+	@echo "   Health:   http://localhost:8080/health"
+	@echo "   Logs:     make container-logs"
+	@echo "   Stop:     make container-stop"
+	@echo ""
+	@echo "📂 Data directory: $(STROMBOLI_DATA_DIR)"
+	@echo "   Sessions: $(STROMBOLI_DATA_DIR)/sessions"
+	@echo "   Secrets:  $(STROMBOLI_DATA_DIR)/secrets"
+
+# Stop Stromboli container
+container-stop:
+	@echo "🛑 Stopping Stromboli container..."
+	STROMBOLI_DATA_DIR=$(STROMBOLI_DATA_DIR) podman-compose -f deployments/docker/compose.yml down
+	@echo "✅ Container stopped"
+
+# View container logs
+container-logs:
+	STROMBOLI_DATA_DIR=$(STROMBOLI_DATA_DIR) podman-compose -f deployments/docker/compose.yml logs -f
+
+# Restart container
+container-restart: container-stop container-start
+
+# Container status
+container-status:
+	@podman ps --filter name=stromboli --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+# Enable Podman socket (required for container mode)
+podman-socket-enable:
+	@echo "🔌 Enabling Podman socket..."
+	systemctl --user enable --now podman.socket
+	@echo "✅ Socket enabled at: $${XDG_RUNTIME_DIR}/podman/podman.sock"
+
+# Full container setup (build images + configure + start)
+container-setup: podman-socket-enable build-images claude-setup container-start
+	@echo ""
+	@echo "🎉 Stromboli is fully set up and running!"
+	@echo ""
+	@echo "Test it with:"
+	@echo "  curl http://localhost:8080/health"
+	@echo "  curl -X POST http://localhost:8080/run -H 'Content-Type: application/json' -d '{\"prompt\": \"Say hello\"}'"
+
+# ============================================================================
 # Help
 # ============================================================================
 
@@ -200,11 +284,21 @@ help:
 	@echo ""
 	@echo "Usage: make [target]"
 	@echo ""
-	@echo "Build & Run:"
+	@echo "Build & Run (Host):"
 	@echo "  build            Build the binary"
 	@echo "  run              Build and run"
 	@echo "  dev              Run with hot reload"
 	@echo "  clean            Clean build artifacts"
+	@echo ""
+	@echo "Container Deployment:"
+	@echo "  container-setup    Full setup: build + configure + start (recommended)"
+	@echo "  container-start    Start Stromboli in container"
+	@echo "  container-stop     Stop Stromboli container"
+	@echo "  container-restart  Restart Stromboli container"
+	@echo "  container-logs     View container logs"
+	@echo "  container-status   Check container status"
+	@echo "  build-images       Build all container images (server + agent)"
+	@echo "  podman-socket-enable Enable Podman socket"
 	@echo ""
 	@echo "Testing:"
 	@echo "  test             Run unit tests only"
@@ -225,6 +319,3 @@ help:
 	@echo "  claude-setup     Extract and save Claude token"
 	@echo "  claude-status    Check Claude token validity"
 	@echo "  claude-logout    Remove saved token"
-	@echo ""
-	@echo "Docker:"
-	@echo "  build-agent-image  Build the agent container image"

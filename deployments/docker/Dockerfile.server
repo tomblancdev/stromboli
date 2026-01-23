@@ -1,12 +1,15 @@
-# Stromboli Server - Go + Podman
-FROM golang:1.24
+# Stromboli Server - Containerized with Socket Mount
+#
+# This container connects to the host's Podman via socket mount.
+# No Podman installation needed inside - just the CLI for commands.
 
-# Install podman
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    podman \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+# Build stage
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
+
+# Install build dependencies
+RUN apk add --no-cache git
 
 # Copy go mod files first for caching
 COPY go.mod go.sum ./
@@ -15,9 +18,43 @@ RUN go mod download
 # Copy source
 COPY . .
 
-# Build
-RUN go build -o /usr/local/bin/stromboli ./cmd/stromboli
+# Build static binary
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /stromboli ./cmd/stromboli
+
+# Runtime stage - minimal image
+FROM alpine:3.19
+
+# Install podman-remote (lightweight CLI that talks to socket)
+RUN apk add --no-cache \
+    podman-remote \
+    ca-certificates \
+    tzdata
+
+# Create symlink so "podman" command works (podman-remote -> podman)
+RUN ln -s /usr/bin/podman-remote /usr/bin/podman
+
+# Create non-root user
+RUN adduser -D -u 1000 stromboli
+
+# Create directories for runtime data
+RUN mkdir -p /app/sessions /app/secrets && \
+    chown -R stromboli:stromboli /app
+
+# Copy binary from builder
+COPY --from=builder /stromboli /usr/local/bin/stromboli
+
+# Switch to non-root user
+USER stromboli
+WORKDIR /app
+
+# Default config location
+ENV STROMBOLI_AGENT_SECRETS_FILE=/app/secrets/.claude-secrets
+ENV STROMBOLI_AGENT_SESSIONS_DIR=/app/sessions
 
 EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD wget -qO- http://localhost:8080/health || exit 1
 
 ENTRYPOINT ["stromboli"]
