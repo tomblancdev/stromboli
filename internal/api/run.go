@@ -7,8 +7,9 @@ import (
 // HealthResponse represents the health check response
 // @Description Health check response
 type HealthResponse struct {
-	Status string `json:"status" example:"ok"`
-	Name   string `json:"name" example:"stromboli"`
+	Status     string            `json:"status" example:"ok"`
+	Name       string            `json:"name" example:"stromboli"`
+	Components []ComponentHealth `json:"components,omitempty"`
 }
 
 // ClaudeStatusResponse represents the Claude status response

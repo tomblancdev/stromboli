@@ -395,11 +395,12 @@ type Config struct {
    - Effort: 4 hours
    - Status: Deferred - not critical for v1.x
 
-3. **Health Check Enhancement**
-   - Add Podman connectivity check
-   - Add secrets availability check
-   - Return detailed health status
-   - Effort: 2 hours
+3. **Health Check Enhancement** - FIXED in v1.2
+   - ✅ Added Podman connectivity check via `podman version`
+   - ✅ Added secrets availability check via `podman secret exists claude-token`
+   - ✅ Returns detailed health status with component breakdown
+   - ✅ Uses 5 second timeout per check
+   - ✅ Status is "ok" when all components healthy, "degraded" when any component unhealthy
 
 6. **Container Package Integration**
    - `internal/container/` exists but unused
@@ -482,12 +483,11 @@ type Config struct {
 
 ### Areas for Improvement
 
-**Minor** (Optional for V1.2):
+**Minor** (Optional for future versions):
 - Pin container image versions (low priority)
 
 **Nice to Have** (Future enhancements):
 - OpenTelemetry tracing (deferred - not critical)
-- Enhanced health checks
 - Container package integration
 - Token blacklist for logout
 
@@ -521,6 +521,14 @@ This codebase is ready for production deployment and serves as an excellent exam
 ---
 
 ## Review Changelog
+
+### V1.2 Changes (January 23, 2026)
+- ✅ Added detailed health check endpoint with component breakdown
+- ✅ Health check now verifies Podman connectivity via `podman version`
+- ✅ Health check now verifies claude-token secret exists via `podman secret exists`
+- ✅ Uses configurable 5-second timeout per check
+- ✅ Returns "ok" when all components healthy, "degraded" when any component unhealthy
+- ✅ Added comprehensive tests for HealthChecker in `health_test.go`
 
 ### V1.1 Changes (January 22, 2026)
 - ✅ Replaced string-based error matching with `errors.Is()` in `api/server.go`

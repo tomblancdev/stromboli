@@ -47,7 +47,7 @@ func TestBuildRunnerRequest(t *testing.T) {
 				Model:     "claude-opus-4",
 			},
 			Podman: types.PodmanOptions{
-				CPUs:   2.0,
+				CPUs:   "2",
 				Memory: "4g",
 			},
 		}
@@ -58,7 +58,7 @@ func TestBuildRunnerRequest(t *testing.T) {
 		assert.Equal(t, "/test/workspace", runnerReq.Workspace)
 		assert.Equal(t, "sess-123", runnerReq.Claude.SessionID)
 		assert.Equal(t, "claude-opus-4", runnerReq.Claude.Model)
-		assert.Equal(t, 2.0, runnerReq.Podman.CPUs)
+		assert.Equal(t, "2", runnerReq.Podman.CPUs)
 		assert.Equal(t, "4g", runnerReq.Podman.Memory)
 	})
 

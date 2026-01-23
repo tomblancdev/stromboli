@@ -22,10 +22,11 @@ type Server struct {
 	authConfig      auth.Config
 	rateLimitConfig RateLimitConfig
 	jobMgr          *job.Manager
+	healthChecker   *HealthChecker
 }
 
 // NewServer creates a new API server
-func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Config, rateLimitConfig RateLimitConfig, jobMgr *job.Manager) *Server {
+func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Config, rateLimitConfig RateLimitConfig, jobMgr *job.Manager, healthChecker *HealthChecker) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -39,6 +40,7 @@ func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Con
 		authConfig:      authConfig,
 		rateLimitConfig: rateLimitConfig,
 		jobMgr:          jobMgr,
+		healthChecker:   healthChecker,
 	}
 	s.setupRoutes()
 
@@ -88,15 +90,27 @@ func (s *Server) setupRoutes() {
 
 // healthCheck returns API health status
 // @Summary Health check
-// @Description Returns the health status of the API
+// @Description Returns the health status of the API with component checks
 // @Tags system
 // @Produce json
 // @Success 200 {object} HealthResponse
 // @Router /health [get]
 func (s *Server) healthCheck(c *gin.Context) {
+	// If no health checker is configured, return basic health response
+	if s.healthChecker == nil {
+		c.JSON(http.StatusOK, HealthResponse{
+			Status: "ok",
+			Name:   "stromboli",
+		})
+		return
+	}
+
+	// Perform detailed health check
+	health := s.healthChecker.Check(c.Request.Context())
 	c.JSON(http.StatusOK, HealthResponse{
-		Status: "ok",
-		Name:   "stromboli",
+		Status:     health.Status,
+		Name:       health.Name,
+		Components: health.Components,
 	})
 }
 

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,7 +33,8 @@ func newTestServer(t *testing.T, mockRunner runner.Runner, configured bool) *Ser
 	// Rate limiting disabled for tests (backward compatibility)
 	rateLimitConfig := RateLimitConfig{Enabled: false}
 	jobMgr := job.NewManager()
-	return NewServer(mockRunner, claudeClient, authConfig, rateLimitConfig, jobMgr)
+	// Health checker is nil for basic tests (uses simple health response)
+	return NewServer(mockRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, nil)
 }
 
 func TestHealthCheck(t *testing.T) {
@@ -52,6 +54,92 @@ func TestHealthCheck(t *testing.T) {
 
 	assert.Equal(t, "ok", response["status"])
 	assert.Equal(t, "stromboli", response["name"])
+}
+
+func TestHealthCheck_WithHealthChecker(t *testing.T) {
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	claudeClient := claude.NewClient(secretsFile)
+	authConfig := auth.Config{Enabled: false}
+	rateLimitConfig := RateLimitConfig{Enabled: false}
+	jobMgr := job.NewManager()
+
+	// Create mock executor that returns success for all checks
+	mockExecutor := runner.NewMockExecutor()
+	mockExecutor.DefaultOutput = []byte("ok")
+	mockExecutor.DefaultError = nil
+
+	healthConfig := HealthConfig{
+		Timeout:    5 * time.Second,
+		SecretName: "claude-token",
+	}
+	healthChecker := NewHealthChecker(mockExecutor, healthConfig)
+
+	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker)
+
+	req, err := http.NewRequest(http.MethodGet, "/health", nil)
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	server.router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response HealthResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	assert.Equal(t, "ok", response.Status)
+	assert.Equal(t, "stromboli", response.Name)
+	require.Len(t, response.Components, 2)
+	assert.Equal(t, "podman", response.Components[0].Name)
+	assert.Equal(t, "ok", response.Components[0].Status)
+	assert.Equal(t, "claude-secret", response.Components[1].Name)
+	assert.Equal(t, "ok", response.Components[1].Status)
+}
+
+func TestHealthCheck_Degraded(t *testing.T) {
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	claudeClient := claude.NewClient(secretsFile)
+	authConfig := auth.Config{Enabled: false}
+	rateLimitConfig := RateLimitConfig{Enabled: false}
+	jobMgr := job.NewManager()
+
+	// Create mock executor that returns error for podman check
+	mockExecutor := runner.NewMockExecutor()
+	mockExecutor.RunFunc = func(ctx context.Context, args []string) ([]byte, error) {
+		if len(args) > 0 && args[0] == "podman" && len(args) > 1 && args[1] == "version" {
+			return nil, context.DeadlineExceeded
+		}
+		return []byte("ok"), nil
+	}
+
+	healthConfig := HealthConfig{
+		Timeout:    5 * time.Second,
+		SecretName: "claude-token",
+	}
+	healthChecker := NewHealthChecker(mockExecutor, healthConfig)
+
+	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker)
+
+	req, err := http.NewRequest(http.MethodGet, "/health", nil)
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	server.router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response HealthResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	assert.Equal(t, "degraded", response.Status)
+	assert.Equal(t, "stromboli", response.Name)
+	require.Len(t, response.Components, 2)
+	assert.Equal(t, "error", response.Components[0].Status)
+	assert.Equal(t, "ok", response.Components[1].Status)
 }
 
 func TestClaudeStatus_NotConfigured(t *testing.T) {

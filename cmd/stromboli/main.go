@@ -40,6 +40,9 @@ import (
 	"stromboli/internal/runner"
 )
 
+// defaultHealthTimeout is the timeout for each health check component
+const defaultHealthTimeout = 5 * time.Second
+
 // allowedWorkspaces restricts which host paths can be mounted as workspaces.
 // Empty slice allows all paths (backward compatible).
 // In production, configure this to restrict access to specific directories.
@@ -149,12 +152,22 @@ func main() {
 		"ttl", cfg.Jobs.CleanupTTL,
 		"interval", cfg.Jobs.CleanupInterval)
 
+	// Create health checker with default config
+	healthConfig := api.HealthConfig{
+		Timeout:    defaultHealthTimeout,
+		SecretName: "claude-token",
+	}
+	healthChecker := api.NewHealthChecker(runner.NewShellExecutor(), healthConfig)
+	slog.Info("Health checker configured",
+		"timeout", healthConfig.Timeout,
+		"secret_name", healthConfig.SecretName)
+
 	// Setup signal handling for graceful shutdown
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	// Create the API server
-	server := api.NewServer(podmanRunner, claudeClient, authConfig, rateLimitConfig, jobMgr)
+	server := api.NewServer(podmanRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker)
 
 	srv := &http.Server{
 		Addr:    cfg.Server.Address,
