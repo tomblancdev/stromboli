@@ -213,6 +213,6 @@ func (s *Server) cancelJob(c *gin.Context) {
 // generateJobID creates a unique job ID
 func generateJobID() string {
 	bytes := make([]byte, 8)
-	rand.Read(bytes)
+	_, _ = rand.Read(bytes) // Error ignored: crypto/rand.Read always succeeds on supported platforms
 	return "job-" + hex.EncodeToString(bytes)
 }

@@ -182,8 +182,8 @@ func TestMockExecutor_RunStream_WaitError(t *testing.T) {
 func TestMockExecutor_Reset(t *testing.T) {
 	mock := NewMockExecutor()
 
-	mock.Run(context.Background(), []string{"cmd1"})
-	mock.Run(context.Background(), []string{"cmd2"})
+	_, _ = mock.Run(context.Background(), []string{"cmd1"})
+	_, _ = mock.Run(context.Background(), []string{"cmd2"})
 
 	assert.Len(t, mock.GetCalls(), 2)
 
@@ -201,7 +201,7 @@ func TestMockExecutor_ConcurrentCalls(t *testing.T) {
 	done := make(chan bool)
 	for i := 0; i < 10; i++ {
 		go func() {
-			mock.Run(context.Background(), []string{"test"})
+			_, _ = mock.Run(context.Background(), []string{"test"})
 			done <- true
 		}()
 	}

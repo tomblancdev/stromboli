@@ -122,11 +122,7 @@ func (s *Server) healthCheck(c *gin.Context) {
 
 	// Perform detailed health check
 	health := s.healthChecker.Check(c.Request.Context())
-	c.JSON(http.StatusOK, HealthResponse{
-		Status:     health.Status,
-		Name:       health.Name,
-		Components: health.Components,
-	})
+	c.JSON(http.StatusOK, HealthResponse(health))
 }
 
 // claudeStatus checks if Claude credentials are configured

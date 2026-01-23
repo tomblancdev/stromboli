@@ -571,7 +571,7 @@ func (r *PodmanRunner) applyMiscOptions(b *claude.CommandBuilder, opts types.Cla
 // generateRunID creates a unique run ID
 func generateRunID() string {
 	bytes := make([]byte, 8)
-	rand.Read(bytes)
+	_, _ = rand.Read(bytes) // Error ignored: crypto/rand.Read always succeeds on supported platforms
 	return "run-" + hex.EncodeToString(bytes)
 }
 

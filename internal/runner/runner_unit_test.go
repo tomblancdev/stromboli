@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -14,8 +15,17 @@ import (
 	"stromboli/internal/types"
 )
 
+// skipIfNoPodman skips the test if podman is not available
+func skipIfNoPodman(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("podman"); err != nil {
+		t.Skip("podman not available, skipping test")
+	}
+}
+
 // TestPodmanRunner_Run_WithMockExecutor tests runner logic without Podman
 func TestPodmanRunner_Run_WithMockExecutor(t *testing.T) {
+	skipIfNoPodman(t)
 	tmpDir := t.TempDir()
 	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
@@ -48,6 +58,7 @@ func TestPodmanRunner_Run_WithMockExecutor(t *testing.T) {
 
 // TestPodmanRunner_Run_WithExecutorError tests error handling
 func TestPodmanRunner_Run_WithExecutorError(t *testing.T) {
+	skipIfNoPodman(t)
 	tmpDir := t.TempDir()
 	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
@@ -72,6 +83,7 @@ func TestPodmanRunner_Run_WithExecutorError(t *testing.T) {
 
 // TestPodmanRunner_RunStream_WithMockExecutor tests streaming with mock
 func TestPodmanRunner_RunStream_WithMockExecutor(t *testing.T) {
+	skipIfNoPodman(t)
 	tmpDir := t.TempDir()
 	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
@@ -109,6 +121,7 @@ func TestPodmanRunner_RunStream_WithMockExecutor(t *testing.T) {
 
 // TestPodmanRunner_Run_AppliesDefaults tests default resource limits are applied
 func TestPodmanRunner_Run_AppliesDefaults(t *testing.T) {
+	skipIfNoPodman(t)
 	tmpDir := t.TempDir()
 	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
@@ -149,6 +162,7 @@ func TestPodmanRunner_Run_AppliesDefaults(t *testing.T) {
 
 // TestPodmanRunner_Run_OverridesDefaults tests explicit values override defaults
 func TestPodmanRunner_Run_OverridesDefaults(t *testing.T) {
+	skipIfNoPodman(t)
 	tmpDir := t.TempDir()
 	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
@@ -191,6 +205,7 @@ func TestPodmanRunner_Run_OverridesDefaults(t *testing.T) {
 
 // TestPodmanRunner_Run_SessionHandling tests session creation and reuse
 func TestPodmanRunner_Run_SessionHandling(t *testing.T) {
+	skipIfNoPodman(t)
 	tmpDir := t.TempDir()
 	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
@@ -238,6 +253,7 @@ func TestPodmanRunner_Run_SessionHandling(t *testing.T) {
 
 // TestPodmanRunner_Run_WorkspaceValidation tests workspace validation
 func TestPodmanRunner_Run_WorkspaceValidation(t *testing.T) {
+	skipIfNoPodman(t)
 	tmpDir := t.TempDir()
 	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
@@ -273,6 +289,7 @@ func TestPodmanRunner_Run_WorkspaceValidation(t *testing.T) {
 
 // TestPodmanRunner_RunStream_StartError tests handling of start errors
 func TestPodmanRunner_RunStream_StartError(t *testing.T) {
+	skipIfNoPodman(t)
 	tmpDir := t.TempDir()
 	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
@@ -297,6 +314,7 @@ func TestPodmanRunner_RunStream_StartError(t *testing.T) {
 
 // TestPodmanRunner_RunStream_WaitError tests handling of wait errors
 func TestPodmanRunner_RunStream_WaitError(t *testing.T) {
+	skipIfNoPodman(t)
 	tmpDir := t.TempDir()
 	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
@@ -322,6 +340,7 @@ func TestPodmanRunner_RunStream_WaitError(t *testing.T) {
 
 // TestPodmanRunner_Run_BuildsCorrectCommand tests that Podman command is built correctly
 func TestPodmanRunner_Run_BuildsCorrectCommand(t *testing.T) {
+	skipIfNoPodman(t)
 	tmpDir := t.TempDir()
 	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
 	sessionsDir := filepath.Join(tmpDir, "sessions")

@@ -97,7 +97,7 @@ func (m *Manager) List() ([]string, error) {
 // Claude CLI expects UUIDs for --resume flag
 func GenerateID() string {
 	bytes := make([]byte, 16)
-	rand.Read(bytes)
+	_, _ = rand.Read(bytes) // Error ignored: crypto/rand.Read always succeeds on supported platforms
 	// Set UUID version 4 bits
 	bytes[6] = (bytes[6] & 0x0f) | 0x40
 	// Set UUID variant bits

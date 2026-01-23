@@ -16,6 +16,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -53,7 +54,7 @@ type ShutdownFunc func(context.Context) error
 func Init(ctx context.Context, cfg Config) (ShutdownFunc, error) {
 	if !cfg.Enabled {
 		// Set noop provider
-		otel.SetTracerProvider(trace.NewNoopTracerProvider())
+		otel.SetTracerProvider(noop.NewTracerProvider())
 		return func(ctx context.Context) error { return nil }, nil
 	}
 

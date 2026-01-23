@@ -180,30 +180,31 @@ func setupViper(v *viper.Viper) {
 	v.AutomaticEnv()
 
 	// Map legacy environment variables for backward compatibility
-	v.BindEnv("server.address", "STROMBOLI_SERVER_ADDRESS")
-	v.BindEnv("agent.image", "STROMBOLI_AGENT_IMAGE")
-	v.BindEnv("agent.image_tag", "STROMBOLI_AGENT_IMAGE_TAG")
-	v.BindEnv("agent.secrets_file", "STROMBOLI_AGENT_SECRETS_FILE")
-	v.BindEnv("agent.sessions_dir", "STROMBOLI_AGENT_SESSIONS_DIR")
-	v.BindEnv("agent.token_cache.enabled", "STROMBOLI_TOKEN_CACHE_ENABLED")
-	v.BindEnv("agent.token_cache.ttl", "STROMBOLI_TOKEN_CACHE_TTL")
-	v.BindEnv("resources.memory", "STROMBOLI_DEFAULT_MEMORY")
-	v.BindEnv("resources.cpus", "STROMBOLI_DEFAULT_CPUS")
-	v.BindEnv("resources.timeout", "STROMBOLI_DEFAULT_TIMEOUT")
-	v.BindEnv("auth.enabled", "STROMBOLI_AUTH_ENABLED")
-	v.BindEnv("auth.valid_tokens", "STROMBOLI_API_TOKENS")
-	v.BindEnv("rate_limit.enabled", "STROMBOLI_RATE_LIMIT_ENABLED")
-	v.BindEnv("rate_limit.rate", "STROMBOLI_RATE_LIMIT_RPS")
-	v.BindEnv("rate_limit.burst", "STROMBOLI_RATE_LIMIT_BURST")
-	v.BindEnv("jwt.secret", "STROMBOLI_JWT_SECRET")
-	v.BindEnv("jwt.access_expiry", "STROMBOLI_JWT_EXPIRY")
-	v.BindEnv("jwt.refresh_expiry", "STROMBOLI_JWT_REFRESH_EXPIRY")
-	v.BindEnv("jobs.cleanup_ttl", "STROMBOLI_JOBS_CLEANUP_TTL")
-	v.BindEnv("jobs.cleanup_interval", "STROMBOLI_JOBS_CLEANUP_INTERVAL")
-	v.BindEnv("tracing.enabled", "STROMBOLI_TRACING_ENABLED")
-	v.BindEnv("tracing.service_name", "STROMBOLI_TRACING_SERVICE_NAME")
-	v.BindEnv("tracing.endpoint", "STROMBOLI_TRACING_ENDPOINT")
-	v.BindEnv("tracing.insecure", "STROMBOLI_TRACING_INSECURE")
+	// BindEnv errors are ignored as these are static configuration that cannot fail at runtime
+	_ = v.BindEnv("server.address", "STROMBOLI_SERVER_ADDRESS")
+	_ = v.BindEnv("agent.image", "STROMBOLI_AGENT_IMAGE")
+	_ = v.BindEnv("agent.image_tag", "STROMBOLI_AGENT_IMAGE_TAG")
+	_ = v.BindEnv("agent.secrets_file", "STROMBOLI_AGENT_SECRETS_FILE")
+	_ = v.BindEnv("agent.sessions_dir", "STROMBOLI_AGENT_SESSIONS_DIR")
+	_ = v.BindEnv("agent.token_cache.enabled", "STROMBOLI_TOKEN_CACHE_ENABLED")
+	_ = v.BindEnv("agent.token_cache.ttl", "STROMBOLI_TOKEN_CACHE_TTL")
+	_ = v.BindEnv("resources.memory", "STROMBOLI_DEFAULT_MEMORY")
+	_ = v.BindEnv("resources.cpus", "STROMBOLI_DEFAULT_CPUS")
+	_ = v.BindEnv("resources.timeout", "STROMBOLI_DEFAULT_TIMEOUT")
+	_ = v.BindEnv("auth.enabled", "STROMBOLI_AUTH_ENABLED")
+	_ = v.BindEnv("auth.valid_tokens", "STROMBOLI_API_TOKENS")
+	_ = v.BindEnv("rate_limit.enabled", "STROMBOLI_RATE_LIMIT_ENABLED")
+	_ = v.BindEnv("rate_limit.rate", "STROMBOLI_RATE_LIMIT_RPS")
+	_ = v.BindEnv("rate_limit.burst", "STROMBOLI_RATE_LIMIT_BURST")
+	_ = v.BindEnv("jwt.secret", "STROMBOLI_JWT_SECRET")
+	_ = v.BindEnv("jwt.access_expiry", "STROMBOLI_JWT_EXPIRY")
+	_ = v.BindEnv("jwt.refresh_expiry", "STROMBOLI_JWT_REFRESH_EXPIRY")
+	_ = v.BindEnv("jobs.cleanup_ttl", "STROMBOLI_JOBS_CLEANUP_TTL")
+	_ = v.BindEnv("jobs.cleanup_interval", "STROMBOLI_JOBS_CLEANUP_INTERVAL")
+	_ = v.BindEnv("tracing.enabled", "STROMBOLI_TRACING_ENABLED")
+	_ = v.BindEnv("tracing.service_name", "STROMBOLI_TRACING_SERVICE_NAME")
+	_ = v.BindEnv("tracing.endpoint", "STROMBOLI_TRACING_ENDPOINT")
+	_ = v.BindEnv("tracing.insecure", "STROMBOLI_TRACING_INSECURE")
 }
 
 // parseConfig extracts and validates configuration from viper
@@ -235,7 +236,7 @@ func parseConfig(v *viper.Viper) (*Config, error) {
 		},
 		Auth: AuthConfig{
 			Enabled:     v.GetBool("auth.enabled"),
-			ValidTokens: parseTokens(v.GetString("auth.valid_tokens")),
+			ValidTokens: getValidTokens(v),
 		},
 		RateLimit: RateLimitConfig{
 			Enabled: v.GetBool("rate_limit.enabled"),
@@ -290,12 +291,23 @@ func parseConfig(v *viper.Viper) (*Config, error) {
 	return cfg, nil
 }
 
-// parseTokens parses a comma-separated token string into a slice
-func parseTokens(tokensStr string) []string {
-	if tokensStr == "" {
+// getValidTokens retrieves valid tokens from viper, handling both
+// comma-separated strings (from env vars) and arrays (from YAML config)
+func getValidTokens(v *viper.Viper) []string {
+	// Try to get as string slice (from YAML arrays)
+	tokens := v.GetStringSlice("auth.valid_tokens")
+
+	// If we got a single element that contains commas, it's from an env var
+	// and needs to be split. YAML arrays would have multiple elements.
+	if len(tokens) == 1 && strings.Contains(tokens[0], ",") {
+		tokens = strings.Split(tokens[0], ",")
+	}
+
+	// If empty, return empty slice
+	if len(tokens) == 0 || (len(tokens) == 1 && tokens[0] == "") {
 		return []string{}
 	}
-	tokens := strings.Split(tokensStr, ",")
+
 	// Trim whitespace from each token
 	for i := range tokens {
 		tokens[i] = strings.TrimSpace(tokens[i])

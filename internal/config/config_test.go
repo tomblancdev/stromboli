@@ -139,6 +139,9 @@ agent:
   image: "file-agent:latest"
   secrets_file: "/config/secrets"
   sessions_dir: "/config/sessions"
+  token_cache:
+    enabled: false
+    ttl: "1m"
 
 resources:
   memory: "4g"
@@ -164,11 +167,6 @@ jwt:
 jobs:
   cleanup_ttl: "2h"
   cleanup_interval: "10m"
-
-agent:
-  token_cache:
-    enabled: false
-    ttl: "1m"
 `
 	err := os.WriteFile(configPath, []byte(configContent), 0644)
 	require.NoError(t, err)
@@ -244,10 +242,11 @@ func TestLoad_InvalidDuration(t *testing.T) {
 func TestLoad_InvalidRateLimit(t *testing.T) {
 	cleanEnv(t)
 
+	os.Setenv("STROMBOLI_RATE_LIMIT_ENABLED", "true")
 	os.Setenv("STROMBOLI_RATE_LIMIT_RPS", "-5")
 
 	_, err := Load()
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "rate limit RPS must be positive")
 }
 
@@ -287,9 +286,19 @@ agent:
 func cleanEnv(t *testing.T) {
 	t.Helper()
 	for _, env := range os.Environ() {
-		if len(env) >= 10 && env[:10] == "STROMBOLI_" {
-			key := env[:len(env)-len(env[10:])-1]
-			os.Unsetenv(key)
+		// env is "KEY=value", so split on first "="
+		idx := 0
+		for i, c := range env {
+			if c == '=' {
+				idx = i
+				break
+			}
+		}
+		if idx > 0 {
+			key := env[:idx]
+			if len(key) >= 10 && key[:10] == "STROMBOLI_" {
+				os.Unsetenv(key)
+			}
 		}
 	}
 }

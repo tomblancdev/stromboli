@@ -94,7 +94,7 @@ func TestStartSpan_CreatesChildSpan(t *testing.T) {
 
 	shutdown, err := Init(context.Background(), cfg)
 	require.NoError(t, err)
-	defer shutdown(context.Background())
+	defer func() { _ = shutdown(context.Background()) }()
 
 	// Create parent span
 	ctx, parentSpan := StartSpan(context.Background(), "parent-operation")
@@ -126,7 +126,7 @@ func TestSpanFromContext_ReturnsSpan(t *testing.T) {
 
 	shutdown, err := Init(context.Background(), cfg)
 	require.NoError(t, err)
-	defer shutdown(context.Background())
+	defer func() { _ = shutdown(context.Background()) }()
 
 	// Create span
 	ctx, span := StartSpan(context.Background(), "test-operation")
@@ -150,7 +150,7 @@ func TestAddSpanAttributes_AddsAttributes(t *testing.T) {
 
 	shutdown, err := Init(context.Background(), cfg)
 	require.NoError(t, err)
-	defer shutdown(context.Background())
+	defer func() { _ = shutdown(context.Background()) }()
 
 	ctx, span := StartSpan(context.Background(), "test-operation")
 	defer span.End()
@@ -169,7 +169,7 @@ func TestRecordError_RecordsError(t *testing.T) {
 
 	shutdown, err := Init(context.Background(), cfg)
 	require.NoError(t, err)
-	defer shutdown(context.Background())
+	defer func() { _ = shutdown(context.Background()) }()
 
 	ctx, span := StartSpan(context.Background(), "test-operation")
 	defer span.End()
@@ -189,7 +189,7 @@ func TestTracer_ReturnsNamedTracer(t *testing.T) {
 
 	shutdown, err := Init(context.Background(), cfg)
 	require.NoError(t, err)
-	defer shutdown(context.Background())
+	defer func() { _ = shutdown(context.Background()) }()
 
 	tracer := Tracer("my-component")
 	require.NotNil(t, tracer)
@@ -212,7 +212,7 @@ func TestInit_WithEmptyServiceName_UsesDefault(t *testing.T) {
 	shutdown, err := Init(context.Background(), cfg)
 	require.NoError(t, err)
 	require.NotNil(t, shutdown)
-	defer shutdown(context.Background())
+	defer func() { _ = shutdown(context.Background()) }()
 }
 
 func TestSpanKind_Constants(t *testing.T) {
