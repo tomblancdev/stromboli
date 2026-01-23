@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tomblanc/stromboli/internal/claude"
-	"github.com/tomblanc/stromboli/internal/metrics"
-	"github.com/tomblanc/stromboli/internal/podman"
-	"github.com/tomblanc/stromboli/internal/secrets"
-	"github.com/tomblanc/stromboli/internal/session"
-	"github.com/tomblanc/stromboli/internal/types"
-	"github.com/tomblanc/stromboli/internal/workspace"
+	"stromboli/internal/claude"
+	"stromboli/internal/metrics"
+	"stromboli/internal/podman"
+	"stromboli/internal/secrets"
+	"stromboli/internal/session"
+	"stromboli/internal/types"
+	"stromboli/internal/workspace"
 )
 
 // Runner executes Claude in a container

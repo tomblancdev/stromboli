@@ -12,11 +12,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tomblanc/stromboli/internal/auth"
-	"github.com/tomblanc/stromboli/internal/claude"
-	strerrors "github.com/tomblanc/stromboli/internal/errors"
-	"github.com/tomblanc/stromboli/internal/job"
-	"github.com/tomblanc/stromboli/internal/runner"
+	"stromboli/internal/auth"
+	"stromboli/internal/claude"
+	strerrors "stromboli/internal/errors"
+	"stromboli/internal/job"
+	"stromboli/internal/runner"
 )
 
 func newTestServer(t *testing.T, mockRunner runner.Runner, configured bool) *Server {

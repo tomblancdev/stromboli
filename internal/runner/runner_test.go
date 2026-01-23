@@ -11,8 +11,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tomblanc/stromboli/internal/session"
-	"github.com/tomblanc/stromboli/internal/types"
+	"stromboli/internal/session"
+	"stromboli/internal/types"
 )
 
 func TestNewPodmanRunner(t *testing.T) {

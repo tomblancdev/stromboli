@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tomblanc/stromboli/internal/auth"
+	"stromboli/internal/auth"
 )
 
 // TokenRequest represents a request to generate JWT tokens

@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tomblanc/stromboli/internal/claude"
-	"github.com/tomblanc/stromboli/internal/runner"
+	"stromboli/internal/claude"
+	"stromboli/internal/runner"
 )
 
 // ErrorResponse represents a generic error response

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	strerrors "github.com/tomblanc/stromboli/internal/errors"
+	strerrors "stromboli/internal/errors"
 )
 
 // Manager handles session lifecycle and filesystem operations

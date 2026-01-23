@@ -7,11 +7,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/tomblanc/stromboli/internal/auth"
-	"github.com/tomblanc/stromboli/internal/claude"
-	strerrors "github.com/tomblanc/stromboli/internal/errors"
-	"github.com/tomblanc/stromboli/internal/job"
-	"github.com/tomblanc/stromboli/internal/runner"
+	"stromboli/internal/auth"
+	"stromboli/internal/claude"
+	strerrors "stromboli/internal/errors"
+	"stromboli/internal/job"
+	"stromboli/internal/runner"
 )
 
 // Server represents the HTTP API server

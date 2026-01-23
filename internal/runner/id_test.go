@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/tomblanc/stromboli/internal/session"
+	"stromboli/internal/session"
 )
 
 func TestGenerateSessionID_IsUnique(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	strerrors "github.com/tomblanc/stromboli/internal/errors"
+	strerrors "stromboli/internal/errors"
 )
 
 const (

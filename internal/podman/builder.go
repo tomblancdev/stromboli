@@ -62,8 +62,8 @@ func (b *CommandBuilder) WithVolumeReadOnly(hostPath, containerPath string) *Com
 }
 
 // WithVolumeChown adds a volume mount with :U flag
-// The :U flag tells Podman to recursively chown the volume to match the container user
-// This is essential for rootless containers writing to mounted volumes
+// The :U flag tells Podman to adjust ownership for the container user
+// Combined with --userns=keep-id, this preserves host user ownership
 func (b *CommandBuilder) WithVolumeChown(hostPath, containerPath string) *CommandBuilder {
 	b.volumes = append(b.volumes, hostPath+":"+containerPath+":U")
 	return b
@@ -135,7 +135,7 @@ func (b *CommandBuilder) WithCPUShares(shares int) *CommandBuilder {
 
 // Build generates the final podman command
 func (b *CommandBuilder) Build() []string {
-	args := []string{"podman", "run", "--rm"}
+	args := []string{"podman", "run", "--rm", "--userns=keep-id"}
 
 	if b.interactive {
 		args = append(args, "-it")

@@ -52,3 +52,7 @@ tmp/
 
 # Session data
 .stromboli/
+
+# Go build cache (from containerized builds)
+.cache/
+.config/

@@ -12,7 +12,7 @@ const docTemplate = `{
         "termsOfService": "https://github.com/tomblanc/stromboli",
         "contact": {
             "name": "API Support",
-            "url": "https://github.com/tomblanc/stromboli/issues"
+            "url": "https://stromboli/issues"
         },
         "license": {
             "name": "MIT",

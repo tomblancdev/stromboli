@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	strerrors "github.com/tomblanc/stromboli/internal/errors"
+	strerrors "stromboli/internal/errors"
 )
 
 // TestGenerateID_Format verifies that generated IDs follow UUID v4 format

@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pinocchio338/stromboli/internal/api"
-	"github.com/pinocchio338/stromboli/internal/claude"
-	"github.com/pinocchio338/stromboli/internal/job"
-	"github.com/pinocchio338/stromboli/internal/runner"
+	"stromboli/internal/api"
+	"stromboli/internal/claude"
+	"stromboli/internal/job"
+	"stromboli/internal/runner"
 )
 
 // testEnv holds the test environment state

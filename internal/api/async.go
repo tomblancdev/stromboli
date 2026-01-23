@@ -8,9 +8,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tomblanc/stromboli/internal/job"
-	"github.com/tomblanc/stromboli/internal/runner"
-	"github.com/tomblanc/stromboli/internal/webhook"
+	"stromboli/internal/job"
+	"stromboli/internal/runner"
+	"stromboli/internal/webhook"
 )
 
 // AsyncRunResponse represents the response from starting an async run

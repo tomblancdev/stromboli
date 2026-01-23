@@ -9,7 +9,7 @@
 // @termsOfService https://github.com/tomblanc/stromboli
 //
 // @contact.name API Support
-// @contact.url https://github.com/tomblanc/stromboli/issues
+// @contact.url https://stromboli/issues
 //
 // @license.name MIT
 // @license.url https://opensource.org/licenses/MIT
@@ -32,12 +32,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/tomblanc/stromboli/internal/api"
-	"github.com/tomblanc/stromboli/internal/auth"
-	"github.com/tomblanc/stromboli/internal/claude"
-	"github.com/tomblanc/stromboli/internal/config"
-	"github.com/tomblanc/stromboli/internal/job"
-	"github.com/tomblanc/stromboli/internal/runner"
+	"stromboli/internal/api"
+	"stromboli/internal/auth"
+	"stromboli/internal/claude"
+	"stromboli/internal/config"
+	"stromboli/internal/job"
+	"stromboli/internal/runner"
 )
 
 // allowedWorkspaces restricts which host paths can be mounted as workspaces.

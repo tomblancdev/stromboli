@@ -11,9 +11,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tomblanc/stromboli/internal/job"
-	"github.com/tomblanc/stromboli/internal/runner"
-	"github.com/tomblanc/stromboli/internal/webhook"
+	"stromboli/internal/job"
+	"stromboli/internal/runner"
+	"stromboli/internal/webhook"
 )
 
 func TestCancelJob(t *testing.T) {

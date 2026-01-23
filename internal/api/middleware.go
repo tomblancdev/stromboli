@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tomblanc/stromboli/internal/metrics"
+	"stromboli/internal/metrics"
 )
 
 // RequestIDMiddleware generates or uses a request ID for tracking

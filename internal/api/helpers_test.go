@@ -8,7 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
-	"github.com/tomblanc/stromboli/internal/types"
+	"stromboli/internal/types"
 )
 
 func TestValidateClaudeConfigured(t *testing.T) {

@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tomblanc/stromboli/internal/runner"
+	"stromboli/internal/runner"
 )
 
 func TestRunStream_MissingPrompt_ReturnsBadRequest(t *testing.T) {

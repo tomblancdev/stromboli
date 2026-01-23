@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/tomblanc/stromboli/internal/types"
+	"stromboli/internal/types"
 )
 
 // HealthResponse represents the health check response

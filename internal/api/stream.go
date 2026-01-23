@@ -7,8 +7,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tomblanc/stromboli/internal/runner"
-	"github.com/tomblanc/stromboli/internal/types"
+	"stromboli/internal/runner"
+	"stromboli/internal/types"
 )
 
 // StreamResponse represents the final SSE event with result metadata

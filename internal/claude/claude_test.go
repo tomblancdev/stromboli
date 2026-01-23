@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	strerrors "github.com/tomblanc/stromboli/internal/errors"
+	strerrors "stromboli/internal/errors"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

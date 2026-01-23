@@ -3,9 +3,13 @@
 # Binary name
 BINARY=stromboli
 
+# Go container command - uses --userns=keep-id to preserve host file ownership
+GO_IMAGE=golang:1.24
+GO_RUN=podman run --rm --userns=keep-id -v $(PWD):/app -w /app $(GO_IMAGE)
+
 # Build the application
 build:
-	go build -o bin/$(BINARY) ./cmd/stromboli
+	$(GO_RUN) go build -o bin/$(BINARY) ./cmd/stromboli
 
 # Run the application
 run: build
@@ -13,33 +17,31 @@ run: build
 
 # Run unit tests only (no integration tag)
 test:
-	go test -v ./...
+	$(GO_RUN) go test -v ./...
 
 # Run integration tests only (requires Podman)
 test-integration:
-	go test -v -tags=integration ./...
+	$(GO_RUN) go test -v -tags=integration ./...
 
 # Run E2E tests only (requires server setup and optionally Claude token)
 test-e2e:
-	go test -v -tags=e2e ./tests/e2e/...
+	$(GO_RUN) go test -v -tags=e2e ./tests/e2e/...
 
 # Run all tests (unit + integration + e2e)
 test-all:
-	go test -v ./... && go test -v -tags=integration ./... && go test -v -tags=e2e ./tests/e2e/...
+	$(GO_RUN) sh -c 'go test -v ./... && go test -v -tags=integration ./... && go test -v -tags=e2e ./tests/e2e/...'
 
 # Run tests with coverage
 test-coverage:
-	go test -coverprofile=coverage.out ./...
-	go tool cover -html=coverage.out -o coverage.html
+	$(GO_RUN) sh -c 'go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html'
 
 # Run linter
 lint:
-	golangci-lint run
+	$(GO_RUN) sh -c 'go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest && golangci-lint run'
 
 # Download dependencies
 deps:
-	go mod download
-	go mod tidy
+	$(GO_RUN) sh -c 'go mod download && go mod tidy'
 
 # Build the agent Docker image
 build-agent-image:
@@ -67,7 +69,7 @@ docs: docs-swagger docs-godoc
 docs-swagger:
 	@echo "📝 Generating OpenAPI/Swagger docs..."
 	@mkdir -p docs/swagger
-	@podman run --rm -v $(PWD):/app -w /app golang:1.24 sh -c '\
+	@$(GO_RUN) sh -c '\
 		go install github.com/swaggo/swag/cmd/swag@latest && \
 		swag init -g cmd/stromboli/main.go -o docs/swagger --parseDependency --parseInternal'
 	@echo "✅ Swagger docs: docs/swagger/"
@@ -79,12 +81,12 @@ docs-swagger:
 docs-godoc:
 	@echo "📖 Generating Go documentation..."
 	@mkdir -p docs/godoc
-	@podman run --rm -v $(PWD):/app -w /app golang:1.24 sh -c '\
+	@$(GO_RUN) sh -c '\
 		echo "# Stromboli Code Documentation" > /app/docs/godoc/README.md && \
 		echo "" >> /app/docs/godoc/README.md && \
 		echo "Generated: $$(date)" >> /app/docs/godoc/README.md && \
 		echo "" >> /app/docs/godoc/README.md && \
-		for pkg in api claude podman runner container; do \
+		for pkg in api claude podman runner; do \
 			echo "## Package $$pkg" >> /app/docs/godoc/README.md; \
 			echo "" >> /app/docs/godoc/README.md; \
 			echo "\`\`\`" >> /app/docs/godoc/README.md; \
