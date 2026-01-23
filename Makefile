@@ -82,17 +82,58 @@ docs-godoc:
 	@echo "📖 Generating Go documentation..."
 	@mkdir -p docs/godoc
 	@$(GO_RUN) sh -c '\
-		echo "# Stromboli Code Documentation" > /app/docs/godoc/README.md && \
-		echo "" >> /app/docs/godoc/README.md && \
-		echo "Generated: $$(date)" >> /app/docs/godoc/README.md && \
-		echo "" >> /app/docs/godoc/README.md && \
-		for pkg in api claude podman runner; do \
-			echo "## Package $$pkg" >> /app/docs/godoc/README.md; \
-			echo "" >> /app/docs/godoc/README.md; \
-			echo "\`\`\`" >> /app/docs/godoc/README.md; \
-			go doc -all ./internal/$$pkg 2>/dev/null >> /app/docs/godoc/README.md || true; \
-			echo "\`\`\`" >> /app/docs/godoc/README.md; \
-			echo "" >> /app/docs/godoc/README.md; \
+		OUT=/app/docs/godoc/README.md && \
+		echo "# 📚 Stromboli API Reference" > $$OUT && \
+		echo "" >> $$OUT && \
+		echo "> Auto-generated Go documentation for all packages" >> $$OUT && \
+		echo "" >> $$OUT && \
+		echo "**Generated:** $$(date -u +"%Y-%m-%d %H:%M UTC")" >> $$OUT && \
+		echo "" >> $$OUT && \
+		echo "---" >> $$OUT && \
+		echo "" >> $$OUT && \
+		echo "## 📋 Table of Contents" >> $$OUT && \
+		echo "" >> $$OUT && \
+		echo "### Core" >> $$OUT && \
+		echo "- [api](#package-api) - HTTP handlers and REST API endpoints" >> $$OUT && \
+		echo "- [config](#package-config) - Configuration management with Viper" >> $$OUT && \
+		echo "- [errors](#package-errors) - Custom error types" >> $$OUT && \
+		echo "" >> $$OUT && \
+		echo "### Execution" >> $$OUT && \
+		echo "- [runner](#package-runner) - Container execution engine" >> $$OUT && \
+		echo "- [podman](#package-podman) - Podman command builder" >> $$OUT && \
+		echo "- [claude](#package-claude) - Claude CLI command builder" >> $$OUT && \
+		echo "- [job](#package-job) - Async job management" >> $$OUT && \
+		echo "" >> $$OUT && \
+		echo "### Security" >> $$OUT && \
+		echo "- [auth](#package-auth) - JWT authentication and middleware" >> $$OUT && \
+		echo "- [secrets](#package-secrets) - Podman secrets management" >> $$OUT && \
+		echo "" >> $$OUT && \
+		echo "### Infrastructure" >> $$OUT && \
+		echo "- [session](#package-session) - Session ID generation" >> $$OUT && \
+		echo "- [workspace](#package-workspace) - Workspace validation" >> $$OUT && \
+		echo "- [webhook](#package-webhook) - Webhook notifications" >> $$OUT && \
+		echo "- [metrics](#package-metrics) - Prometheus metrics" >> $$OUT && \
+		echo "- [tracing](#package-tracing) - OpenTelemetry distributed tracing" >> $$OUT && \
+		echo "- [types](#package-types) - Shared data types" >> $$OUT && \
+		echo "" >> $$OUT && \
+		echo "---" >> $$OUT && \
+		echo "" >> $$OUT && \
+		for pkg in api config errors runner podman claude job auth secrets session workspace webhook metrics tracing types; do \
+			echo "## Package $$pkg" >> $$OUT; \
+			echo "" >> $$OUT; \
+			echo "<details>" >> $$OUT; \
+			echo "<summary>📦 Click to expand</summary>" >> $$OUT; \
+			echo "" >> $$OUT; \
+			echo "\`\`\`go" >> $$OUT; \
+			go doc -all ./internal/$$pkg 2>/dev/null >> $$OUT || echo "// Package $$pkg - documentation not available" >> $$OUT; \
+			echo "\`\`\`" >> $$OUT; \
+			echo "" >> $$OUT; \
+			echo "</details>" >> $$OUT; \
+			echo "" >> $$OUT; \
+			echo "[⬆️ Back to top](#-table-of-contents)" >> $$OUT; \
+			echo "" >> $$OUT; \
+			echo "---" >> $$OUT; \
+			echo "" >> $$OUT; \
 		done'
 	@echo "✅ Code docs: docs/godoc/README.md"
 
