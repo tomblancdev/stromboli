@@ -15,8 +15,8 @@ Stromboli is a REST API that provides secure, isolated execution of Claude AI in
 - **Session Management**: Persistent conversation sessions across multiple API calls
 - **Webhook Notifications**: Get notified when async jobs complete
 - **Resource Controls**: CPU, memory, and timeout limits per container
-- **Security**: Token-based authentication, workspace allowlisting, secret management
-- **Observability**: Prometheus metrics, structured logging, request tracking
+- **Security**: Token-based authentication, JWT with refresh tokens, workspace allowlisting, secret management
+- **Observability**: Prometheus metrics, OpenTelemetry distributed tracing, structured logging, request tracking
 
 ## Quick Start
 
@@ -103,11 +103,20 @@ curl -X POST http://localhost:8080/run \
 | `/sessions` | GET | List all sessions |
 | `/sessions/{id}` | DELETE | Destroy session and all its data |
 
+### Authentication
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/auth/token` | POST | Generate JWT access and refresh tokens |
+| `/auth/refresh` | POST | Refresh an expiring access token |
+| `/auth/validate` | GET | Validate a token and return claims |
+| `/auth/logout` | POST | Invalidate a token (logout) |
+
 ### System
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/health` | GET | Health check |
+| `/health` | GET | Health check with component status |
 | `/metrics` | GET | Prometheus metrics |
 | `/claude/status` | GET | Check Claude configuration |
 
@@ -206,9 +215,13 @@ curl -X POST http://localhost:8080/run \
 |----------|---------|-------------|
 | `STROMBOLI_AUTH_ENABLED` | `false` | Enable token-based authentication |
 | `STROMBOLI_API_TOKENS` | - | Comma-separated list of valid API tokens |
+| `STROMBOLI_JWT_SECRET` | - | Secret key for JWT signing (enables JWT auth) |
+| `STROMBOLI_JWT_EXPIRY` | `24h` | JWT access token lifetime |
 | `STROMBOLI_RATE_LIMIT_ENABLED` | `false` | Enable rate limiting |
 | `STROMBOLI_RATE_LIMIT_RPS` | `10` | Requests per second limit |
 | `STROMBOLI_RATE_LIMIT_BURST` | `20` | Maximum burst size |
+| `STROMBOLI_TRACING_ENABLED` | `false` | Enable OpenTelemetry tracing |
+| `STROMBOLI_TRACING_ENDPOINT` | `localhost:4317` | OTLP collector endpoint |
 
 ### Authentication
 
@@ -220,6 +233,32 @@ curl -X POST http://localhost:8080/run \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Hello"}'
 ```
+
+#### JWT Authentication (Recommended)
+
+For production, use JWT tokens with automatic expiration and refresh:
+
+```bash
+# Set JWT secret to enable JWT auth
+export STROMBOLI_JWT_SECRET="your-256-bit-secret"
+
+# Generate JWT tokens using API token
+curl -X POST http://localhost:8080/auth/token \
+  -H "Authorization: Bearer your-api-token" \
+  -H "Content-Type: application/json" \
+  -d '{"client_id": "my-app"}'
+
+# Response: {"access_token": "eyJ...", "refresh_token": "eyJ...", "expires_in": 86400}
+
+# Use JWT for requests
+curl -H "Authorization: Bearer eyJ..." http://localhost:8080/run ...
+
+# Logout (invalidate token)
+curl -X POST http://localhost:8080/auth/logout \
+  -H "Authorization: Bearer eyJ..."
+```
+
+See [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) for complete JWT setup.
 
 ### Rate Limiting
 
@@ -234,6 +273,20 @@ export STROMBOLI_RATE_LIMIT_BURST=20   # Allow burst of 20
 ```
 
 Rate limits are applied per IP address. When exceeded, the API returns `429 Too Many Requests`. See [docs/RATE_LIMITING.md](docs/RATE_LIMITING.md) for details.
+
+### Distributed Tracing
+
+Enable OpenTelemetry tracing for observability:
+
+```bash
+export STROMBOLI_TRACING_ENABLED=true
+export STROMBOLI_TRACING_ENDPOINT="jaeger:4317"
+export STROMBOLI_TRACING_SERVICE_NAME="stromboli-prod"
+
+./bin/stromboli
+```
+
+Traces include HTTP requests, runner execution, and internal spans. Compatible with Jaeger, Grafana Tempo, and any OTLP-compatible backend. See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for details.
 
 ### Resource Limits
 
@@ -442,9 +495,13 @@ WantedBy=multi-user.target
 
 ## Documentation
 
+- **[User Guide](docs/USER_GUIDE.md)** - Start here! Complete guide for users
 - [API Reference](docs/API.md) - Complete API documentation with schemas
 - [Examples](docs/EXAMPLES.md) - Practical usage examples
 - [Architecture](docs/ARCHITECTURE.md) - System design and components
+- [Configuration](docs/CONFIGURATION.md) - All configuration options
+- [Authentication](docs/AUTHENTICATION.md) - JWT and token authentication
+- [Testing](docs/TESTING.md) - Testing guide (unit, integration, E2E)
 - [Vision](docs/VISION.md) - Project vision and roadmap
 
 ## Contributing

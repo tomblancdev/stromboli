@@ -1,6 +1,220 @@
 basePath: /
 definitions:
-  internal_api.ClaudeOptions:
+  internal_api.AsyncRunResponse:
+    description: Response from starting an async Claude execution
+    properties:
+      job_id:
+        example: job-abc123def456
+        type: string
+    type: object
+  internal_api.ClaudeStatusResponse:
+    description: Claude configuration status
+    properties:
+      configured:
+        example: true
+        type: boolean
+      message:
+        example: Claude is configured
+        type: string
+    type: object
+  internal_api.ComponentHealth:
+    properties:
+      error:
+        description: Error message if status is "error"
+        example: ""
+        type: string
+      name:
+        description: Name of the component
+        example: podman
+        type: string
+      status:
+        description: Status is "ok" or "error"
+        example: ok
+        type: string
+    type: object
+  internal_api.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  internal_api.HealthResponse:
+    description: Health check response
+    properties:
+      components:
+        items:
+          $ref: '#/definitions/internal_api.ComponentHealth'
+        type: array
+      name:
+        example: stromboli
+        type: string
+      status:
+        example: ok
+        type: string
+    type: object
+  internal_api.JobListResponse:
+    description: List of async jobs
+    properties:
+      jobs:
+        items:
+          $ref: '#/definitions/internal_api.JobResponse'
+        type: array
+    type: object
+  internal_api.JobResponse:
+    description: Job status and result
+    properties:
+      created_at:
+        example: "2024-01-15T10:30:00Z"
+        type: string
+      error:
+        type: string
+      id:
+        example: job-abc123def456
+        type: string
+      output:
+        example: Hello!
+        type: string
+      session_id:
+        example: sess-abc123def456
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/stromboli_internal_job.Status'
+        example: running
+      updated_at:
+        example: "2024-01-15T10:31:00Z"
+        type: string
+    type: object
+  internal_api.LogoutResponse:
+    properties:
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  internal_api.RefreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  internal_api.RunRequest:
+    description: Request to execute Claude Code in an isolated container
+    properties:
+      claude:
+        allOf:
+        - $ref: '#/definitions/stromboli_internal_types.ClaudeOptions'
+        description: Claude configuration - all CLI options exposed
+      podman:
+        allOf:
+        - $ref: '#/definitions/stromboli_internal_types.PodmanOptions'
+        description: Podman configuration
+      prompt:
+        description: 'Required: the prompt to send to Claude'
+        example: Analyze this code and suggest improvements
+        type: string
+      webhook_url:
+        description: Webhook URL to notify when job completes (async only)
+        example: https://example.com/webhook
+        type: string
+      workspace:
+        description: Workspace to mount (host path -> /workspace in container)
+        example: /home/user/project
+        type: string
+    required:
+    - prompt
+    type: object
+  internal_api.RunResponse:
+    description: Response from Claude execution
+    properties:
+      error:
+        description: Error message (when failed)
+        example: ""
+        type: string
+      id:
+        description: Unique run identifier
+        example: run-abc123def456
+        type: string
+      output:
+        description: Claude's output (when successful)
+        example: Here is my analysis...
+        type: string
+      session_id:
+        description: Session ID for conversation continuation
+        example: sess-abc123def456
+        type: string
+      status:
+        description: 'Execution status: completed, error'
+        example: completed
+        type: string
+    type: object
+  internal_api.SessionDestroyResponse:
+    description: Result of session destruction
+    properties:
+      error:
+        type: string
+      session_id:
+        example: sess-abc123
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  internal_api.SessionListResponse:
+    description: List of existing sessions
+    properties:
+      error:
+        type: string
+      sessions:
+        example:
+        - sess-abc123
+        - sess-def456
+        items:
+          type: string
+        type: array
+    type: object
+  internal_api.TokenRequest:
+    properties:
+      client_id:
+        type: string
+    required:
+    - client_id
+    type: object
+  internal_api.TokenResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+      token_type:
+        type: string
+    type: object
+  internal_api.ValidateResponse:
+    properties:
+      expires_at:
+        type: integer
+      subject:
+        type: string
+      valid:
+        type: boolean
+    type: object
+  stromboli_internal_job.Status:
+    enum:
+    - pending
+    - running
+    - completed
+    - failed
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - StatusPending
+    - StatusRunning
+    - StatusCompleted
+    - StatusFailed
+    - StatusCancelled
+  stromboli_internal_types.ClaudeOptions:
     description: All available Claude CLI options for headless execution
     properties:
       add_dirs:
@@ -38,7 +252,7 @@ definitions:
           type: string
         type: array
       continue:
-        description: Continue most recent conversation in workspace
+        description: Continue most recent conversation in workspace (ignores session_id)
         example: false
         type: boolean
       dangerously_skip_permissions:
@@ -120,8 +334,12 @@ definitions:
         description: Re-emit user messages on stdout
         example: false
         type: boolean
+      resume:
+        description: Resume an existing session (requires session_id)
+        example: true
+        type: boolean
       session_id:
-        description: Resume by session ID (UUID)
+        description: Session ID (UUID) - used for both new and resumed sessions
         example: 550e8400-e29b-41d4-a716-446655440000
         type: string
       setting_sources:
@@ -157,29 +375,25 @@ definitions:
         example: false
         type: boolean
     type: object
-  internal_api.ClaudeStatusResponse:
-    description: Claude configuration status
-    properties:
-      configured:
-        example: true
-        type: boolean
-      message:
-        example: Claude is configured
-        type: string
-    type: object
-  internal_api.HealthResponse:
-    description: Health check response
-    properties:
-      name:
-        example: stromboli
-        type: string
-      status:
-        example: ok
-        type: string
-    type: object
-  internal_api.PodmanOptions:
+  stromboli_internal_types.PodmanOptions:
     description: Podman container mount configuration
     properties:
+      cpu_shares:
+        description: CPU shares (relative weight, default 1024)
+        example: 512
+        type: integer
+      cpus:
+        description: CPU limit (e.g., "0.5", "2")
+        example: "1"
+        type: string
+      memory:
+        description: Memory limit (e.g., "512m", "1g")
+        example: 512m
+        type: string
+      timeout:
+        description: Container timeout (e.g., "5m", "1h", "30s")
+        example: 5m
+        type: string
       volumes:
         description: Volume mounts (host:container or host:container:options format)
         example:
@@ -188,57 +402,11 @@ definitions:
           type: string
         type: array
     type: object
-  internal_api.RunRequest:
-    description: Request to execute Claude Code in an isolated container
-    properties:
-      claude:
-        allOf:
-        - $ref: '#/definitions/internal_api.ClaudeOptions'
-        description: Claude configuration - all CLI options exposed
-      podman:
-        allOf:
-        - $ref: '#/definitions/internal_api.PodmanOptions'
-        description: Podman configuration
-      prompt:
-        description: 'Required: the prompt to send to Claude'
-        example: Analyze this code and suggest improvements
-        type: string
-      workspace:
-        description: Workspace to mount (host path -> /workspace in container)
-        example: /home/user/project
-        type: string
-    required:
-    - prompt
-    type: object
-  internal_api.RunResponse:
-    description: Response from Claude execution
-    properties:
-      error:
-        description: Error message (when failed)
-        example: ""
-        type: string
-      id:
-        description: Unique run identifier
-        example: run-abc123def456
-        type: string
-      output:
-        description: Claude's output (when successful)
-        example: Here is my analysis...
-        type: string
-      session_id:
-        description: Session ID for conversation continuation
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-      status:
-        description: 'Execution status: completed, error'
-        example: completed
-        type: string
-    type: object
 host: localhost:8080
 info:
   contact:
     name: API Support
-    url: https://github.com/tomblanc/stromboli/issues
+    url: https://stromboli/issues
   description: Claude Code container orchestration API - secure, isolated AI execution
   license:
     name: MIT
@@ -247,6 +415,110 @@ info:
   title: Stromboli API
   version: "1.0"
 paths:
+  /auth/logout:
+    post:
+      description: Invalidates a JWT token by adding it to the blacklist
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.LogoutResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Logout (invalidate token)
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Generate a new access token using a valid refresh token
+      parameters:
+      - description: Refresh request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.TokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      summary: Refresh access token
+      tags:
+      - auth
+  /auth/token:
+    post:
+      consumes:
+      - application/json
+      description: Generate new JWT access and refresh tokens using API credentials
+      parameters:
+      - description: Token request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.TokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.TokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Generate JWT tokens
+      tags:
+      - auth
+  /auth/validate:
+    get:
+      description: Validate a JWT token and return its claims
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.ValidateResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Validate JWT token
+      tags:
+      - auth
   /claude/status:
     get:
       description: Checks if Claude credentials are configured
@@ -262,7 +534,7 @@ paths:
       - system
   /health:
     get:
-      description: Returns the health status of the API
+      description: Returns the health status of the API with component checks
       produces:
       - application/json
       responses:
@@ -273,6 +545,69 @@ paths:
       summary: Health check
       tags:
       - system
+  /jobs:
+    get:
+      description: Returns all async jobs
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.JobListResponse'
+      summary: List jobs
+      tags:
+      - jobs
+  /jobs/{id}:
+    delete:
+      description: Cancels a pending or running job
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Job not found
+          schema:
+            $ref: '#/definitions/internal_api.RunResponse'
+        "409":
+          description: Job cannot be cancelled
+          schema:
+            $ref: '#/definitions/internal_api.RunResponse'
+      summary: Cancel job
+      tags:
+      - jobs
+    get:
+      description: Returns the status and result of an async job
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.JobResponse'
+        "404":
+          description: Job not found
+          schema:
+            $ref: '#/definitions/internal_api.RunResponse'
+      summary: Get job status
+      tags:
+      - jobs
   /run:
     post:
       consumes:
@@ -307,6 +642,117 @@ paths:
       summary: Run Claude
       tags:
       - execution
+  /run/async:
+    post:
+      consumes:
+      - application/json
+      description: Starts Claude Code execution asynchronously and returns a job ID
+      parameters:
+      - description: Run request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.RunRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/internal_api.AsyncRunResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_api.RunResponse'
+        "503":
+          description: Claude not configured
+          schema:
+            $ref: '#/definitions/internal_api.RunResponse'
+      summary: Run Claude async
+      tags:
+      - execution
+  /run/stream:
+    get:
+      consumes:
+      - application/json
+      description: Executes Claude and streams output in real-time using SSE
+      parameters:
+      - description: The prompt to send to Claude
+        in: query
+        name: prompt
+        required: true
+        type: string
+      - description: Workspace path to mount
+        in: query
+        name: workspace
+        type: string
+      - description: Session ID for conversation continuation
+        in: query
+        name: session_id
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: Event stream of output lines
+          schema:
+            type: string
+        "400":
+          description: Invalid request
+          schema:
+            type: string
+        "503":
+          description: Claude not configured
+          schema:
+            type: string
+      summary: Stream Claude output
+      tags:
+      - execution
+  /sessions:
+    get:
+      description: Returns all existing session IDs
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.SessionListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_api.SessionListResponse'
+      summary: List sessions
+      tags:
+      - sessions
+  /sessions/{id}:
+    delete:
+      description: Removes a session and all its stored data
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.SessionDestroyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_api.SessionDestroyResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_api.SessionDestroyResponse'
+      summary: Destroy session
+      tags:
+      - sessions
 securityDefinitions:
   BearerAuth:
     description: OAuth2 Bearer token (future)

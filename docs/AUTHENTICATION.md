@@ -201,6 +201,30 @@ Validate a token and return its claims.
 }
 ```
 
+### POST /auth/logout (v1.3+)
+
+Invalidate a token (logout). The token is added to a blacklist and will be rejected on subsequent requests until it naturally expires.
+
+**Authentication**: Requires valid JWT token
+
+**Request**: No body required
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "token invalidated"
+}
+```
+
+**Usage:**
+```bash
+curl -X POST http://localhost:8080/auth/logout \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+**Note:** The blacklist is kept in memory and automatically cleans up expired tokens every hour. Blacklisted tokens are identified by their unique JTI (JWT ID) claim.
+
 ## Migration from Legacy to JWT
 
 JWT authentication is fully backward compatible. You can enable JWT while keeping legacy tokens active:

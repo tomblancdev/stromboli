@@ -237,6 +237,39 @@ export STROMBOLI_JOBS_CLEANUP_TTL="2h"
 export STROMBOLI_JOBS_CLEANUP_INTERVAL="10m"
 ```
 
+### Tracing Configuration (v1.4+)
+
+OpenTelemetry distributed tracing for observability.
+
+| Setting | Environment Variable | YAML Path | Default | Description |
+|---------|---------------------|-----------|---------|-------------|
+| Enabled | `STROMBOLI_TRACING_ENABLED` | `tracing.enabled` | `false` | Enable OpenTelemetry tracing |
+| Service Name | `STROMBOLI_TRACING_SERVICE_NAME` | `tracing.service_name` | `stromboli` | Service name in traces |
+| Endpoint | `STROMBOLI_TRACING_ENDPOINT` | `tracing.endpoint` | `localhost:4317` | OTLP collector endpoint (gRPC) |
+| Insecure | `STROMBOLI_TRACING_INSECURE` | `tracing.insecure` | `true` | Use insecure connection (no TLS) |
+
+**Example:**
+```yaml
+tracing:
+  enabled: true
+  service_name: "stromboli-prod"
+  endpoint: "jaeger:4317"
+  insecure: true  # Set to false for production with TLS
+```
+
+```bash
+export STROMBOLI_TRACING_ENABLED=true
+export STROMBOLI_TRACING_SERVICE_NAME="stromboli-prod"
+export STROMBOLI_TRACING_ENDPOINT="jaeger:4317"
+export STROMBOLI_TRACING_INSECURE=true
+```
+
+**Compatible collectors:**
+- Jaeger (with OTLP receiver)
+- Grafana Tempo
+- OpenTelemetry Collector
+- Any OTLP-compatible backend
+
 ## Configuration Examples
 
 ### Development Configuration

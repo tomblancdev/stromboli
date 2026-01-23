@@ -6,7 +6,7 @@
         "termsOfService": "https://github.com/tomblanc/stromboli",
         "contact": {
             "name": "API Support",
-            "url": "https://github.com/tomblanc/stromboli/issues"
+            "url": "https://stromboli/issues"
         },
         "license": {
             "name": "MIT",
@@ -17,6 +17,171 @@
     "host": "localhost:8080",
     "basePath": "/",
     "paths": {
+        "/auth/logout": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Invalidates a JWT token by adding it to the blacklist",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Logout (invalidate token)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.LogoutResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/refresh": {
+            "post": {
+                "description": "Generate a new access token using a valid refresh token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Refresh access token",
+                "parameters": [
+                    {
+                        "description": "Refresh request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.RefreshRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.TokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/token": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Generate new JWT access and refresh tokens using API credentials",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Generate JWT tokens",
+                "parameters": [
+                    {
+                        "description": "Token request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.TokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.TokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/validate": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Validate a JWT token and return its claims",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Validate JWT token",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ValidateResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/claude/status": {
             "get": {
                 "description": "Checks if Claude credentials are configured",
@@ -39,7 +204,7 @@
         },
         "/health": {
             "get": {
-                "description": "Returns the health status of the API",
+                "description": "Returns the health status of the API with component checks",
                 "produces": [
                     "application/json"
                 ],
@@ -52,6 +217,101 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/internal_api.HealthResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/jobs": {
+            "get": {
+                "description": "Returns all async jobs",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "jobs"
+                ],
+                "summary": "List jobs",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.JobListResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/jobs/{id}": {
+            "get": {
+                "description": "Returns the status and result of an async job",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "jobs"
+                ],
+                "summary": "Get job status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.JobResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Job not found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.RunResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Cancels a pending or running job",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "jobs"
+                ],
+                "summary": "Cancel job",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Job not found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.RunResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Job cannot be cancelled",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.RunResponse"
                         }
                     }
                 }
@@ -108,10 +368,488 @@
                     }
                 }
             }
+        },
+        "/run/async": {
+            "post": {
+                "description": "Starts Claude Code execution asynchronously and returns a job ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "execution"
+                ],
+                "summary": "Run Claude async",
+                "parameters": [
+                    {
+                        "description": "Run request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.RunRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.AsyncRunResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.RunResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Claude not configured",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.RunResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/run/stream": {
+            "get": {
+                "description": "Executes Claude and streams output in real-time using SSE",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "execution"
+                ],
+                "summary": "Stream Claude output",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The prompt to send to Claude",
+                        "name": "prompt",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Workspace path to mount",
+                        "name": "workspace",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Session ID for conversation continuation",
+                        "name": "session_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Event stream of output lines",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "503": {
+                        "description": "Claude not configured",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions": {
+            "get": {
+                "description": "Returns all existing session IDs",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sessions"
+                ],
+                "summary": "List sessions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionListResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{id}": {
+            "delete": {
+                "description": "Removes a session and all its stored data",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sessions"
+                ],
+                "summary": "Destroy session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionDestroyResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionDestroyResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionDestroyResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
-        "internal_api.ClaudeOptions": {
+        "internal_api.AsyncRunResponse": {
+            "description": "Response from starting an async Claude execution",
+            "type": "object",
+            "properties": {
+                "job_id": {
+                    "type": "string",
+                    "example": "job-abc123def456"
+                }
+            }
+        },
+        "internal_api.ClaudeStatusResponse": {
+            "description": "Claude configuration status",
+            "type": "object",
+            "properties": {
+                "configured": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Claude is configured"
+                }
+            }
+        },
+        "internal_api.ComponentHealth": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "description": "Error message if status is \"error\"",
+                    "type": "string",
+                    "example": ""
+                },
+                "name": {
+                    "description": "Name of the component",
+                    "type": "string",
+                    "example": "podman"
+                },
+                "status": {
+                    "description": "Status is \"ok\" or \"error\"",
+                    "type": "string",
+                    "example": "ok"
+                }
+            }
+        },
+        "internal_api.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_api.HealthResponse": {
+            "description": "Health check response",
+            "type": "object",
+            "properties": {
+                "components": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_api.ComponentHealth"
+                    }
+                },
+                "name": {
+                    "type": "string",
+                    "example": "stromboli"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "ok"
+                }
+            }
+        },
+        "internal_api.JobListResponse": {
+            "description": "List of async jobs",
+            "type": "object",
+            "properties": {
+                "jobs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_api.JobResponse"
+                    }
+                }
+            }
+        },
+        "internal_api.JobResponse": {
+            "description": "Job status and result",
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string",
+                    "example": "2024-01-15T10:30:00Z"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "job-abc123def456"
+                },
+                "output": {
+                    "type": "string",
+                    "example": "Hello!"
+                },
+                "session_id": {
+                    "type": "string",
+                    "example": "sess-abc123def456"
+                },
+                "status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stromboli_internal_job.Status"
+                        }
+                    ],
+                    "example": "running"
+                },
+                "updated_at": {
+                    "type": "string",
+                    "example": "2024-01-15T10:31:00Z"
+                }
+            }
+        },
+        "internal_api.LogoutResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "internal_api.RefreshRequest": {
+            "type": "object",
+            "required": [
+                "refresh_token"
+            ],
+            "properties": {
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_api.RunRequest": {
+            "description": "Request to execute Claude Code in an isolated container",
+            "type": "object",
+            "required": [
+                "prompt"
+            ],
+            "properties": {
+                "claude": {
+                    "description": "Claude configuration - all CLI options exposed",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stromboli_internal_types.ClaudeOptions"
+                        }
+                    ]
+                },
+                "podman": {
+                    "description": "Podman configuration",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stromboli_internal_types.PodmanOptions"
+                        }
+                    ]
+                },
+                "prompt": {
+                    "description": "Required: the prompt to send to Claude",
+                    "type": "string",
+                    "example": "Analyze this code and suggest improvements"
+                },
+                "webhook_url": {
+                    "description": "Webhook URL to notify when job completes (async only)",
+                    "type": "string",
+                    "example": "https://example.com/webhook"
+                },
+                "workspace": {
+                    "description": "Workspace to mount (host path -\u003e /workspace in container)",
+                    "type": "string",
+                    "example": "/home/user/project"
+                }
+            }
+        },
+        "internal_api.RunResponse": {
+            "description": "Response from Claude execution",
+            "type": "object",
+            "properties": {
+                "error": {
+                    "description": "Error message (when failed)",
+                    "type": "string",
+                    "example": ""
+                },
+                "id": {
+                    "description": "Unique run identifier",
+                    "type": "string",
+                    "example": "run-abc123def456"
+                },
+                "output": {
+                    "description": "Claude's output (when successful)",
+                    "type": "string",
+                    "example": "Here is my analysis..."
+                },
+                "session_id": {
+                    "description": "Session ID for conversation continuation",
+                    "type": "string",
+                    "example": "sess-abc123def456"
+                },
+                "status": {
+                    "description": "Execution status: completed, error",
+                    "type": "string",
+                    "example": "completed"
+                }
+            }
+        },
+        "internal_api.SessionDestroyResponse": {
+            "description": "Result of session destruction",
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "string",
+                    "example": "sess-abc123"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "internal_api.SessionListResponse": {
+            "description": "List of existing sessions",
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "sessions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "sess-abc123",
+                        "sess-def456"
+                    ]
+                }
+            }
+        },
+        "internal_api.TokenRequest": {
+            "type": "object",
+            "required": [
+                "client_id"
+            ],
+            "properties": {
+                "client_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_api.TokenResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "expires_in": {
+                    "type": "integer"
+                },
+                "refresh_token": {
+                    "type": "string"
+                },
+                "token_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_api.ValidateResponse": {
+            "type": "object",
+            "properties": {
+                "expires_at": {
+                    "type": "integer"
+                },
+                "subject": {
+                    "type": "string"
+                },
+                "valid": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "stromboli_internal_job.Status": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "running",
+                "completed",
+                "failed",
+                "cancelled"
+            ],
+            "x-enum-varnames": [
+                "StatusPending",
+                "StatusRunning",
+                "StatusCompleted",
+                "StatusFailed",
+                "StatusCancelled"
+            ]
+        },
+        "stromboli_internal_types.ClaudeOptions": {
             "description": "All available Claude CLI options for headless execution",
             "type": "object",
             "properties": {
@@ -161,7 +899,7 @@
                     }
                 },
                 "continue": {
-                    "description": "Continue most recent conversation in workspace",
+                    "description": "Continue most recent conversation in workspace (ignores session_id)",
                     "type": "boolean",
                     "example": false
                 },
@@ -266,8 +1004,13 @@
                     "type": "boolean",
                     "example": false
                 },
+                "resume": {
+                    "description": "Resume an existing session (requires session_id)",
+                    "type": "boolean",
+                    "example": true
+                },
                 "session_id": {
-                    "description": "Resume by session ID (UUID)",
+                    "description": "Session ID (UUID) - used for both new and resumed sessions",
                     "type": "string",
                     "example": "550e8400-e29b-41d4-a716-446655440000"
                 },
@@ -315,38 +1058,30 @@
                 }
             }
         },
-        "internal_api.ClaudeStatusResponse": {
-            "description": "Claude configuration status",
-            "type": "object",
-            "properties": {
-                "configured": {
-                    "type": "boolean",
-                    "example": true
-                },
-                "message": {
-                    "type": "string",
-                    "example": "Claude is configured"
-                }
-            }
-        },
-        "internal_api.HealthResponse": {
-            "description": "Health check response",
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string",
-                    "example": "stromboli"
-                },
-                "status": {
-                    "type": "string",
-                    "example": "ok"
-                }
-            }
-        },
-        "internal_api.PodmanOptions": {
+        "stromboli_internal_types.PodmanOptions": {
             "description": "Podman container mount configuration",
             "type": "object",
             "properties": {
+                "cpu_shares": {
+                    "description": "CPU shares (relative weight, default 1024)",
+                    "type": "integer",
+                    "example": 512
+                },
+                "cpus": {
+                    "description": "CPU limit (e.g., \"0.5\", \"2\")",
+                    "type": "string",
+                    "example": "1"
+                },
+                "memory": {
+                    "description": "Memory limit (e.g., \"512m\", \"1g\")",
+                    "type": "string",
+                    "example": "512m"
+                },
+                "timeout": {
+                    "description": "Container timeout (e.g., \"5m\", \"1h\", \"30s\")",
+                    "type": "string",
+                    "example": "5m"
+                },
                 "volumes": {
                     "description": "Volume mounts (host:container or host:container:options format)",
                     "type": "array",
@@ -356,72 +1091,6 @@
                     "example": [
                         "/data:/data:ro"
                     ]
-                }
-            }
-        },
-        "internal_api.RunRequest": {
-            "description": "Request to execute Claude Code in an isolated container",
-            "type": "object",
-            "required": [
-                "prompt"
-            ],
-            "properties": {
-                "claude": {
-                    "description": "Claude configuration - all CLI options exposed",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/internal_api.ClaudeOptions"
-                        }
-                    ]
-                },
-                "podman": {
-                    "description": "Podman configuration",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/internal_api.PodmanOptions"
-                        }
-                    ]
-                },
-                "prompt": {
-                    "description": "Required: the prompt to send to Claude",
-                    "type": "string",
-                    "example": "Analyze this code and suggest improvements"
-                },
-                "workspace": {
-                    "description": "Workspace to mount (host path -\u003e /workspace in container)",
-                    "type": "string",
-                    "example": "/home/user/project"
-                }
-            }
-        },
-        "internal_api.RunResponse": {
-            "description": "Response from Claude execution",
-            "type": "object",
-            "properties": {
-                "error": {
-                    "description": "Error message (when failed)",
-                    "type": "string",
-                    "example": ""
-                },
-                "id": {
-                    "description": "Unique run identifier",
-                    "type": "string",
-                    "example": "run-abc123def456"
-                },
-                "output": {
-                    "description": "Claude's output (when successful)",
-                    "type": "string",
-                    "example": "Here is my analysis..."
-                },
-                "session_id": {
-                    "description": "Session ID for conversation continuation",
-                    "type": "string",
-                    "example": "550e8400-e29b-41d4-a716-446655440000"
-                },
-                "status": {
-                    "description": "Execution status: completed, error",
-                    "type": "string",
-                    "example": "completed"
                 }
             }
         }

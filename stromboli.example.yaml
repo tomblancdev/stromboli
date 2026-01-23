@@ -46,6 +46,13 @@ jobs:
   cleanup_ttl: "1h"      # How long to keep completed jobs
   cleanup_interval: "5m" # How often to run cleanup
 
+# OpenTelemetry Tracing Configuration (v1.4+)
+tracing:
+  enabled: false             # Enable distributed tracing
+  service_name: "stromboli"  # Service name in traces
+  endpoint: "localhost:4317" # OTLP collector endpoint (gRPC)
+  insecure: true             # Use insecure connection (no TLS)
+
 # Example Production Configuration:
 #
 # server:
@@ -82,3 +89,9 @@ jobs:
 # jobs:
 #   cleanup_ttl: "2h"
 #   cleanup_interval: "10m"
+#
+# tracing:
+#   enabled: true
+#   service_name: "stromboli-prod"
+#   endpoint: "jaeger:4317"
+#   insecure: false  # Use TLS in production
