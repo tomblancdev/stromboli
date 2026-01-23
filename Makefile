@@ -205,9 +205,6 @@ build-server-image:
 build-images: build-server-image build-agent-image
 	@echo "✅ All images built"
 
-# Default data directory for containerized deployment
-STROMBOLI_DATA_DIR ?= /opt/stromboli
-
 # Start Stromboli in container (requires Podman socket)
 container-start:
 	@echo "🚀 Starting Stromboli container..."
@@ -222,40 +219,25 @@ container-start:
 		echo "❌ Claude secrets not found. Run: make claude-setup"; \
 		exit 1; \
 	fi
-	@# Setup data directory
-	@echo "📁 Setting up data directory at $(STROMBOLI_DATA_DIR)..."
-	@mkdir -p $(STROMBOLI_DATA_DIR)/sessions $(STROMBOLI_DATA_DIR)/secrets || \
-		(echo "❌ Cannot create $(STROMBOLI_DATA_DIR). Run:"; \
-		 echo "   sudo mkdir -p $(STROMBOLI_DATA_DIR) && sudo chown $$USER $(STROMBOLI_DATA_DIR)"; \
-		 exit 1)
-	@# Copy secrets to data directory
-	@cp $(CLAUDE_SECRETS) $(STROMBOLI_DATA_DIR)/secrets/.claude-secrets
-	@chmod 600 $(STROMBOLI_DATA_DIR)/secrets/.claude-secrets
-	@# Update podman secret (recreate to ensure fresh token)
-	@echo "🔐 Updating podman secret..."
-	@podman secret rm claude-token 2>/dev/null || true
-	@podman secret create claude-token $(STROMBOLI_DATA_DIR)/secrets/.claude-secrets >/dev/null
-	@# Start container
-	STROMBOLI_DATA_DIR=$(STROMBOLI_DATA_DIR) podman compose -f deployments/docker/compose.yml up -d
+	@# Create sessions directory
+	@mkdir -p /tmp/stromboli-sessions
+	@# Start container (compose handles secrets automatically)
+	podman compose -f deployments/docker/compose.yml up -d
 	@echo ""
 	@echo "✅ Stromboli running at http://localhost:8080"
-	@echo "   Health:   http://localhost:8080/health"
-	@echo "   Logs:     make container-logs"
-	@echo "   Stop:     make container-stop"
-	@echo ""
-	@echo "📂 Data directory: $(STROMBOLI_DATA_DIR)"
-	@echo "   Sessions: $(STROMBOLI_DATA_DIR)/sessions"
-	@echo "   Secrets:  $(STROMBOLI_DATA_DIR)/secrets"
+	@echo "   Health: http://localhost:8080/health"
+	@echo "   Logs:   make container-logs"
+	@echo "   Stop:   make container-stop"
 
 # Stop Stromboli container
 container-stop:
 	@echo "🛑 Stopping Stromboli container..."
-	STROMBOLI_DATA_DIR=$(STROMBOLI_DATA_DIR) podman compose -f deployments/docker/compose.yml down
+	podman compose -f deployments/docker/compose.yml down
 	@echo "✅ Container stopped"
 
 # View container logs
 container-logs:
-	STROMBOLI_DATA_DIR=$(STROMBOLI_DATA_DIR) podman compose -f deployments/docker/compose.yml logs -f
+	podman compose -f deployments/docker/compose.yml logs -f
 
 # Restart container
 container-restart: container-stop container-start
