@@ -409,10 +409,10 @@ type Config struct {
    - Check on validation
    - Effort: 3 hours
 
-7. **Metrics Dashboard**
-   - Add Grafana dashboard definitions
-   - Document metrics meaning
-   - Effort: 2 hours
+7. **Metrics Dashboard** - FIXED in v1.2
+   - ✅ Added Grafana dashboard JSON (`deployments/grafana/stromboli-dashboard.json`)
+   - ✅ Documented all metrics with example PromQL queries
+   - ✅ Included recommended alerting rules
 
 8. **Session Persistence Backend**
    - Add optional SQLite/PostgreSQL backend
