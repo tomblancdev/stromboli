@@ -22,13 +22,14 @@ type AsyncRunResponse struct {
 // JobResponse represents a job status response
 // @Description Job status and result
 type JobResponse struct {
-	ID        string     `json:"id" example:"job-abc123def456"`
-	Status    job.Status `json:"status" example:"running"`
-	Output    string     `json:"output,omitempty" example:"Hello!"`
-	Error     string     `json:"error,omitempty"`
-	SessionID string     `json:"session_id,omitempty" example:"sess-abc123def456"`
-	CreatedAt string     `json:"created_at" example:"2024-01-15T10:30:00Z"`
-	UpdatedAt string     `json:"updated_at" example:"2024-01-15T10:31:00Z"`
+	ID        string          `json:"id" example:"job-abc123def456"`
+	Status    job.Status      `json:"status" example:"running"`
+	Output    string          `json:"output,omitempty" example:"Hello!"`
+	Error     string          `json:"error,omitempty"`
+	SessionID string          `json:"session_id,omitempty" example:"sess-abc123def456"`
+	CrashInfo *job.CrashInfo  `json:"crash_info,omitempty"`
+	CreatedAt string          `json:"created_at" example:"2024-01-15T10:30:00Z"`
+	UpdatedAt string          `json:"updated_at" example:"2024-01-15T10:31:00Z"`
 }
 
 // JobListResponse represents a list of jobs
@@ -75,13 +76,29 @@ func (s *Server) runAsync(c *gin.Context) {
 		if err != nil {
 			status = job.StatusFailed
 			errMsg = err.Error()
+		} else if result.CrashInfo != nil {
+			// Claude crashed but we have partial results
+			s.jobMgr.UpdateWithCrash(jobID, result.CrashInfo, result.Output, result.SessionID)
+			status = job.StatusCrashed
+			output = result.Output
+			sessionID = result.SessionID
+
+			slog.Warn("Claude execution crashed",
+				"job_id", jobID,
+				"session_id", sessionID,
+				"exit_code", result.CrashInfo.ExitCode,
+				"signal", result.CrashInfo.Signal,
+				"task_completed", result.CrashInfo.TaskCompleted)
 		} else {
 			status = job.StatusCompleted
 			output = result.Output
 			sessionID = result.SessionID
 		}
 
-		s.jobMgr.Update(jobID, status, output, errMsg, sessionID)
+		// Only update via normal path if not crashed (crash already updated)
+		if status != job.StatusCrashed {
+			s.jobMgr.Update(jobID, status, output, errMsg, sessionID)
+		}
 
 		// Send webhook notification if URL provided
 		if webhookURL != "" {
@@ -138,6 +155,7 @@ func (s *Server) getJob(c *gin.Context) {
 		Output:    j.Output,
 		Error:     j.Error,
 		SessionID: j.SessionID,
+		CrashInfo: j.CrashInfo,
 		CreatedAt: j.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt: j.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	})
@@ -163,6 +181,7 @@ func (s *Server) listJobs(c *gin.Context) {
 			Output:    j.Output,
 			Error:     j.Error,
 			SessionID: j.SessionID,
+			CrashInfo: j.CrashInfo,
 			CreatedAt: j.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 			UpdatedAt: j.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		})

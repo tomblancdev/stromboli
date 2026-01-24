@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"stromboli/internal/claude"
+	"stromboli/internal/job"
 	"stromboli/internal/metrics"
 	"stromboli/internal/podman"
 	"stromboli/internal/secrets"
@@ -43,6 +44,7 @@ type Result struct {
 	ID        string
 	Output    string
 	SessionID string
+	CrashInfo *job.CrashInfo
 }
 
 // ResourceDefaults contains default resource limits for containers
@@ -207,6 +209,28 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	output, err := r.executor.Run(ctx, fullCmd)
 	if err != nil {
 		tracing.RecordError(ctx, err)
+
+		// Check if this is a crash (signal termination)
+		if IsCrash(err) {
+			crashInfo := ExtractCrashInfo(err, string(output))
+			tracing.AddSpanAttributes(ctx,
+				"runner.crash", true,
+				"runner.crash_signal", crashInfo.Signal,
+				"runner.crash_exit_code", crashInfo.ExitCode,
+				"runner.task_completed", crashInfo.TaskCompleted,
+			)
+			tracing.SetSpanStatus(ctx, tracing.StatusError, "execution crashed")
+
+			// Return result with crash info instead of error
+			// This allows the caller to handle crashes differently
+			return &Result{
+				ID:        generateRunID(),
+				Output:    strings.TrimSpace(string(output)),
+				SessionID: sessionID,
+				CrashInfo: crashInfo,
+			}, nil
+		}
+
 		tracing.SetSpanStatus(ctx, tracing.StatusError, "execution failed")
 		return nil, fmt.Errorf("execution failed: %w, output: %s", err, string(output))
 	}
@@ -378,6 +402,27 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 
 	if cmdErr != nil {
 		tracing.RecordError(ctx, cmdErr)
+
+		// Check if this is a crash (signal termination)
+		if IsCrash(cmdErr) {
+			crashInfo := ExtractCrashInfo(cmdErr, allOutput.String())
+			tracing.AddSpanAttributes(ctx,
+				"runner.crash", true,
+				"runner.crash_signal", crashInfo.Signal,
+				"runner.crash_exit_code", crashInfo.ExitCode,
+				"runner.task_completed", crashInfo.TaskCompleted,
+			)
+			tracing.SetSpanStatus(ctx, tracing.StatusError, "execution crashed")
+
+			// Return result with crash info instead of error
+			return &Result{
+				ID:        generateRunID(),
+				Output:    strings.TrimSpace(allOutput.String()),
+				SessionID: sessionID,
+				CrashInfo: crashInfo,
+			}, nil
+		}
+
 		tracing.SetSpanStatus(ctx, tracing.StatusError, "execution failed")
 		return nil, fmt.Errorf("execution failed: %w", cmdErr)
 	}

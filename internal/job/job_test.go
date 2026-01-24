@@ -343,3 +343,91 @@ func TestManager_StartStopCleanup(t *testing.T) {
 		// No assertion needed, just ensure no panic or goroutine leak
 	})
 }
+
+func TestManager_UpdateWithCrash(t *testing.T) {
+	m := NewManager()
+
+	t.Run("update with crash info", func(t *testing.T) {
+		m.Create("job-crash")
+
+		crashInfo := &CrashInfo{
+			ExitCode:      139,
+			Signal:        "SIGSEGV",
+			Reason:        "Process killed by SIGSEGV",
+			PartialOutput: "some output before crash",
+			TaskCompleted: true,
+		}
+
+		m.UpdateWithCrash("job-crash", crashInfo, "partial output", "sess-123")
+
+		job, ok := m.Get("job-crash")
+		require.True(t, ok)
+		assert.Equal(t, StatusCrashed, job.Status)
+		assert.Equal(t, "partial output", job.Output)
+		assert.Equal(t, "sess-123", job.SessionID)
+		assert.NotNil(t, job.CrashInfo)
+		assert.Equal(t, 139, job.CrashInfo.ExitCode)
+		assert.Equal(t, "SIGSEGV", job.CrashInfo.Signal)
+		assert.True(t, job.CrashInfo.TaskCompleted)
+	})
+
+	t.Run("update with crash non-existent job", func(t *testing.T) {
+		crashInfo := &CrashInfo{
+			ExitCode: 139,
+		}
+
+		// Should not panic
+		m.UpdateWithCrash("non-existent", crashInfo, "output", "")
+
+		_, ok := m.Get("non-existent")
+		assert.False(t, ok)
+	})
+}
+
+func TestManager_Cleanup_CrashedJobs(t *testing.T) {
+	m := NewManager()
+
+	t.Run("cleanup removes old crashed jobs", func(t *testing.T) {
+		m.Create("old-crashed")
+		m.UpdateWithCrash("old-crashed", &CrashInfo{ExitCode: 139}, "output", "sess-1")
+		m.mu.Lock()
+		m.jobs["old-crashed"].UpdatedAt = time.Now().Add(-2 * time.Hour)
+		m.mu.Unlock()
+
+		m.StartCleanup(1*time.Hour, 10*time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
+		m.StopCleanup()
+
+		_, exists := m.Get("old-crashed")
+		assert.False(t, exists)
+	})
+
+	t.Run("recent crashed jobs are not cleaned up", func(t *testing.T) {
+		m := NewManager()
+		m.Create("recent-crashed")
+		m.UpdateWithCrash("recent-crashed", &CrashInfo{ExitCode: 139}, "output", "sess-1")
+
+		m.StartCleanup(1*time.Hour, 10*time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
+		m.StopCleanup()
+
+		_, exists := m.Get("recent-crashed")
+		assert.True(t, exists)
+	})
+}
+
+func TestCrashInfo_Struct(t *testing.T) {
+	info := CrashInfo{
+		ExitCode:      139,
+		Signal:        "SIGSEGV",
+		Reason:        "Process killed by SIGSEGV",
+		PartialOutput: "some output",
+		TaskCompleted: true,
+	}
+
+	assert.Equal(t, 139, info.ExitCode)
+	assert.Equal(t, "SIGSEGV", info.Signal)
+	assert.Equal(t, "Process killed by SIGSEGV", info.Reason)
+	assert.Equal(t, "some output", info.PartialOutput)
+	assert.True(t, info.TaskCompleted)
+}

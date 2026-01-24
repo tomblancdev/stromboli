@@ -13,8 +13,23 @@ const (
 	StatusRunning   Status = "running"
 	StatusCompleted Status = "completed"
 	StatusFailed    Status = "failed"
+	StatusCrashed   Status = "crashed"
 	StatusCancelled Status = "cancelled"
 )
+
+// CrashInfo contains details about a process crash
+type CrashInfo struct {
+	// Exit code (if available)
+	ExitCode int `json:"exit_code,omitempty"`
+	// Signal that killed the process (SIGSEGV, SIGKILL, etc.)
+	Signal string `json:"signal,omitempty"`
+	// Human-readable crash reason
+	Reason string `json:"reason,omitempty"`
+	// Partial output captured before crash
+	PartialOutput string `json:"partial_output,omitempty"`
+	// Whether the task appeared to complete before crashing
+	TaskCompleted bool `json:"task_completed,omitempty"`
+}
 
 // Job represents an async execution job
 type Job struct {
@@ -23,6 +38,7 @@ type Job struct {
 	Output      string     `json:"output,omitempty"`
 	Error       string     `json:"error,omitempty"`
 	SessionID   string     `json:"session_id,omitempty"`
+	CrashInfo   *CrashInfo `json:"crash_info,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	CancelledAt *time.Time `json:"cancelled_at,omitempty"`
@@ -86,6 +102,23 @@ func (m *Manager) Update(id string, status Status, output, errMsg, sessionID str
 	job.Status = status
 	job.Output = output
 	job.Error = errMsg
+	job.SessionID = sessionID
+	job.UpdatedAt = time.Now()
+}
+
+// UpdateWithCrash updates a job with crash information
+func (m *Manager) UpdateWithCrash(id string, crashInfo *CrashInfo, partialOutput, sessionID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	job, ok := m.jobs[id]
+	if !ok {
+		return
+	}
+
+	job.Status = StatusCrashed
+	job.CrashInfo = crashInfo
+	job.Output = partialOutput
 	job.SessionID = sessionID
 	job.UpdatedAt = time.Now()
 }
@@ -185,8 +218,8 @@ func (m *Manager) cleanup(ttl time.Duration) {
 
 	now := time.Now()
 	for id, job := range m.jobs {
-		// Only clean up terminal states
-		if job.Status != StatusCompleted && job.Status != StatusFailed && job.Status != StatusCancelled {
+		// Only clean up terminal states (including crashed)
+		if job.Status != StatusCompleted && job.Status != StatusFailed && job.Status != StatusCancelled && job.Status != StatusCrashed {
 			continue
 		}
 

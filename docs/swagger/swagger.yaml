@@ -62,6 +62,8 @@ definitions:
   internal_api.JobResponse:
     description: Job status and result
     properties:
+      crash_info:
+        $ref: '#/definitions/stromboli_internal_job.CrashInfo'
       created_at:
         example: "2024-01-15T10:30:00Z"
         type: string
@@ -388,12 +390,31 @@ definitions:
         example: 42
         type: integer
     type: object
+  stromboli_internal_job.CrashInfo:
+    properties:
+      exit_code:
+        description: Exit code (if available)
+        type: integer
+      partial_output:
+        description: Partial output captured before crash
+        type: string
+      reason:
+        description: Human-readable crash reason
+        type: string
+      signal:
+        description: Signal that killed the process (SIGSEGV, SIGKILL, etc.)
+        type: string
+      task_completed:
+        description: Whether the task appeared to complete before crashing
+        type: boolean
+    type: object
   stromboli_internal_job.Status:
     enum:
     - pending
     - running
     - completed
     - failed
+    - crashed
     - cancelled
     type: string
     x-enum-varnames:
@@ -401,6 +422,7 @@ definitions:
     - StatusRunning
     - StatusCompleted
     - StatusFailed
+    - StatusCrashed
     - StatusCancelled
   stromboli_internal_types.ClaudeOptions:
     description: All available Claude CLI options for headless execution

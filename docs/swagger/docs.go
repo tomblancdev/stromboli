@@ -747,6 +747,9 @@ const docTemplate = `{
             "description": "Job status and result",
             "type": "object",
             "properties": {
+                "crash_info": {
+                    "$ref": "#/definitions/stromboli_internal_job.CrashInfo"
+                },
                 "created_at": {
                     "type": "string",
                     "example": "2024-01-15T10:30:00Z"
@@ -1206,6 +1209,31 @@ const docTemplate = `{
                 }
             }
         },
+        "stromboli_internal_job.CrashInfo": {
+            "type": "object",
+            "properties": {
+                "exit_code": {
+                    "description": "Exit code (if available)",
+                    "type": "integer"
+                },
+                "partial_output": {
+                    "description": "Partial output captured before crash",
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "Human-readable crash reason",
+                    "type": "string"
+                },
+                "signal": {
+                    "description": "Signal that killed the process (SIGSEGV, SIGKILL, etc.)",
+                    "type": "string"
+                },
+                "task_completed": {
+                    "description": "Whether the task appeared to complete before crashing",
+                    "type": "boolean"
+                }
+            }
+        },
         "stromboli_internal_job.Status": {
             "type": "string",
             "enum": [
@@ -1213,6 +1241,7 @@ const docTemplate = `{
                 "running",
                 "completed",
                 "failed",
+                "crashed",
                 "cancelled"
             ],
             "x-enum-varnames": [
@@ -1220,6 +1249,7 @@ const docTemplate = `{
                 "StatusRunning",
                 "StatusCompleted",
                 "StatusFailed",
+                "StatusCrashed",
                 "StatusCancelled"
             ]
         },
