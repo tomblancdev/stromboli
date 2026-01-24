@@ -1,26 +1,34 @@
-// Package secrets provides Podman secret management for secure token handling.
+// Package secrets provides Podman secret management for Claude credentials.
 //
 // # Overview
 //
-// Podman secrets are the recommended way to pass sensitive data to containers.
-// This package wraps Podman's secret commands to create and manage secrets
-// that can be mounted into containers at /run/secrets/<name>.
+// This package manages the Claude credentials securely using Podman secrets.
+// The credentials file (~/.claude/.credentials.json) is read from the host
+// and stored as a Podman secret, which is then mounted into agent containers.
+//
+// # Architecture
+//
+// 1. Stromboli server reads ~/.claude/.credentials.json from host
+// 2. Creates/updates a Podman secret named "claude-credentials"
+// 3. Agent containers receive the secret mounted at ~/.claude/.credentials.json
+// 4. When credentials refresh on host, call UpdateSecret() to sync
 //
 // # Usage
 //
-// Create or update a secret from a file:
+// Create a manager and ensure the secret exists:
 //
-//	mgr := secrets.NewManager(executor)
-//	err := mgr.EnsureSecret("claude-token", "/path/to/secrets-file")
+//	mgr := secrets.NewManagerWithPath("~/.claude/.credentials.json")
+//	err := mgr.EnsureExists(ctx, "")
 //
-// The secret is created if it doesn't exist, or updated if the content changed.
-// Secrets are available to containers via --secret flag.
+// The secret can be mounted into containers using:
+//
+//	--secret claude-credentials,target=/home/user/.claude/.credentials.json
 //
 // # Security
 //
-// Secrets are:
-//   - Stored encrypted by Podman
-//   - Only accessible to containers that explicitly request them
-//   - Mounted read-only at /run/secrets/<name>
-//   - Not visible in container inspection or logs
+// Using Podman secrets provides:
+//   - Encrypted storage (secrets are not stored in plain text)
+//   - Access control (only containers that request the secret can access it)
+//   - No exposure in container inspection or logs
+//   - Read-only mounting in containers
 package secrets

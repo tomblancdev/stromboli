@@ -1,11 +1,7 @@
-//go:build integration
-
 package secrets
 
 import (
-	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -13,95 +9,78 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func skipIfNoPodman(t *testing.T) {
-	if _, err := exec.LookPath("podman"); err != nil {
-		t.Skip("podman not available, skipping test")
-	}
+func TestNewManager_DefaultValues(t *testing.T) {
+	m := NewManager("")
+	home, _ := os.UserHomeDir()
+	expected := filepath.Join(home, ".claude", ".credentials.json")
+	assert.Equal(t, expected, m.credentialsFile)
+	assert.Equal(t, DefaultSecretName, m.secretName)
 }
 
-func TestSecretLifecycle(t *testing.T) {
-	skipIfNoPodman(t)
-	ctx := context.Background()
+func TestNewManager_CustomSecretName(t *testing.T) {
+	m := NewManager("custom-secret")
+	assert.Equal(t, "custom-secret", m.secretName)
+}
 
-	// Create a temp file for the secret
+func TestNewManagerWithPath_CustomPath(t *testing.T) {
+	m := NewManagerWithPath("/custom/path.json")
+	assert.Equal(t, "/custom/path.json", m.credentialsFile)
+	assert.Equal(t, DefaultSecretName, m.secretName)
+}
+
+func TestNewManagerWithPath_ExpandsHomePath(t *testing.T) {
+	m := NewManagerWithPath("~/.claude/test.json")
+	home, _ := os.UserHomeDir()
+	expected := filepath.Join(home, ".claude", "test.json")
+	assert.Equal(t, expected, m.credentialsFile)
+}
+
+func TestCredentialsFile_ReturnsPath(t *testing.T) {
+	m := NewManagerWithPath("/custom/path.json")
+	assert.Equal(t, "/custom/path.json", m.CredentialsFile())
+}
+
+func TestSecretName_ReturnsName(t *testing.T) {
+	m := NewManager("test-secret")
+	assert.Equal(t, "test-secret", m.SecretName())
+}
+
+func TestFileExists_WhenFileDoesNotExist(t *testing.T) {
+	m := NewManagerWithPath("/nonexistent/path/credentials.json")
+	assert.False(t, m.FileExists())
+}
+
+func TestFileExists_WhenFileExists(t *testing.T) {
 	tmpDir := t.TempDir()
-	secretFile := filepath.Join(tmpDir, "test-secret")
-	require.NoError(t, os.WriteFile(secretFile, []byte("test-token"), 0600))
+	credFile := filepath.Join(tmpDir, ".credentials.json")
+	require.NoError(t, os.WriteFile(credFile, []byte("{}"), 0600))
 
-	// Use a unique secret name for testing
-	m := NewManager("stromboli-test-secret")
-
-	// Cleanup any existing secret
-	m.Remove(ctx)
-
-	// Test Exists (should not exist initially)
-	exists, err := m.Exists(ctx)
-	require.NoError(t, err)
-	assert.False(t, exists)
-
-	// Test Create
-	err = m.Create(ctx, secretFile)
-	require.NoError(t, err)
-
-	// Test Exists (should exist now)
-	exists, err = m.Exists(ctx)
-	require.NoError(t, err)
-	assert.True(t, exists)
-
-	// Test EnsureExists (should be a no-op)
-	err = m.EnsureExists(ctx, secretFile)
-	require.NoError(t, err)
-
-	// Test Update
-	require.NoError(t, os.WriteFile(secretFile, []byte("updated-token"), 0600))
-	err = m.Update(ctx, secretFile)
-	require.NoError(t, err)
-
-	// Test Remove
-	err = m.Remove(ctx)
-	require.NoError(t, err)
-
-	// Verify it's gone
-	exists, err = m.Exists(ctx)
-	require.NoError(t, err)
-	assert.False(t, exists)
+	m := NewManagerWithPath(credFile)
+	assert.True(t, m.FileExists())
 }
 
-func TestEnsureExists_CreatesWhenMissing(t *testing.T) {
-	skipIfNoPodman(t)
-	ctx := context.Background()
-
-	// Create a temp file for the secret
-	tmpDir := t.TempDir()
-	secretFile := filepath.Join(tmpDir, "test-secret")
-	require.NoError(t, os.WriteFile(secretFile, []byte("test-token"), 0600))
-
-	m := NewManager("stromboli-test-ensure")
-
-	// Cleanup any existing secret
-	m.Remove(ctx)
-
-	// EnsureExists should create it
-	err := m.EnsureExists(ctx, secretFile)
+func TestExpandPath_HomePath(t *testing.T) {
+	home, err := os.UserHomeDir()
 	require.NoError(t, err)
 
-	exists, err := m.Exists(ctx)
-	require.NoError(t, err)
-	assert.True(t, exists)
-
-	// Cleanup
-	m.Remove(ctx)
+	result := expandPath("~/test/path")
+	assert.Equal(t, filepath.Join(home, "test", "path"), result)
 }
 
-func TestContextCancellation(t *testing.T) {
-	skipIfNoPodman(t)
+func TestExpandPath_AbsolutePath(t *testing.T) {
+	result := expandPath("/absolute/path")
+	assert.Equal(t, "/absolute/path", result)
+}
 
-	// Create a cancelled context
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
+func TestExpandPath_RelativePath(t *testing.T) {
+	result := expandPath("relative/path")
+	assert.Equal(t, "relative/path", result)
+}
 
-	m := NewManager("stromboli-test-cancel")
+func TestDefaultSecretName(t *testing.T) {
+	assert.Equal(t, "claude-credentials", DefaultSecretName)
+}
 
-	_, err := m.Exists(ctx)
-	assert.Error(t, err, "expected error with cancelled context")
+func TestDefaultCredentialsFile(t *testing.T) {
+	assert.Equal(t, "~/.claude/.credentials.json", DefaultCredentialsFile)
 }

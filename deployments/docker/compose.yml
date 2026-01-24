@@ -6,18 +6,18 @@
 #
 # Prerequisites:
 #   1. Build images: make build-images
-#   2. Setup Claude token: make claude-setup
-#   3. Enable Podman socket: systemctl --user enable --now podman.socket
+#   2. Ensure Claude is authenticated (~/.claude/.credentials.json exists)
+#   3. Create Podman secret for agents: make secret-create
+#   4. Enable Podman socket: systemctl --user enable --now podman.socket
 #
 # Services:
 #   - Stromboli API: http://localhost:8080
 #   - Swagger UI:    http://localhost:8081
 #
-# The secret is defined here and auto-created by compose on the host Podman.
-
-secrets:
-  claude-token:
-    file: ${CLAUDE_SECRETS_FILE:-../../.claude-secrets}
+# Credentials:
+#   - Server: compose secret (file-based, reads from ~/.claude/.credentials.json)
+#   - Agents: Podman secret 'claude-credentials' (make secret-create)
+# After token refresh: make secret-update && make container-restart
 
 services:
   # ==========================================================================
@@ -36,10 +36,6 @@ services:
     # Map host user into container (required for socket access)
     userns_mode: keep-id
 
-    # Mount the secret into container
-    secrets:
-      - claude-token
-
     volumes:
       # Mount Podman socket (rootless)
       - ${XDG_RUNTIME_DIR:-/run/user/1000}/podman/podman.sock:/run/podman/podman.sock:ro
@@ -47,11 +43,17 @@ services:
       # Sessions directory - use absolute path on host, same path in container
       - /tmp/stromboli-sessions:/tmp/stromboli-sessions
 
+    # Claude credentials via Podman secret (secure, encrypted storage)
+    secrets:
+      - source: claude-credentials
+        target: /home/user/.claude/.credentials.json
+        mode: 0400
+
     environment:
       STROMBOLI_SERVER_ADDRESS: ":8080"
       STROMBOLI_AGENT_IMAGE: "stromboli-agent"
       STROMBOLI_AGENT_IMAGE_TAG: "latest"
-      STROMBOLI_AGENT_SECRETS_FILE: "/run/secrets/claude-token"
+      STROMBOLI_AGENT_CREDENTIALS_FILE: "/home/user/.claude/.credentials.json"
       STROMBOLI_AGENT_SESSIONS_DIR: "/tmp/stromboli-sessions"
       CONTAINER_HOST: "unix:///run/podman/podman.sock"
 
@@ -98,3 +100,12 @@ services:
       timeout: 5s
       retries: 3
       start_period: 5s
+
+# ==========================================================================
+# Secrets - Compose-managed secrets (file-based)
+# ==========================================================================
+# Server uses compose secrets (file-based, docker-compose compatible)
+# Agents use Podman secrets (created via: make secret-create)
+secrets:
+  claude-credentials:
+    file: ${HOME}/.claude/.credentials.json

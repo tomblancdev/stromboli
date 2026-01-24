@@ -82,12 +82,11 @@ func NewPodmanRunnerWithDefaults(image, secretsFile, sessionsDir string, allowed
 
 // NewPodmanRunnerWithDefaultsAndExecutor creates a new Podman-based runner with default resource limits and custom executor
 // This is the most flexible constructor, primarily useful for testing
-func NewPodmanRunnerWithDefaultsAndExecutor(image, secretsFile, sessionsDir string, allowedWorkspaces []string, defaults ResourceDefaults, executor Executor) (*PodmanRunner, error) {
-	// Create secrets manager and ensure secret exists
-	// Use background context for startup initialization
-	secretsMgr := secrets.NewManager("")
-	if err := secretsMgr.EnsureExists(context.Background(), secretsFile); err != nil {
-		return nil, fmt.Errorf("failed to setup secrets: %w", err)
+func NewPodmanRunnerWithDefaultsAndExecutor(image, credentialsFile, sessionsDir string, allowedWorkspaces []string, defaults ResourceDefaults, executor Executor) (*PodmanRunner, error) {
+	// Create secrets manager and ensure credentials exist + Podman secret is created
+	secretsMgr := secrets.NewManagerWithPath(credentialsFile)
+	if err := secretsMgr.EnsureExists(context.Background(), ""); err != nil {
+		return nil, fmt.Errorf("failed to setup credentials: %w", err)
 	}
 
 	return &PodmanRunner{
@@ -156,7 +155,6 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	podmanBuilder := podman.NewCommand().
 		WithKeepID().
 		WithUser(currentUser).
-		WithSecret(r.secretsMgr.SecretName()).
 		WithEnv("HOME", "/home/user").
 		WithImage(r.image)
 
@@ -166,6 +164,10 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	// Sessions are isolated from each other
 	// Data persists until explicitly destroyed
 	podmanBuilder.WithVolume(absSessionPath, "/home/user")
+
+	// Mount credentials via Podman secret (more secure than volume mount)
+	// Secret is mounted at ~/.claude/.credentials.json so Claude finds it automatically
+	podmanBuilder.WithSecretTarget(r.secretsMgr.SecretName(), "/home/user/.claude/.credentials.json")
 
 	// Mount workspace for container access
 	if req.Workspace != "" {
@@ -281,12 +283,14 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	podmanBuilder := podman.NewCommand().
 		WithKeepID().
 		WithUser(currentUser).
-		WithSecret(r.secretsMgr.SecretName()).
 		WithEnv("HOME", "/home/user").
 		WithImage(r.image)
 
 	// Mount session-specific directory as user's home
 	podmanBuilder.WithVolume(absSessionPath, "/home/user")
+
+	// Mount credentials via Podman secret (more secure than volume mount)
+	podmanBuilder.WithSecretTarget(r.secretsMgr.SecretName(), "/home/user/.claude/.credentials.json")
 
 	// Mount workspace for container access
 	if req.Workspace != "" {

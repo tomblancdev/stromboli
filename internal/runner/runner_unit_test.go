@@ -27,7 +27,7 @@ func skipIfNoPodman(t *testing.T) {
 func TestPodmanRunner_Run_WithMockExecutor(t *testing.T) {
 	skipIfNoPodman(t)
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
@@ -60,7 +60,7 @@ func TestPodmanRunner_Run_WithMockExecutor(t *testing.T) {
 func TestPodmanRunner_Run_WithExecutorError(t *testing.T) {
 	skipIfNoPodman(t)
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
@@ -85,7 +85,7 @@ func TestPodmanRunner_Run_WithExecutorError(t *testing.T) {
 func TestPodmanRunner_RunStream_WithMockExecutor(t *testing.T) {
 	skipIfNoPodman(t)
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
@@ -123,7 +123,7 @@ func TestPodmanRunner_RunStream_WithMockExecutor(t *testing.T) {
 func TestPodmanRunner_Run_AppliesDefaults(t *testing.T) {
 	skipIfNoPodman(t)
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
@@ -164,7 +164,7 @@ func TestPodmanRunner_Run_AppliesDefaults(t *testing.T) {
 func TestPodmanRunner_Run_OverridesDefaults(t *testing.T) {
 	skipIfNoPodman(t)
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
@@ -207,7 +207,7 @@ func TestPodmanRunner_Run_OverridesDefaults(t *testing.T) {
 func TestPodmanRunner_Run_SessionHandling(t *testing.T) {
 	skipIfNoPodman(t)
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
@@ -255,7 +255,7 @@ func TestPodmanRunner_Run_SessionHandling(t *testing.T) {
 func TestPodmanRunner_Run_WorkspaceValidation(t *testing.T) {
 	skipIfNoPodman(t)
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	workspaceDir := filepath.Join(tmpDir, "workspace")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
@@ -291,7 +291,7 @@ func TestPodmanRunner_Run_WorkspaceValidation(t *testing.T) {
 func TestPodmanRunner_RunStream_StartError(t *testing.T) {
 	skipIfNoPodman(t)
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
@@ -316,7 +316,7 @@ func TestPodmanRunner_RunStream_StartError(t *testing.T) {
 func TestPodmanRunner_RunStream_WaitError(t *testing.T) {
 	skipIfNoPodman(t)
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
@@ -342,7 +342,7 @@ func TestPodmanRunner_RunStream_WaitError(t *testing.T) {
 func TestPodmanRunner_Run_BuildsCorrectCommand(t *testing.T) {
 	skipIfNoPodman(t)
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)

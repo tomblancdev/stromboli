@@ -38,6 +38,7 @@ import (
 	"stromboli/internal/config"
 	"stromboli/internal/job"
 	"stromboli/internal/runner"
+	"stromboli/internal/secrets"
 	"stromboli/internal/tracing"
 )
 
@@ -94,17 +95,14 @@ func main() {
 		slog.Info("Tracing disabled")
 	}
 
-	// Create dependencies
-	claudeClient := claude.NewClientWithCache(
-		cfg.Agent.SecretsFile,
-		cfg.Agent.TokenCache.Enabled,
-		cfg.Agent.TokenCache.TTL,
-	)
+	// Create Claude client for credentials validation
+	claudeClient := claude.NewClient(cfg.Agent.CredentialsFile)
 
-	if cfg.Agent.TokenCache.Enabled {
-		slog.Info("Token caching enabled", "ttl", cfg.Agent.TokenCache.TTL)
+	if !claudeClient.IsConfigured() {
+		slog.Warn("Claude credentials not found - run 'claude' to authenticate",
+			"expected_path", claudeClient.CredentialsFile())
 	} else {
-		slog.Info("Token caching disabled")
+		slog.Info("Claude credentials found", "path", claudeClient.CredentialsFile())
 	}
 
 	resourceDefaults := runner.ResourceDefaults{
@@ -115,7 +113,7 @@ func main() {
 
 	podmanRunner, err := runner.NewPodmanRunnerWithDefaults(
 		fullImage,
-		cfg.Agent.SecretsFile,
+		cfg.Agent.CredentialsFile,
 		cfg.Agent.SessionsDir,
 		allowedWorkspaces,
 		resourceDefaults,
@@ -182,14 +180,16 @@ func main() {
 	blacklist.StartCleanup(time.Hour)
 	slog.Info("Token blacklist started", "cleanup_interval", time.Hour)
 
-	// Create health checker with default config
+	// Create health checker with credentials file and secret check
 	healthConfig := api.HealthConfig{
-		Timeout:    defaultHealthTimeout,
-		SecretName: "claude-token",
+		Timeout:         defaultHealthTimeout,
+		CredentialsFile: claudeClient.CredentialsFile(),
+		SecretName:      secrets.DefaultSecretName,
 	}
 	healthChecker := api.NewHealthChecker(runner.NewShellExecutor(), healthConfig)
 	slog.Info("Health checker configured",
 		"timeout", healthConfig.Timeout,
+		"credentials_file", healthConfig.CredentialsFile,
 		"secret_name", healthConfig.SecretName)
 
 	// Setup signal handling for graceful shutdown

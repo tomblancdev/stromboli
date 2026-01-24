@@ -32,11 +32,11 @@ type ServerConfig struct {
 
 // AgentConfig holds agent container configuration
 type AgentConfig struct {
-	Image       string           // Container image name
-	ImageTag    string           // Container image tag
-	SecretsFile string           // Path to Claude secrets file
-	SessionsDir string           // Directory for session data
-	TokenCache  TokenCacheConfig // Token cache configuration
+	Image           string           // Container image name
+	ImageTag        string           // Container image tag
+	CredentialsFile string           // Path to Claude credentials file (~/.claude/.credentials.json)
+	SessionsDir     string           // Directory for session data
+	TokenCache      TokenCacheConfig // Token cache configuration
 }
 
 // TokenCacheConfig holds token caching configuration
@@ -89,11 +89,11 @@ type TracingConfig struct {
 
 // Default values
 const (
-	defaultServerAddress     = ":8080"
-	defaultAgentImage        = "stromboli-agent"
-	defaultAgentImageTag     = "latest"
-	defaultSecretsFile       = ".claude-secrets"
-	defaultSessionsDir       = ".stromboli/sessions"
+	defaultServerAddress      = ":8080"
+	defaultAgentImage         = "stromboli-agent"
+	defaultAgentImageTag      = "latest"
+	defaultCredentialsFile    = "~/.claude/.credentials.json"
+	defaultSessionsDir        = ".stromboli/sessions"
 	defaultMemory            = "512m"
 	defaultCPUs              = "1"
 	defaultTimeout           = "30m"
@@ -152,7 +152,7 @@ func setupViper(v *viper.Viper) {
 	v.SetDefault("server.address", defaultServerAddress)
 	v.SetDefault("agent.image", defaultAgentImage)
 	v.SetDefault("agent.image_tag", defaultAgentImageTag)
-	v.SetDefault("agent.secrets_file", defaultSecretsFile)
+	v.SetDefault("agent.credentials_file", defaultCredentialsFile)
 	v.SetDefault("agent.sessions_dir", defaultSessionsDir)
 	v.SetDefault("agent.token_cache.enabled", true)
 	v.SetDefault("agent.token_cache.ttl", defaultTokenCacheTTL.String())
@@ -184,7 +184,7 @@ func setupViper(v *viper.Viper) {
 	_ = v.BindEnv("server.address", "STROMBOLI_SERVER_ADDRESS")
 	_ = v.BindEnv("agent.image", "STROMBOLI_AGENT_IMAGE")
 	_ = v.BindEnv("agent.image_tag", "STROMBOLI_AGENT_IMAGE_TAG")
-	_ = v.BindEnv("agent.secrets_file", "STROMBOLI_AGENT_SECRETS_FILE")
+	_ = v.BindEnv("agent.credentials_file", "STROMBOLI_AGENT_CREDENTIALS_FILE")
 	_ = v.BindEnv("agent.sessions_dir", "STROMBOLI_AGENT_SESSIONS_DIR")
 	_ = v.BindEnv("agent.token_cache.enabled", "STROMBOLI_TOKEN_CACHE_ENABLED")
 	_ = v.BindEnv("agent.token_cache.ttl", "STROMBOLI_TOKEN_CACHE_TTL")
@@ -220,10 +220,10 @@ func parseConfig(v *viper.Viper) (*Config, error) {
 			Address: v.GetString("server.address"),
 		},
 		Agent: AgentConfig{
-			Image:       v.GetString("agent.image"),
-			ImageTag:    v.GetString("agent.image_tag"),
-			SecretsFile: v.GetString("agent.secrets_file"),
-			SessionsDir: v.GetString("agent.sessions_dir"),
+			Image:           v.GetString("agent.image"),
+			ImageTag:        v.GetString("agent.image_tag"),
+			CredentialsFile: v.GetString("agent.credentials_file"),
+			SessionsDir:     v.GetString("agent.sessions_dir"),
 			TokenCache: TokenCacheConfig{
 				Enabled: v.GetBool("agent.token_cache.enabled"),
 				TTL:     cacheTTL,
