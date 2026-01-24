@@ -79,6 +79,14 @@ func (b *CommandBuilder) WithSecret(name string) *CommandBuilder {
 	return b
 }
 
+// WithSecretTarget adds a podman secret mounted at a custom target path
+// The secret must be created beforehand with `podman secret create`
+// Example: WithSecretTarget("claude-credentials", "/home/user/.claude/.credentials.json")
+func (b *CommandBuilder) WithSecretTarget(name, targetPath string) *CommandBuilder {
+	b.secrets = append(b.secrets, fmt.Sprintf("%s,target=%s", name, targetPath))
+	return b
+}
+
 // WithSecretFile is deprecated - use WithSecret instead
 // This mounts a file read-only but has permission issues with rootless podman
 func (b *CommandBuilder) WithSecretFile(hostPath, containerPath string) *CommandBuilder {

@@ -51,7 +51,7 @@ func setupE2EEnv(t *testing.T) *testEnv {
 	}
 
 	// Create secrets file path
-	secretsFile := filepath.Join(tempDir, ".claude-secrets")
+	secretsFile := filepath.Join(tempDir, ".credentials.json")
 
 	// Check for Claude token in environment
 	claudeToken := os.Getenv("ANTHROPIC_API_KEY")

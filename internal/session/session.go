@@ -24,6 +24,7 @@ func NewManager(sessionsDir string) *Manager {
 
 // Create creates a session directory and returns the sessionID and absolute path.
 // If sessionID is empty, generates a new UUID.
+// Also creates the .claude subdirectory for Claude Code config/state.
 func (m *Manager) Create(sessionID string) (string, string, error) {
 	if sessionID == "" {
 		sessionID = GenerateID()
@@ -37,6 +38,14 @@ func (m *Manager) Create(sessionID string) (string, string, error) {
 	sessionPath := filepath.Join(m.sessionsDir, sessionID)
 	if err := os.MkdirAll(sessionPath, 0700); err != nil {
 		return "", "", fmt.Errorf("failed to create session directory: %w", err)
+	}
+
+	// Create .claude subdirectory for Claude Code config/state
+	// This is needed because when mounting secrets to ~/.claude/.credentials.json,
+	// the intermediate directory must exist with correct permissions
+	claudeDir := filepath.Join(sessionPath, ".claude")
+	if err := os.MkdirAll(claudeDir, 0700); err != nil {
+		return "", "", fmt.Errorf("failed to create .claude directory: %w", err)
 	}
 
 	absSessionPath, err := filepath.Abs(sessionPath)

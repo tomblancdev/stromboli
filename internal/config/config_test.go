@@ -22,7 +22,7 @@ func TestLoad_Defaults(t *testing.T) {
 
 	// Test agent defaults
 	assert.Equal(t, "stromboli-agent", cfg.Agent.Image)
-	assert.Equal(t, ".claude-secrets", cfg.Agent.SecretsFile)
+	assert.Equal(t, "~/.claude/.credentials.json", cfg.Agent.CredentialsFile)
 	assert.Equal(t, ".stromboli/sessions", cfg.Agent.SessionsDir)
 
 	// Test resource defaults
@@ -60,7 +60,7 @@ func TestLoad_EnvironmentVariables(t *testing.T) {
 	// Set environment variables
 	os.Setenv("STROMBOLI_SERVER_ADDRESS", ":9090")
 	os.Setenv("STROMBOLI_AGENT_IMAGE", "custom-agent:v1")
-	os.Setenv("STROMBOLI_AGENT_SECRETS_FILE", "/tmp/secrets")
+	os.Setenv("STROMBOLI_AGENT_CREDENTIALS_FILE", "/tmp/credentials.json")
 	os.Setenv("STROMBOLI_AGENT_SESSIONS_DIR", "/tmp/sessions")
 	os.Setenv("STROMBOLI_DEFAULT_MEMORY", "1g")
 	os.Setenv("STROMBOLI_DEFAULT_CPUS", "2")
@@ -81,7 +81,7 @@ func TestLoad_EnvironmentVariables(t *testing.T) {
 
 	assert.Equal(t, ":9090", cfg.Server.Address)
 	assert.Equal(t, "custom-agent:v1", cfg.Agent.Image)
-	assert.Equal(t, "/tmp/secrets", cfg.Agent.SecretsFile)
+	assert.Equal(t, "/tmp/credentials.json", cfg.Agent.CredentialsFile)
 	assert.Equal(t, "/tmp/sessions", cfg.Agent.SessionsDir)
 	assert.Equal(t, "1g", cfg.Resources.Memory)
 	assert.Equal(t, "2", cfg.Resources.CPUs)
@@ -137,7 +137,7 @@ server:
 
 agent:
   image: "file-agent:latest"
-  secrets_file: "/config/secrets"
+  credentials_file: "/config/credentials.json"
   sessions_dir: "/config/sessions"
   token_cache:
     enabled: false
@@ -177,7 +177,7 @@ jobs:
 
 	assert.Equal(t, ":7070", cfg.Server.Address)
 	assert.Equal(t, "file-agent:latest", cfg.Agent.Image)
-	assert.Equal(t, "/config/secrets", cfg.Agent.SecretsFile)
+	assert.Equal(t, "/config/credentials.json", cfg.Agent.CredentialsFile)
 	assert.Equal(t, "/config/sessions", cfg.Agent.SessionsDir)
 	assert.Equal(t, "4g", cfg.Resources.Memory)
 	assert.Equal(t, "8", cfg.Resources.CPUs)

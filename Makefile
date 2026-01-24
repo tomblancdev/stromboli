@@ -1,4 +1,4 @@
-.PHONY: build run test test-integration test-e2e test-all test-coverage lint dev clean claude-setup claude-status claude-logout docs docs-swagger docs-godoc docs-serve docs-stop docs-logs
+.PHONY: build run test test-integration test-e2e test-all test-coverage lint dev clean claude-setup claude-check claude-status claude-logout secret-create secret-update secret-remove secret-status docs docs-swagger docs-godoc docs-serve docs-stop docs-logs
 
 # Binary name
 BINARY=stromboli
@@ -163,42 +163,85 @@ docs-logs:
 	podman compose -f deployments/docker/compose.docs.yml logs -f
 
 # ============================================================================
-# Claude Token Management
+# Claude Credentials Management
 # ============================================================================
 
-# Claude secrets file
-CLAUDE_SECRETS=.claude-secrets
+# Claude credentials file and Podman secret name
+CLAUDE_CREDENTIALS=~/.claude/.credentials.json
+CLAUDE_SECRET_NAME=claude-credentials
 
-# Setup Claude token (extract from existing credentials)
-claude-setup:
-	@echo "🔐 Claude Token Setup"
+# Check Claude credentials status
+claude-check:
+	@echo "🔐 Claude Credentials Check"
 	@echo ""
-	@echo "Extracting token from ~/.claude/.credentials.json..."
 	@if [ -f ~/.claude/.credentials.json ]; then \
-		python3 -c "import json; print(json.load(open('$$HOME/.claude/.credentials.json'))['claudeAiOauth']['accessToken'])" > $(CLAUDE_SECRETS) \
-		&& chmod 600 $(CLAUDE_SECRETS) \
-		&& echo "✅ Token saved to $(CLAUDE_SECRETS)"; \
+		echo "✅ Credentials found at ~/.claude/.credentials.json"; \
 	else \
 		echo "❌ No credentials found at ~/.claude/.credentials.json"; \
 		echo "   Run 'claude' first to authenticate"; \
+		exit 1; \
 	fi
 
-# Check Claude token status
+# Alias for backwards compatibility
+claude-setup: claude-check
+
+# Create Podman secret from credentials file
+secret-create: claude-check
+	@echo "🔐 Creating Podman secret '$(CLAUDE_SECRET_NAME)'..."
+	@if podman secret exists $(CLAUDE_SECRET_NAME) 2>/dev/null; then \
+		echo "⚠️  Secret already exists. Use 'make secret-update' to refresh it."; \
+	else \
+		podman secret create $(CLAUDE_SECRET_NAME) ~/.claude/.credentials.json && \
+		echo "✅ Secret '$(CLAUDE_SECRET_NAME)' created"; \
+	fi
+
+# Update Podman secret (remove and recreate)
+secret-update: claude-check
+	@echo "🔄 Updating Podman secret '$(CLAUDE_SECRET_NAME)'..."
+	@podman secret rm $(CLAUDE_SECRET_NAME) 2>/dev/null || true
+	@podman secret create $(CLAUDE_SECRET_NAME) ~/.claude/.credentials.json
+	@echo "✅ Secret '$(CLAUDE_SECRET_NAME)' updated"
+	@echo ""
+	@echo "ℹ️  Restart containers to use new credentials:"
+	@echo "   make container-restart"
+
+# Remove Podman secret
+secret-remove:
+	@echo "🗑️  Removing Podman secret '$(CLAUDE_SECRET_NAME)'..."
+	@podman secret rm $(CLAUDE_SECRET_NAME) 2>/dev/null && \
+		echo "✅ Secret removed" || \
+		echo "ℹ️  Secret doesn't exist"
+
+# Check secret status
+secret-status:
+	@echo "🔐 Podman Secret Status"
+	@echo ""
+	@if podman secret exists $(CLAUDE_SECRET_NAME) 2>/dev/null; then \
+		echo "✅ Secret '$(CLAUDE_SECRET_NAME)' exists"; \
+		podman secret inspect $(CLAUDE_SECRET_NAME) --format "   Created: {{.CreatedAt}}"; \
+	else \
+		echo "❌ Secret '$(CLAUDE_SECRET_NAME)' not found"; \
+		echo "   Create it with: make secret-create"; \
+	fi
+
+# Check Claude token validity by running a test prompt
 claude-status:
-	@if [ -f $(CLAUDE_SECRETS) ]; then \
+	@if [ -f ~/.claude/.credentials.json ]; then \
+		echo "Testing Claude authentication..."; \
 		podman run --rm \
-			-v "$$(pwd)/$(CLAUDE_SECRETS):/run/secrets/claude-token:ro" \
+			-v "$$HOME/.claude/.credentials.json:/home/user/.claude/.credentials.json:ro" \
+			-e HOME=/home/user \
 			stromboli-agent:latest \
 			-p "respond with 'ok'" 2>&1 | grep -q "Invalid\|Error" \
-			&& echo "❌ Token invalid - run 'make claude-setup'" \
+			&& echo "❌ Token invalid or expired - re-run 'claude' to refresh" \
 			|| echo "✅ Claude authenticated"; \
 	else \
-		echo "❌ No token - run 'make claude-setup'"; \
+		echo "❌ No credentials - run 'claude' first to authenticate"; \
 	fi
 
-# Remove Claude token
+# Remove Claude credentials (just shows info, doesn't delete user's credentials)
 claude-logout:
-	@rm -f $(CLAUDE_SECRETS) && echo "✅ Token removed" || echo "ℹ️  No token found"
+	@echo "ℹ️  To logout, run 'claude logout' or delete ~/.claude/.credentials.json"
 
 # ============================================================================
 # Container Deployment
@@ -223,14 +266,21 @@ container-start:
 		echo "   make podman-socket-enable"; \
 		exit 1; \
 	fi
-	@# Check Claude secrets
-	@if [ ! -f "$(CLAUDE_SECRETS)" ]; then \
-		echo "❌ Claude secrets not found. Run: make claude-setup"; \
+	@# Check Claude credentials file exists
+	@if [ ! -f ~/.claude/.credentials.json ]; then \
+		echo "❌ Claude credentials not found at ~/.claude/.credentials.json"; \
+		echo "   Run 'claude' first to authenticate"; \
 		exit 1; \
+	fi
+	@# Warn if agent secret doesn't exist
+	@if ! podman secret exists $(CLAUDE_SECRET_NAME) 2>/dev/null; then \
+		echo "⚠️  Podman secret '$(CLAUDE_SECRET_NAME)' not found (needed for agents)"; \
+		echo "   Create it with: make secret-create"; \
+		echo ""; \
 	fi
 	@# Create sessions directory
 	@mkdir -p /tmp/stromboli-sessions
-	@# Start container (compose handles secrets automatically)
+	@# Start container
 	podman compose -f deployments/docker/compose.yml up -d
 	@echo ""
 	@echo "✅ Stromboli running:"
@@ -241,6 +291,10 @@ container-start:
 	@echo "Commands:"
 	@echo "   make container-logs    View logs"
 	@echo "   make container-stop    Stop containers"
+	@echo ""
+	@echo "After token refresh:"
+	@echo "   make container-restart  (server auto-refreshes from file)"
+	@echo "   make secret-update      (if agents need updated credentials)"
 
 # Stop Stromboli container
 container-stop:
@@ -266,7 +320,7 @@ podman-socket-enable:
 	@echo "✅ Socket enabled at: $${XDG_RUNTIME_DIR}/podman/podman.sock"
 
 # Full container setup (build images + configure + start)
-container-setup: podman-socket-enable build-images claude-setup container-start
+container-setup: podman-socket-enable build-images secret-create container-start
 	@echo ""
 	@echo "🎉 Stromboli is fully set up and running!"
 	@echo ""
@@ -315,7 +369,11 @@ help:
 	@echo "  docs-stop        Stop documentation servers"
 	@echo "  docs-logs        View documentation server logs"
 	@echo ""
-	@echo "Claude:"
-	@echo "  claude-setup     Extract and save Claude token"
+	@echo "Claude & Secrets:"
+	@echo "  claude-check     Verify Claude credentials exist"
 	@echo "  claude-status    Check Claude token validity"
-	@echo "  claude-logout    Remove saved token"
+	@echo "  claude-logout    Show logout instructions"
+	@echo "  secret-create    Create Podman secret from credentials"
+	@echo "  secret-update    Update Podman secret (after token refresh)"
+	@echo "  secret-remove    Remove Podman secret"
+	@echo "  secret-status    Check Podman secret status"

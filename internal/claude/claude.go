@@ -2,106 +2,70 @@ package claude
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
-	"sync"
-	"time"
 
 	strerrors "stromboli/internal/errors"
 )
 
 const (
-	DefaultSecretsFile = ".claude-secrets"
-	DefaultCacheTTL    = 5 * time.Minute
+	// DefaultCredentialsFile is the default path to Claude credentials
+	DefaultCredentialsFile = "~/.claude/.credentials.json"
 )
 
-// tokenCache holds cached token data with expiration
-type tokenCache struct {
-	token     string
-	expiresAt time.Time
-}
-
-// Client wraps Claude Code token operations with caching support
+// Client wraps Claude credentials operations
 type Client struct {
-	secretsFile  string
-	cacheEnabled bool
-	cacheTTL     time.Duration
-	cache        *tokenCache
-	mu           sync.RWMutex
+	credentialsFile string
 }
 
-// NewClient creates a new Claude client with default cache settings
-// Cache is enabled by default with 5 minute TTL
-func NewClient(secretsFile string) *Client {
-	if secretsFile == "" {
-		secretsFile = DefaultSecretsFile
+// NewClient creates a new Claude client
+func NewClient(credentialsFile string) *Client {
+	if credentialsFile == "" {
+		credentialsFile = DefaultCredentialsFile
 	}
 	return &Client{
-		secretsFile:  secretsFile,
-		cacheEnabled: true,
-		cacheTTL:     DefaultCacheTTL,
+		credentialsFile: expandPath(credentialsFile),
 	}
 }
 
-// NewClientWithCache creates a new Claude client with custom cache settings
-func NewClientWithCache(secretsFile string, cacheEnabled bool, cacheTTL time.Duration) *Client {
-	if secretsFile == "" {
-		secretsFile = DefaultSecretsFile
-	}
-	return &Client{
-		secretsFile:  secretsFile,
-		cacheEnabled: cacheEnabled,
-		cacheTTL:     cacheTTL,
-	}
+// NewClientWithCache creates a new Claude client (cache params ignored for compatibility)
+// Deprecated: Use NewClient instead. Cache is no longer used.
+func NewClientWithCache(credentialsFile string, _ bool, _ any) *Client {
+	return NewClient(credentialsFile)
 }
 
-// IsConfigured checks if token file exists
+// CredentialsFile returns the resolved path to the credentials file
+func (c *Client) CredentialsFile() string {
+	return c.credentialsFile
+}
+
+// IsConfigured checks if credentials file exists
 func (c *Client) IsConfigured() bool {
-	_, err := os.Stat(c.secretsFile)
+	_, err := os.Stat(c.credentialsFile)
 	return err == nil
 }
 
-// GetToken reads the token from secrets file with caching support
-// If cache is enabled and valid, returns cached token.
-// Otherwise reads from file and updates cache.
+// GetToken is deprecated - credentials file is mounted directly into containers
+// Returns error directing users to the new approach
 func (c *Client) GetToken() (string, error) {
-	// Try to get from cache first
-	if c.cacheEnabled {
-		c.mu.RLock()
-		if c.cache != nil && time.Now().Before(c.cache.expiresAt) {
-			token := c.cache.token
-			c.mu.RUnlock()
-			return token, nil
-		}
-		c.mu.RUnlock()
+	if !c.IsConfigured() {
+		return "", strerrors.ErrTokenNotFound
 	}
-
-	// Cache miss or disabled - read from file
-	data, err := os.ReadFile(c.secretsFile)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return "", strerrors.ErrTokenNotFound
-		}
-		return "", err
-	}
-
-	token := strings.TrimSpace(string(data))
-
-	// Update cache if enabled
-	if c.cacheEnabled {
-		c.mu.Lock()
-		c.cache = &tokenCache{
-			token:     token,
-			expiresAt: time.Now().Add(c.cacheTTL),
-		}
-		c.mu.Unlock()
-	}
-
-	return token, nil
+	return "", strerrors.ErrTokenNotFound
 }
 
-// InvalidateCache clears the cached token, forcing next GetToken to read from file
-func (c *Client) InvalidateCache() {
-	c.mu.Lock()
-	c.cache = nil
-	c.mu.Unlock()
+// InvalidateCache is a no-op for compatibility
+// Deprecated: Cache is no longer used
+func (c *Client) InvalidateCache() {}
+
+// expandPath expands ~ to home directory
+func expandPath(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return path
+		}
+		return filepath.Join(home, path[2:])
+	}
+	return path
 }

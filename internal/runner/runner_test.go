@@ -22,7 +22,7 @@ func TestNewPodmanRunner(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
 
@@ -42,7 +42,7 @@ func TestRun_SecretsPathResolution(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
@@ -69,7 +69,7 @@ func TestRun_WithValidSecretsFile_BuildsCorrectCommand(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
@@ -96,7 +96,7 @@ func TestRun_WithClaudeOptions(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
@@ -139,7 +139,7 @@ func TestDestroySession(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
@@ -175,7 +175,7 @@ func TestDestroySession_NotFound(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
 
@@ -196,7 +196,7 @@ func TestDestroySession_PathTraversal(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
 
@@ -221,7 +221,7 @@ func TestListSessions(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
@@ -257,7 +257,7 @@ func TestRunStream_SendsOutputLines(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
@@ -287,7 +287,7 @@ func TestRunStream_ClosesChannelOnCompletion(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
@@ -321,7 +321,7 @@ func TestRun_WithTimeout(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
@@ -350,7 +350,7 @@ func TestRun_WithInvalidTimeout(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
@@ -380,7 +380,7 @@ func TestRun_WithResourceLimits(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
@@ -411,7 +411,7 @@ func TestRunStream_WithTimeout(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
@@ -442,7 +442,7 @@ func TestRunStream_WithResourceLimits(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
@@ -476,7 +476,7 @@ func TestDefaultResourceLimits_AppliedWhenNotSpecified(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
@@ -513,7 +513,7 @@ func TestDefaultResourceLimits_ExplicitValuesOverrideDefaults(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
@@ -552,7 +552,7 @@ func TestDefaultResourceLimits_PartialOverride(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)
@@ -589,7 +589,7 @@ func TestDefaultResourceLimits_StreamingAppliesDefaults(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 	require.NoError(t, err)

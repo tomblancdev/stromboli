@@ -3,24 +3,29 @@ package api
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"stromboli/internal/runner"
+	"stromboli/internal/secrets"
 )
 
 // HealthConfig holds health check configuration
 type HealthConfig struct {
 	// Timeout is the maximum time to wait for each health check
 	Timeout time.Duration
-	// SecretName is the name of the Podman secret to check for
+	// CredentialsFile is the path to the Claude credentials file to check
+	CredentialsFile string
+	// SecretName is the name of the Podman secret for credentials
 	SecretName string
 }
 
 // DefaultHealthConfig returns the default health check configuration
 func DefaultHealthConfig() HealthConfig {
 	return HealthConfig{
-		Timeout:    5 * time.Second,
-		SecretName: "claude-token",
+		Timeout:         5 * time.Second,
+		CredentialsFile: "~/.claude/.credentials.json",
+		SecretName:      secrets.DefaultSecretName,
 	}
 }
 
@@ -62,6 +67,7 @@ func NewHealthChecker(executor runner.Executor, config HealthConfig) *HealthChec
 func (h *HealthChecker) Check(ctx context.Context) DetailedHealth {
 	components := []ComponentHealth{
 		h.checkPodman(ctx),
+		h.checkCredentials(),
 		h.checkSecret(ctx),
 	}
 
@@ -100,7 +106,24 @@ func (h *HealthChecker) checkPodman(ctx context.Context) ComponentHealth {
 	}
 }
 
-// checkSecret verifies the claude-token secret exists via "podman secret exists"
+// checkCredentials verifies the Claude credentials file exists
+func (h *HealthChecker) checkCredentials() ComponentHealth {
+	_, err := os.Stat(h.config.CredentialsFile)
+	if err != nil {
+		return ComponentHealth{
+			Name:   "claude-credentials-file",
+			Status: "error",
+			Error:  fmt.Sprintf("credentials file not found at %s: run 'claude' to authenticate", h.config.CredentialsFile),
+		}
+	}
+
+	return ComponentHealth{
+		Name:   "claude-credentials-file",
+		Status: "ok",
+	}
+}
+
+// checkSecret verifies the Podman secret exists
 func (h *HealthChecker) checkSecret(ctx context.Context) ComponentHealth {
 	ctx, cancel := context.WithTimeout(ctx, h.config.Timeout)
 	defer cancel()
@@ -108,14 +131,14 @@ func (h *HealthChecker) checkSecret(ctx context.Context) ComponentHealth {
 	_, err := h.executor.Run(ctx, []string{"podman", "secret", "exists", h.config.SecretName})
 	if err != nil {
 		return ComponentHealth{
-			Name:   "claude-secret",
+			Name:   "claude-credentials-secret",
 			Status: "error",
-			Error:  fmt.Sprintf("secret '%s' not found: %v", h.config.SecretName, err),
+			Error:  fmt.Sprintf("podman secret '%s' not found: run stromboli to create it", h.config.SecretName),
 		}
 	}
 
 	return ComponentHealth{
-		Name:   "claude-secret",
+		Name:   "claude-credentials-secret",
 		Status: "ok",
 	}
 }

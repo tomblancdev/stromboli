@@ -3,39 +3,68 @@ package secrets
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
 const (
-	// DefaultSecretName is the default name for the Claude token secret
-	DefaultSecretName = "claude-token"
+	// DefaultCredentialsFile is the default path to Claude credentials
+	DefaultCredentialsFile = "~/.claude/.credentials.json"
+	// DefaultSecretName is the name of the Podman secret for Claude credentials
+	DefaultSecretName = "claude-credentials"
 )
 
-// Manager handles Podman secret operations
+// Manager handles Podman secret operations for Claude credentials
 type Manager struct {
-	secretName string
+	credentialsFile string
+	secretName      string
 }
 
-// NewManager creates a new secrets manager
+// NewManager creates a new credentials manager with default settings
 func NewManager(secretName string) *Manager {
 	if secretName == "" {
 		secretName = DefaultSecretName
 	}
-	return &Manager{secretName: secretName}
+	return &Manager{
+		credentialsFile: expandPath(DefaultCredentialsFile),
+		secretName:      secretName,
+	}
 }
 
-// SecretName returns the name of the managed secret
+// NewManagerWithPath creates a new credentials manager with custom credentials path
+func NewManagerWithPath(credentialsFile string) *Manager {
+	if credentialsFile == "" {
+		credentialsFile = DefaultCredentialsFile
+	}
+	return &Manager{
+		credentialsFile: expandPath(credentialsFile),
+		secretName:      DefaultSecretName,
+	}
+}
+
+// CredentialsFile returns the path to the credentials file
+func (m *Manager) CredentialsFile() string {
+	return m.credentialsFile
+}
+
+// SecretName returns the name of the Podman secret
 func (m *Manager) SecretName() string {
 	return m.secretName
 }
 
-// Exists checks if the secret exists in Podman
-func (m *Manager) Exists(ctx context.Context) (bool, error) {
+// FileExists checks if the credentials file exists on the host
+func (m *Manager) FileExists() bool {
+	_, err := os.Stat(m.credentialsFile)
+	return err == nil
+}
+
+// SecretExists checks if the Podman secret exists
+func (m *Manager) SecretExists(ctx context.Context) (bool, error) {
 	cmd := exec.CommandContext(ctx, "podman", "secret", "exists", m.secretName)
 	err := cmd.Run()
 	if err != nil {
-		// Exit code 1 means secret doesn't exist
 		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
 			return false, nil
 		}
@@ -44,9 +73,13 @@ func (m *Manager) Exists(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-// Create creates the secret from a file
-func (m *Manager) Create(ctx context.Context, filePath string) error {
-	cmd := exec.CommandContext(ctx, "podman", "secret", "create", m.secretName, filePath)
+// CreateSecret creates the Podman secret from the credentials file
+func (m *Manager) CreateSecret(ctx context.Context) error {
+	if !m.FileExists() {
+		return fmt.Errorf("credentials file not found: %s (run 'claude' to authenticate)", m.credentialsFile)
+	}
+
+	cmd := exec.CommandContext(ctx, "podman", "secret", "create", m.secretName, m.credentialsFile)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to create secret: %w, output: %s", err, strings.TrimSpace(string(output)))
@@ -54,20 +87,8 @@ func (m *Manager) Create(ctx context.Context, filePath string) error {
 	return nil
 }
 
-// EnsureExists creates the secret if it doesn't exist
-func (m *Manager) EnsureExists(ctx context.Context, filePath string) error {
-	exists, err := m.Exists(ctx)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return nil
-	}
-	return m.Create(ctx, filePath)
-}
-
-// Remove removes the secret
-func (m *Manager) Remove(ctx context.Context) error {
+// RemoveSecret removes the Podman secret
+func (m *Manager) RemoveSecret(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, "podman", "secret", "rm", m.secretName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -76,16 +97,55 @@ func (m *Manager) Remove(ctx context.Context) error {
 	return nil
 }
 
-// Update removes and recreates the secret with new content
-func (m *Manager) Update(ctx context.Context, filePath string) error {
-	exists, err := m.Exists(ctx)
+// UpdateSecret removes and recreates the secret with current file content
+func (m *Manager) UpdateSecret(ctx context.Context) error {
+	exists, err := m.SecretExists(ctx)
 	if err != nil {
 		return err
 	}
 	if exists {
-		if err := m.Remove(ctx); err != nil {
+		if err := m.RemoveSecret(ctx); err != nil {
 			return err
 		}
 	}
-	return m.Create(ctx, filePath)
+	return m.CreateSecret(ctx)
+}
+
+// EnsureExists validates credentials file exists and creates/updates the Podman secret
+func (m *Manager) EnsureExists(ctx context.Context, filePath string) error {
+	// Use provided filePath if given
+	if filePath != "" {
+		m.credentialsFile = expandPath(filePath)
+	}
+
+	// Check if credentials file exists
+	if !m.FileExists() {
+		return fmt.Errorf("credentials file not found: %s (run 'claude' to authenticate)", m.credentialsFile)
+	}
+
+	// Check if secret exists
+	exists, err := m.SecretExists(ctx)
+	if err != nil {
+		return err
+	}
+
+	if !exists {
+		// Create new secret
+		return m.CreateSecret(ctx)
+	}
+
+	// Secret exists - update it to ensure it has latest content
+	return m.UpdateSecret(ctx)
+}
+
+// expandPath expands ~ to home directory
+func expandPath(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return path
+		}
+		return filepath.Join(home, path[2:])
+	}
+	return path
 }

@@ -43,7 +43,8 @@ tmp/
 .env.local
 *.env
 
-# Claude secrets
+# Claude credentials (local copies, not needed with direct mounting)
+.credentials.json
 .claude-secrets
 
 # Database (when we add it later)

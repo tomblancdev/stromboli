@@ -58,8 +58,9 @@ func TestHealthCheck(t *testing.T) {
 
 func TestHealthCheck_WithHealthChecker(t *testing.T) {
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
-	claudeClient := claude.NewClient(secretsFile)
+	credentialsFile := filepath.Join(tmpDir, ".credentials.json")
+	require.NoError(t, os.WriteFile(credentialsFile, []byte("{}"), 0600))
+	claudeClient := claude.NewClient(credentialsFile)
 	authConfig := auth.Config{Enabled: false}
 	rateLimitConfig := RateLimitConfig{Enabled: false}
 	jobMgr := job.NewManager()
@@ -70,8 +71,9 @@ func TestHealthCheck_WithHealthChecker(t *testing.T) {
 	mockExecutor.DefaultError = nil
 
 	healthConfig := HealthConfig{
-		Timeout:    5 * time.Second,
-		SecretName: "claude-token",
+		Timeout:         5 * time.Second,
+		CredentialsFile: credentialsFile,
+		SecretName:      "claude-credentials",
 	}
 	healthChecker := NewHealthChecker(mockExecutor, healthConfig)
 
@@ -91,22 +93,25 @@ func TestHealthCheck_WithHealthChecker(t *testing.T) {
 
 	assert.Equal(t, "ok", response.Status)
 	assert.Equal(t, "stromboli", response.Name)
-	require.Len(t, response.Components, 2)
+	require.Len(t, response.Components, 3)
 	assert.Equal(t, "podman", response.Components[0].Name)
 	assert.Equal(t, "ok", response.Components[0].Status)
-	assert.Equal(t, "claude-secret", response.Components[1].Name)
+	assert.Equal(t, "claude-credentials-file", response.Components[1].Name)
 	assert.Equal(t, "ok", response.Components[1].Status)
+	assert.Equal(t, "claude-credentials-secret", response.Components[2].Name)
+	assert.Equal(t, "ok", response.Components[2].Status)
 }
 
 func TestHealthCheck_Degraded(t *testing.T) {
 	tmpDir := t.TempDir()
-	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
-	claudeClient := claude.NewClient(secretsFile)
+	credentialsFile := filepath.Join(tmpDir, ".credentials.json")
+	require.NoError(t, os.WriteFile(credentialsFile, []byte("{}"), 0600))
+	claudeClient := claude.NewClient(credentialsFile)
 	authConfig := auth.Config{Enabled: false}
 	rateLimitConfig := RateLimitConfig{Enabled: false}
 	jobMgr := job.NewManager()
 
-	// Create mock executor that returns error for podman check
+	// Create mock executor that returns error for podman version check only
 	mockExecutor := runner.NewMockExecutor()
 	mockExecutor.RunFunc = func(ctx context.Context, args []string) ([]byte, error) {
 		if len(args) > 0 && args[0] == "podman" && len(args) > 1 && args[1] == "version" {
@@ -116,8 +121,9 @@ func TestHealthCheck_Degraded(t *testing.T) {
 	}
 
 	healthConfig := HealthConfig{
-		Timeout:    5 * time.Second,
-		SecretName: "claude-token",
+		Timeout:         5 * time.Second,
+		CredentialsFile: credentialsFile,
+		SecretName:      "claude-credentials",
 	}
 	healthChecker := NewHealthChecker(mockExecutor, healthConfig)
 
@@ -137,9 +143,10 @@ func TestHealthCheck_Degraded(t *testing.T) {
 
 	assert.Equal(t, "degraded", response.Status)
 	assert.Equal(t, "stromboli", response.Name)
-	require.Len(t, response.Components, 2)
-	assert.Equal(t, "error", response.Components[0].Status)
-	assert.Equal(t, "ok", response.Components[1].Status)
+	require.Len(t, response.Components, 3)
+	assert.Equal(t, "error", response.Components[0].Status) // podman
+	assert.Equal(t, "ok", response.Components[1].Status)    // credentials file
+	assert.Equal(t, "ok", response.Components[2].Status)    // secret
 }
 
 func TestClaudeStatus_NotConfigured(t *testing.T) {
@@ -158,7 +165,7 @@ func TestClaudeStatus_NotConfigured(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, false, response["configured"])
-	assert.Contains(t, response["message"], "make claude-setup")
+	assert.Contains(t, response["message"], "claude")
 }
 
 func TestClaudeStatus_Configured(t *testing.T) {
