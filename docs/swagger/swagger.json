@@ -537,6 +537,119 @@
                     }
                 }
             }
+        },
+        "/sessions/{id}/messages": {
+            "get": {
+                "description": "Returns paginated conversation history for a session including all messages, tool calls, and results",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sessions"
+                ],
+                "summary": "List session messages",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset for pagination (default: 0)",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of messages to return (default: 50, max: 200)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionMessagesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid parameters",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionMessagesResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Session not found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionMessagesResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionMessagesResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{id}/messages/{message_id}": {
+            "get": {
+                "description": "Returns a specific message from session history by UUID, including full content, tool calls, and results",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sessions"
+                ],
+                "summary": "Get session message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Message UUID",
+                        "name": "message_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionMessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid parameters",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionMessageResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Message not found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionMessageResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionMessageResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -790,6 +903,42 @@
                 }
             }
         },
+        "internal_api.SessionMessageResponse": {
+            "description": "A single message from session history",
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "$ref": "#/definitions/stromboli_internal_history.Message"
+                }
+            }
+        },
+        "internal_api.SessionMessagesResponse": {
+            "description": "Paginated list of session messages",
+            "type": "object",
+            "properties": {
+                "has_more": {
+                    "type": "boolean"
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/stromboli_internal_history.Message"
+                    }
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "internal_api.TokenRequest": {
             "type": "object",
             "required": [
@@ -829,6 +978,225 @@
                 },
                 "valid": {
                     "type": "boolean"
+                }
+            }
+        },
+        "stromboli_internal_history.ContentBlock": {
+            "description": "A content block (text, tool_use, or tool_result)",
+            "type": "object",
+            "properties": {
+                "content": {
+                    "description": "Tool result content (for tool_result)",
+                    "type": "string",
+                    "example": "file1.txt\nfile2.txt"
+                },
+                "id": {
+                    "description": "Tool use ID (for tool_use and tool_result)",
+                    "type": "string",
+                    "example": "toolu_01G5uAJ4YZ26yyJbXNnG2byM"
+                },
+                "input": {
+                    "description": "Tool input (for tool_use)",
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "is_error": {
+                    "description": "Whether tool execution errored",
+                    "type": "boolean",
+                    "example": false
+                },
+                "name": {
+                    "description": "Tool name (for tool_use)",
+                    "type": "string",
+                    "example": "Bash"
+                },
+                "text": {
+                    "description": "Text content (for text blocks)",
+                    "type": "string",
+                    "example": "I'll help you with that."
+                },
+                "tool_use_id": {
+                    "description": "Tool use ID reference (for tool_result)",
+                    "type": "string",
+                    "example": "toolu_01G5uAJ4YZ26yyJbXNnG2byM"
+                },
+                "type": {
+                    "description": "Block type: text, tool_use, tool_result",
+                    "type": "string",
+                    "example": "tool_use"
+                }
+            }
+        },
+        "stromboli_internal_history.Message": {
+            "description": "A message in the conversation history",
+            "type": "object",
+            "properties": {
+                "content": {
+                    "description": "The actual message content",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stromboli_internal_history.MessageContent"
+                        }
+                    ]
+                },
+                "cwd": {
+                    "description": "Working directory at time of message",
+                    "type": "string",
+                    "example": "/workspace"
+                },
+                "git_branch": {
+                    "description": "Git branch at time of message",
+                    "type": "string",
+                    "example": "main"
+                },
+                "parent_uuid": {
+                    "description": "Parent message UUID for threading",
+                    "type": "string",
+                    "example": "92242819-b7d1-48d4-b023-6134c3e9f63a"
+                },
+                "permission_mode": {
+                    "description": "Permission mode active for this message",
+                    "type": "string",
+                    "example": "bypassPermissions"
+                },
+                "session_id": {
+                    "description": "Session ID this message belongs to",
+                    "type": "string",
+                    "example": "c7518652-f0ea-436e-9143-327085022abd"
+                },
+                "timestamp": {
+                    "description": "Timestamp when the message was created",
+                    "type": "string",
+                    "example": "2026-01-24T10:06:42.906Z"
+                },
+                "tool_result": {
+                    "description": "Tool use result (for tool_result messages)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stromboli_internal_history.ToolResult"
+                        }
+                    ]
+                },
+                "type": {
+                    "description": "Message type: user, assistant, queue-operation",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stromboli_internal_history.MessageType"
+                        }
+                    ],
+                    "example": "assistant"
+                },
+                "uuid": {
+                    "description": "Unique identifier for this message",
+                    "type": "string",
+                    "example": "40adde19-546a-43e8-ad25-31ef4faa4112"
+                },
+                "version": {
+                    "description": "Claude Code version",
+                    "type": "string",
+                    "example": "2.1.19"
+                }
+            }
+        },
+        "stromboli_internal_history.MessageContent": {
+            "description": "Message content with role and content blocks",
+            "type": "object",
+            "properties": {
+                "content": {
+                    "description": "Content blocks (text, tool_use, tool_result)",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/stromboli_internal_history.ContentBlock"
+                    }
+                },
+                "message_id": {
+                    "description": "Message ID from API",
+                    "type": "string",
+                    "example": "msg_017ETE4Wk32ZXAQJp3GXP1Bo"
+                },
+                "model": {
+                    "description": "Model used (for assistant messages)",
+                    "type": "string",
+                    "example": "claude-opus-4-5-20251101"
+                },
+                "role": {
+                    "description": "Role: user or assistant",
+                    "type": "string",
+                    "example": "assistant"
+                },
+                "stop_reason": {
+                    "description": "Stop reason (for assistant messages)",
+                    "type": "string",
+                    "example": "end_turn"
+                },
+                "usage": {
+                    "description": "Token usage",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stromboli_internal_history.Usage"
+                        }
+                    ]
+                }
+            }
+        },
+        "stromboli_internal_history.MessageType": {
+            "type": "string",
+            "enum": [
+                "user",
+                "assistant",
+                "queue-operation"
+            ],
+            "x-enum-varnames": [
+                "MessageTypeUser",
+                "MessageTypeAssistant",
+                "MessageTypeSystem"
+            ]
+        },
+        "stromboli_internal_history.ToolResult": {
+            "description": "Detailed result of a tool execution",
+            "type": "object",
+            "properties": {
+                "interrupted": {
+                    "description": "Whether execution was interrupted",
+                    "type": "boolean",
+                    "example": false
+                },
+                "is_image": {
+                    "description": "Whether result is an image",
+                    "type": "boolean",
+                    "example": false
+                },
+                "stderr": {
+                    "description": "Standard error",
+                    "type": "string",
+                    "example": ""
+                },
+                "stdout": {
+                    "description": "Standard output",
+                    "type": "string",
+                    "example": "file1.txt\nfile2.txt"
+                }
+            }
+        },
+        "stromboli_internal_history.Usage": {
+            "description": "Token usage statistics",
+            "type": "object",
+            "properties": {
+                "cache_creation_input_tokens": {
+                    "type": "integer",
+                    "example": 336
+                },
+                "cache_read_input_tokens": {
+                    "type": "integer",
+                    "example": 18121
+                },
+                "input_tokens": {
+                    "type": "integer",
+                    "example": 150
+                },
+                "output_tokens": {
+                    "type": "integer",
+                    "example": 42
                 }
             }
         },

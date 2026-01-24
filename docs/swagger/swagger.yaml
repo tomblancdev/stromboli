@@ -173,6 +173,30 @@ definitions:
           type: string
         type: array
     type: object
+  internal_api.SessionMessageResponse:
+    description: A single message from session history
+    properties:
+      error:
+        type: string
+      message:
+        $ref: '#/definitions/stromboli_internal_history.Message'
+    type: object
+  internal_api.SessionMessagesResponse:
+    description: Paginated list of session messages
+    properties:
+      has_more:
+        type: boolean
+      limit:
+        type: integer
+      messages:
+        items:
+          $ref: '#/definitions/stromboli_internal_history.Message'
+        type: array
+      offset:
+        type: integer
+      total:
+        type: integer
+    type: object
   internal_api.TokenRequest:
     properties:
       client_id:
@@ -199,6 +223,170 @@ definitions:
         type: string
       valid:
         type: boolean
+    type: object
+  stromboli_internal_history.ContentBlock:
+    description: A content block (text, tool_use, or tool_result)
+    properties:
+      content:
+        description: Tool result content (for tool_result)
+        example: |-
+          file1.txt
+          file2.txt
+        type: string
+      id:
+        description: Tool use ID (for tool_use and tool_result)
+        example: toolu_01G5uAJ4YZ26yyJbXNnG2byM
+        type: string
+      input:
+        additionalProperties: {}
+        description: Tool input (for tool_use)
+        type: object
+      is_error:
+        description: Whether tool execution errored
+        example: false
+        type: boolean
+      name:
+        description: Tool name (for tool_use)
+        example: Bash
+        type: string
+      text:
+        description: Text content (for text blocks)
+        example: I'll help you with that.
+        type: string
+      tool_use_id:
+        description: Tool use ID reference (for tool_result)
+        example: toolu_01G5uAJ4YZ26yyJbXNnG2byM
+        type: string
+      type:
+        description: 'Block type: text, tool_use, tool_result'
+        example: tool_use
+        type: string
+    type: object
+  stromboli_internal_history.Message:
+    description: A message in the conversation history
+    properties:
+      content:
+        allOf:
+        - $ref: '#/definitions/stromboli_internal_history.MessageContent'
+        description: The actual message content
+      cwd:
+        description: Working directory at time of message
+        example: /workspace
+        type: string
+      git_branch:
+        description: Git branch at time of message
+        example: main
+        type: string
+      parent_uuid:
+        description: Parent message UUID for threading
+        example: 92242819-b7d1-48d4-b023-6134c3e9f63a
+        type: string
+      permission_mode:
+        description: Permission mode active for this message
+        example: bypassPermissions
+        type: string
+      session_id:
+        description: Session ID this message belongs to
+        example: c7518652-f0ea-436e-9143-327085022abd
+        type: string
+      timestamp:
+        description: Timestamp when the message was created
+        example: "2026-01-24T10:06:42.906Z"
+        type: string
+      tool_result:
+        allOf:
+        - $ref: '#/definitions/stromboli_internal_history.ToolResult'
+        description: Tool use result (for tool_result messages)
+      type:
+        allOf:
+        - $ref: '#/definitions/stromboli_internal_history.MessageType'
+        description: 'Message type: user, assistant, queue-operation'
+        example: assistant
+      uuid:
+        description: Unique identifier for this message
+        example: 40adde19-546a-43e8-ad25-31ef4faa4112
+        type: string
+      version:
+        description: Claude Code version
+        example: 2.1.19
+        type: string
+    type: object
+  stromboli_internal_history.MessageContent:
+    description: Message content with role and content blocks
+    properties:
+      content:
+        description: Content blocks (text, tool_use, tool_result)
+        items:
+          $ref: '#/definitions/stromboli_internal_history.ContentBlock'
+        type: array
+      message_id:
+        description: Message ID from API
+        example: msg_017ETE4Wk32ZXAQJp3GXP1Bo
+        type: string
+      model:
+        description: Model used (for assistant messages)
+        example: claude-opus-4-5-20251101
+        type: string
+      role:
+        description: 'Role: user or assistant'
+        example: assistant
+        type: string
+      stop_reason:
+        description: Stop reason (for assistant messages)
+        example: end_turn
+        type: string
+      usage:
+        allOf:
+        - $ref: '#/definitions/stromboli_internal_history.Usage'
+        description: Token usage
+    type: object
+  stromboli_internal_history.MessageType:
+    enum:
+    - user
+    - assistant
+    - queue-operation
+    type: string
+    x-enum-varnames:
+    - MessageTypeUser
+    - MessageTypeAssistant
+    - MessageTypeSystem
+  stromboli_internal_history.ToolResult:
+    description: Detailed result of a tool execution
+    properties:
+      interrupted:
+        description: Whether execution was interrupted
+        example: false
+        type: boolean
+      is_image:
+        description: Whether result is an image
+        example: false
+        type: boolean
+      stderr:
+        description: Standard error
+        example: ""
+        type: string
+      stdout:
+        description: Standard output
+        example: |-
+          file1.txt
+          file2.txt
+        type: string
+    type: object
+  stromboli_internal_history.Usage:
+    description: Token usage statistics
+    properties:
+      cache_creation_input_tokens:
+        example: 336
+        type: integer
+      cache_read_input_tokens:
+        example: 18121
+        type: integer
+      input_tokens:
+        example: 150
+        type: integer
+      output_tokens:
+        example: 42
+        type: integer
     type: object
   stromboli_internal_job.Status:
     enum:
@@ -751,6 +939,83 @@ paths:
           schema:
             $ref: '#/definitions/internal_api.SessionDestroyResponse'
       summary: Destroy session
+      tags:
+      - sessions
+  /sessions/{id}/messages:
+    get:
+      description: Returns paginated conversation history for a session including
+        all messages, tool calls, and results
+      parameters:
+      - description: Session ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 'Offset for pagination (default: 0)'
+        in: query
+        name: offset
+        type: integer
+      - description: 'Number of messages to return (default: 50, max: 200)'
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.SessionMessagesResponse'
+        "400":
+          description: Invalid parameters
+          schema:
+            $ref: '#/definitions/internal_api.SessionMessagesResponse'
+        "404":
+          description: Session not found
+          schema:
+            $ref: '#/definitions/internal_api.SessionMessagesResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/internal_api.SessionMessagesResponse'
+      summary: List session messages
+      tags:
+      - sessions
+  /sessions/{id}/messages/{message_id}:
+    get:
+      description: Returns a specific message from session history by UUID, including
+        full content, tool calls, and results
+      parameters:
+      - description: Session ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Message UUID
+        in: path
+        name: message_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.SessionMessageResponse'
+        "400":
+          description: Invalid parameters
+          schema:
+            $ref: '#/definitions/internal_api.SessionMessageResponse'
+        "404":
+          description: Message not found
+          schema:
+            $ref: '#/definitions/internal_api.SessionMessageResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/internal_api.SessionMessageResponse'
+      summary: Get session message
       tags:
       - sessions
 securityDefinitions:

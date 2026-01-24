@@ -117,8 +117,9 @@ func setupE2EEnv(t *testing.T) *testEnv {
 		rateLimitConfig,
 		jobManager,
 		healthChecker,
-		nil,   // No blacklist needed for E2E tests
-		false, // Tracing disabled for E2E tests
+		nil,         // No blacklist needed for E2E tests
+		false,       // Tracing disabled for E2E tests
+		sessionsDir, // Sessions directory for history API
 	)
 
 	// Find available port

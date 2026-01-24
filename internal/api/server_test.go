@@ -23,6 +23,7 @@ import (
 func newTestServer(t *testing.T, mockRunner runner.Runner, configured bool) *Server {
 	tmpDir := t.TempDir()
 	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
 	if configured {
 		err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
 		require.NoError(t, err)
@@ -34,7 +35,7 @@ func newTestServer(t *testing.T, mockRunner runner.Runner, configured bool) *Ser
 	rateLimitConfig := RateLimitConfig{Enabled: false}
 	jobMgr := job.NewManager()
 	// Health checker, blacklist nil and tracing disabled for basic tests
-	return NewServer(mockRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, nil, nil, false)
+	return NewServer(mockRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, nil, nil, false, sessionsDir)
 }
 
 func TestHealthCheck(t *testing.T) {
@@ -77,7 +78,7 @@ func TestHealthCheck_WithHealthChecker(t *testing.T) {
 	}
 	healthChecker := NewHealthChecker(mockExecutor, healthConfig)
 
-	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, nil, false)
+	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, nil, false, tmpDir)
 
 	req, err := http.NewRequest(http.MethodGet, "/health", nil)
 	require.NoError(t, err)
@@ -127,7 +128,7 @@ func TestHealthCheck_Degraded(t *testing.T) {
 	}
 	healthChecker := NewHealthChecker(mockExecutor, healthConfig)
 
-	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, nil, false)
+	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, nil, false, tmpDir)
 
 	req, err := http.NewRequest(http.MethodGet, "/health", nil)
 	require.NoError(t, err)
