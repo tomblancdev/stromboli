@@ -63,8 +63,11 @@ services:
       # Auth (disabled by default)
       STROMBOLI_AUTH_ENABLED: "${STROMBOLI_AUTH_ENABLED:-false}"
 
-      # Tracing (disabled by default)
+      # Tracing (disabled by default, configure endpoint to your OTLP collector)
       STROMBOLI_TRACING_ENABLED: "${STROMBOLI_TRACING_ENABLED:-false}"
+      STROMBOLI_TRACING_SERVICE_NAME: "${STROMBOLI_TRACING_SERVICE_NAME:-stromboli}"
+      STROMBOLI_TRACING_ENDPOINT: "${STROMBOLI_TRACING_ENDPOINT:-localhost:4317}"
+      STROMBOLI_TRACING_INSECURE: "${STROMBOLI_TRACING_INSECURE:-true}"
 
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
