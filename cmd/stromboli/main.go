@@ -197,7 +197,7 @@ func main() {
 	defer stop()
 
 	// Create the API server
-	server := api.NewServer(podmanRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, blacklist, cfg.Tracing.Enabled)
+	server := api.NewServer(podmanRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, blacklist, cfg.Tracing.Enabled, cfg.Agent.SessionsDir)
 
 	srv := &http.Server{
 		Addr:    cfg.Server.Address,

@@ -26,10 +26,11 @@ type Server struct {
 	healthChecker   *HealthChecker
 	blacklist       *auth.TokenBlacklist
 	tracingEnabled  bool
+	historyHandler  *SessionHistoryHandler
 }
 
 // NewServer creates a new API server
-func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Config, rateLimitConfig RateLimitConfig, jobMgr *job.Manager, healthChecker *HealthChecker, blacklist *auth.TokenBlacklist, tracingEnabled bool) *Server {
+func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Config, rateLimitConfig RateLimitConfig, jobMgr *job.Manager, healthChecker *HealthChecker, blacklist *auth.TokenBlacklist, tracingEnabled bool, sessionsDir string) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -56,6 +57,7 @@ func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Con
 		healthChecker:   healthChecker,
 		blacklist:       blacklist,
 		tracingEnabled:  tracingEnabled,
+		historyHandler:  NewSessionHistoryHandler(sessionsDir),
 	}
 	s.setupRoutes()
 
@@ -100,6 +102,10 @@ func (s *Server) setupRoutes() {
 		// Session management
 		protected.GET("/sessions", s.listSessions)
 		protected.DELETE("/sessions/:id", s.destroySession)
+
+		// Session history (message retrieval)
+		protected.GET("/sessions/:id/messages", s.historyHandler.ListMessages)
+		protected.GET("/sessions/:id/messages/:message_id", s.historyHandler.GetMessage)
 	}
 }
 
