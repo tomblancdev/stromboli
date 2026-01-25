@@ -22,6 +22,10 @@ import (
 	"stromboli/internal/workspace"
 )
 
+// ContainerNamePrefix is used for naming stromboli agent containers
+// This allows tracking and cleanup of orphaned containers
+const ContainerNamePrefix = "stromboli-agent-"
+
 // Runner executes Claude in a container
 type Runner interface {
 	Run(ctx context.Context, req Request) (*Result, error)
@@ -154,7 +158,9 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	// Use --userns=keep-id with --user to run as host user, preserving file ownership
 	// Set HOME to mounted session directory so Claude writes there (not container's /home/claude)
 	currentUser := fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())
+	containerName := ContainerNamePrefix + sessionID
 	podmanBuilder := podman.NewCommand().
+		WithName(containerName).
 		WithKeepID().
 		WithUser(currentUser).
 		WithEnv("HOME", "/home/user").
@@ -304,7 +310,9 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	// Build Podman command
 	// Use --userns=keep-id with --user to run as host user, preserving file ownership
 	currentUser := fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())
+	containerName := ContainerNamePrefix + sessionID
 	podmanBuilder := podman.NewCommand().
+		WithName(containerName).
 		WithKeepID().
 		WithUser(currentUser).
 		WithEnv("HOME", "/home/user").

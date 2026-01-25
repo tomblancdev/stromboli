@@ -128,6 +128,13 @@ func main() {
 		"cpus", cfg.Resources.CPUs,
 		"timeout", cfg.Resources.Timeout)
 
+	// Cleanup orphaned containers from previous runs
+	slog.Info("Cleaning up orphaned containers...")
+	if err := runner.CleanupOrphanedContainers(context.Background()); err != nil {
+		slog.Warn("Failed to cleanup orphaned containers", "error", err)
+		// Non-fatal, continue starting server
+	}
+
 	// Build auth config for middleware
 	authConfig := auth.Config{
 		Enabled:     cfg.Auth.Enabled,
