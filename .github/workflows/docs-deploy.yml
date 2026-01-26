@@ -1,0 +1,68 @@
+name: Deploy Documentation
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy (e.g., 0.1.5)'
+        required: true
+      set_latest:
+        description: 'Set as latest version'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install dependencies
+        run: |
+          pip install mkdocs-material mike
+
+      - name: Extract version from tag
+        if: github.event_name == 'push'
+        id: tag_version
+        run: |
+          # Extract version from tag (v0.1.5-alpha -> 0.1.5)
+          TAG=${GITHUB_REF#refs/tags/v}
+          VERSION=$(echo $TAG | sed 's/-alpha//' | sed 's/-beta//' | sed 's/-rc.*//')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Deploy docs (from tag)
+        if: github.event_name == 'push'
+        run: |
+          mike deploy --push --update-aliases ${{ steps.tag_version.outputs.version }} latest
+          mike set-default --push latest
+
+      - name: Deploy docs (manual)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [ "${{ inputs.set_latest }}" == "true" ]; then
+            mike deploy --push --update-aliases ${{ inputs.version }} latest
+            mike set-default --push latest
+          else
+            mike deploy --push ${{ inputs.version }}
+          fi

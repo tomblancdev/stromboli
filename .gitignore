@@ -57,3 +57,6 @@ tmp/
 # Go build cache (from containerized builds)
 .cache/
 .config/
+
+# MkDocs build output
+site/
