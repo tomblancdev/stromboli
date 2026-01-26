@@ -141,6 +141,15 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 		"runner.session_id", req.Claude.SessionID,
 	)
 
+	// Sync credentials if the file has changed (handles local token refresh)
+	synced, err := r.secretsMgr.SyncIfChanged(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sync credentials: %w", err)
+	}
+	if synced {
+		tracing.AddSpanAttributes(ctx, "runner.credentials_synced", true)
+	}
+
 	// Apply defaults to request if not specified
 	req.Podman = r.applyDefaults(req.Podman)
 
@@ -313,6 +322,15 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 		"runner.session_id", req.Claude.SessionID,
 		"runner.streaming", true,
 	)
+
+	// Sync credentials if the file has changed (handles local token refresh)
+	synced, err := r.secretsMgr.SyncIfChanged(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sync credentials: %w", err)
+	}
+	if synced {
+		tracing.AddSpanAttributes(ctx, "runner.credentials_synced", true)
+	}
 
 	// Apply defaults to request if not specified
 	req.Podman = r.applyDefaults(req.Podman)
