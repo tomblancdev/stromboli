@@ -1,0 +1,2093 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Container orchestration API for Claude Code agents">
+      
+      
+      
+        <link rel="canonical" href="https://tomblancdev.github.io/stromboli/0.1.6/ROADMAP/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/logo.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Stromboli v1.0 Roadmap 🌋 - Stromboli</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#stromboli-v10-roadmap" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Stromboli" class="md-header__button md-logo" aria-label="Stromboli" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Stromboli
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Stromboli v1.0 Roadmap 🌋
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="amber"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/tomblancdev/stromboli" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    tomblancdev/stromboli
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../getting-started/quickstart/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../guide/running-agents/" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api/overview/" class="md-tabs__link">
+          
+  
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../deployment/docker/" class="md-tabs__link">
+          
+  
+  
+  Deployment
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../development/contributing/" class="md-tabs__link">
+          
+  
+  
+  Development
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Stromboli" class="md-nav__button md-logo" aria-label="Stromboli" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="logo">
+
+    </a>
+    Stromboli
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/tomblancdev/stromboli" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    tomblancdev/stromboli
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/running-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/sessions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sessions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/secrets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Secrets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/workspaces/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workspaces
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/endpoints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Endpoints
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Deployment
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/docker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/compose/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker Compose
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/production/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Production
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Development
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#progress-tracker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Progress Tracker
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#critical-blocks-v10-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🔴 CRITICAL (Blocks v1.0 Release)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="🔴 CRITICAL (Blocks v1.0 Release)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-add-session-package-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Add Session Package Tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#high-priority-production-readiness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🟡 HIGH Priority (Production Readiness)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="🟡 HIGH Priority (Production Readiness)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#2-implement-rate-limiting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Implement Rate Limiting
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-set-default-resource-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Set Default Resource Limits
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-add-integration-test-build-tags" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Add Integration Test Build Tags
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#medium-priority-code-quality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🟠 MEDIUM Priority (Code Quality)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="🟠 MEDIUM Priority (Code Quality)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#5-extract-executor-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Extract Executor Interface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-refactor-long-api-handlers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Refactor Long API Handlers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-add-e2e-test-suite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Add E2E Test Suite
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#low-priority-nice-to-have" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🟢 LOW Priority (Nice to Have)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="🟢 LOW Priority (Nice to Have)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#8-decide-container-package-fate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Decide Container Package Fate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#9-enhanced-jwt-authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Enhanced JWT Authentication
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#10-viper-configuration-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Viper Configuration Management
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#11-token-caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Token Caching
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        📊 Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#milestones" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🎯 Milestones
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="🎯 Milestones">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#v10-alpha-critical-complete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1.0-alpha (Critical Complete) ✅
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v10-beta-production-ready" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1.0-beta (Production Ready) ✅
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v10-rc-release-candidate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1.0-rc (Release Candidate) ✅
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v10-stable-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1.0 (Stable Release) 🎉
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        📝 Notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#changelog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🔄 Changelog
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/tomblancdev/stromboli/edit/main/docs/ROADMAP.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="stromboli-v10-roadmap">Stromboli v1.0 Roadmap 🌋<a class="headerlink" href="#stromboli-v10-roadmap" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Last Updated: January 22, 2026
+Current Score: 11/11 🎉</p>
+</blockquote>
+<h2 id="progress-tracker">Progress Tracker<a class="headerlink" href="#progress-tracker" title="Permanent link">&para;</a></h2>
+<p>Use this checklist to track implementation progress. Update status as items are completed.</p>
+<hr />
+<h2 id="critical-blocks-v10-release">🔴 CRITICAL (Blocks v1.0 Release)<a class="headerlink" href="#critical-blocks-v10-release" title="Permanent link">&para;</a></h2>
+<h3 id="1-add-session-package-tests">1. Add Session Package Tests<a class="headerlink" href="#1-add-session-package-tests" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Status</strong>: ✅ COMPLETED (Jan 22, 2026)</li>
+<li><strong>Priority</strong>: CRITICAL</li>
+<li><strong>Effort</strong>: ~2 hours</li>
+<li><strong>Location</strong>: <code>internal/session/session_test.go</code></li>
+</ul>
+<p><strong>Why Critical</strong>: Session management is core functionality. Path traversal prevention, UUID generation, and file operations are completely untested.</p>
+<p><strong>Test Cases Implemented</strong> (21 tests):
+- [x] <code>TestGenerateID_Format</code> - UUID v4 format validation
+- [x] <code>TestGenerateID_Uniqueness</code> - No duplicate IDs in 1000 generations
+- [x] <code>TestManager_Create_*</code> - Session directory creation (4 tests)
+- [x] <code>TestManager_Destroy_*</code> - Session cleanup (3 tests)
+- [x] <code>TestManager_List_*</code> - List all sessions (4 tests)
+- [x] <code>TestManager_PathTraversal_*</code> - Block <code>../</code>, <code>/</code>, <code>./</code> attacks (4 tests)
+- [x] <code>TestManager_Concurrent*</code> - Thread safety (2 tests)</p>
+<p><strong>Completion Date</strong>: January 22, 2026</p>
+<hr />
+<h2 id="high-priority-production-readiness">🟡 HIGH Priority (Production Readiness)<a class="headerlink" href="#high-priority-production-readiness" title="Permanent link">&para;</a></h2>
+<h3 id="2-implement-rate-limiting">2. Implement Rate Limiting<a class="headerlink" href="#2-implement-rate-limiting" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Status</strong>: ✅ COMPLETED (Jan 22, 2026)</li>
+<li><strong>Priority</strong>: HIGH</li>
+<li><strong>Effort</strong>: ~4 hours</li>
+<li><strong>Location</strong>: <code>internal/api/ratelimit.go</code></li>
+</ul>
+<p><strong>Why Important</strong>: API currently has no protection against abuse or DoS attacks.</p>
+<p><strong>Implementation</strong>:
+<div class="language-go highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="s">&quot;golang.org/x/time/rate&quot;</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1">// Per-IP rate limiting with token bucket algorithm</span>
+</span></code></pre></div></p>
+<p><strong>Tasks Completed</strong>:
+- [x] Add <code>golang.org/x/time/rate</code> dependency
+- [x] Create rate limit middleware (<code>internal/api/ratelimit.go</code>)
+- [x] Apply to protected routes (excludes /health and /metrics)
+- [x] Add configuration options (env vars: STROMBOLI_RATE_LIMIT_ENABLED, _RPS, _BURST)
+- [x] Add tests (<code>internal/api/ratelimit_test.go</code>)
+- [x] Update documentation (<code>docs/RATE_LIMITING.md</code>)</p>
+<p><strong>Completion Date</strong>: January 22, 2026</p>
+<hr />
+<h3 id="3-set-default-resource-limits">3. Set Default Resource Limits<a class="headerlink" href="#3-set-default-resource-limits" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Status</strong>: ✅ COMPLETED (Jan 22, 2026)</li>
+<li><strong>Priority</strong>: HIGH</li>
+<li><strong>Effort</strong>: ~1 hour</li>
+<li><strong>Location</strong>: <code>cmd/stromboli/main.go</code>, <code>internal/runner/runner.go</code></li>
+</ul>
+<p><strong>Why Important</strong>: Without defaults, containers can exhaust host resources.</p>
+<p><strong>Implementation</strong>:
+<div class="language-go highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kd">const</span><span class="w"> </span><span class="p">(</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span><span class="nx">defaultMemory</span><span class="w">   </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;512m&quot;</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nx">defaultCPUs</span><span class="w">     </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;1&quot;</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nx">defaultTimeout</span><span class="w">  </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;30m&quot;</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p">)</span>
+</span></code></pre></div></p>
+<p><strong>Tasks Completed</strong>:
+- [x] Add default constants to main.go
+- [x] Create <code>ResourceDefaults</code> struct in runner package
+- [x] Add <code>NewPodmanRunnerWithDefaults()</code> function
+- [x] Maintain backward compatibility with <code>NewPodmanRunner()</code>
+- [x] Apply defaults in <code>runner.Run()</code> and <code>runner.RunStream()</code> methods
+- [x] Allow override via environment variables (STROMBOLI_DEFAULT_MEMORY, _CPUS, _TIMEOUT)
+- [x] Add comprehensive unit tests (4 tests covering defaults, overrides, partial overrides, streaming)
+- [x] Document default limits in <code>docs/RESOURCE_LIMITS.md</code></p>
+<p><strong>Completion Date</strong>: January 22, 2026</p>
+<hr />
+<h3 id="4-add-integration-test-build-tags">4. Add Integration Test Build Tags<a class="headerlink" href="#4-add-integration-test-build-tags" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Status</strong>: ✅ COMPLETED (Jan 22, 2026)</li>
+<li><strong>Priority</strong>: HIGH</li>
+<li><strong>Effort</strong>: ~30 minutes</li>
+<li><strong>Location</strong>: <code>internal/container/container_test.go</code>, other integration tests</li>
+</ul>
+<p><strong>Why Important</strong>: Tests fail in CI/CD without Podman installed.</p>
+<p><strong>Implementation</strong>:
+<div class="language-go highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1">//go:build integration</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kn">package</span><span class="w"> </span><span class="nx">container</span>
+</span></code></pre></div></p>
+<p><strong>Tasks Completed</strong>:
+- [x] Add build tags to container tests
+- [x] Add build tags to secrets tests
+- [x] Add build tags to runner tests
+- [x] Extract unit tests to separate files (manager_test.go, id_test.go)
+- [x] Update Makefile: <code>make test</code>, <code>make test-integration</code>, <code>make test-all</code>
+- [x] Create comprehensive documentation (<code>docs/TESTING.md</code>)</p>
+<p><strong>Completion Date</strong>: January 22, 2026</p>
+<hr />
+<h2 id="medium-priority-code-quality">🟠 MEDIUM Priority (Code Quality)<a class="headerlink" href="#medium-priority-code-quality" title="Permanent link">&para;</a></h2>
+<h3 id="5-extract-executor-interface">5. Extract Executor Interface<a class="headerlink" href="#5-extract-executor-interface" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Status</strong>: ✅ COMPLETED (Jan 22, 2026)</li>
+<li><strong>Priority</strong>: MEDIUM</li>
+<li><strong>Effort</strong>: ~3-4 hours</li>
+<li><strong>Location</strong>: <code>internal/runner/</code></li>
+</ul>
+<p><strong>Why Important</strong>: Can't unit test runner without Podman installed. Execution logic mixed with orchestration.</p>
+<p><strong>Tasks Completed</strong>:
+- [x] Create <code>internal/runner/executor.go</code> (interface definition)
+- [x] Define <code>Executor</code> interface with <code>Run()</code> and <code>RunStream()</code>
+- [x] Implement <code>ShellExecutor</code> for production use
+- [x] Inject executor into <code>PodmanRunner</code> via dependency injection
+- [x] Create <code>MockExecutor</code> for tests with configurable behavior
+- [x] Add comprehensive unit tests (<code>executor_test.go</code>)
+- [x] Add runner unit tests using MockExecutor (<code>runner_unit_test.go</code>)
+- [x] Maintain backward compatibility (existing constructors unchanged)
+- [x] Create documentation (<code>docs/EXECUTOR_INTERFACE.md</code>)</p>
+<p><strong>Impact</strong>:
+- ✅ Unit tests run without Podman (10ms vs 5-10s per test)
+- ✅ 17 new unit tests for executor implementations
+- ✅ 11 new unit tests for runner logic
+- ✅ Better separation of concerns (orchestration vs execution)
+- ✅ Full backward compatibility maintained</p>
+<p><strong>Completion Date</strong>: January 22, 2026</p>
+<hr />
+<h3 id="6-refactor-long-api-handlers">6. Refactor Long API Handlers<a class="headerlink" href="#6-refactor-long-api-handlers" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Status</strong>: ✅ COMPLETED (Jan 22, 2026)</li>
+<li><strong>Priority</strong>: MEDIUM</li>
+<li><strong>Effort</strong>: ~2 hours</li>
+<li><strong>Location</strong>: <code>internal/api/stream.go</code>, <code>internal/api/async.go</code>, <code>internal/api/server.go</code></li>
+</ul>
+<p><strong>Why Important</strong>: Some handlers are 100+ lines, harder to maintain.</p>
+<p><strong>Tasks Completed</strong>:
+- [x] Create <code>internal/api/helpers.go</code> with extracted functions
+- [x] Extract <code>validateClaudeConfigured()</code> helper (validates Claude configuration)
+- [x] Extract <code>buildRunnerRequest()</code> helper (converts API request to runner request)
+- [x] Extract <code>handleRunError()</code> helper (standardized error responses)
+- [x] Extract <code>handleBadRequest()</code> helper (standardized bad request responses)
+- [x] Refactor <code>runClaude</code> handler (server.go) - reduced from 43 to 25 lines
+- [x] Refactor <code>runStream</code> handler (stream.go) - simplified request building
+- [x] Refactor <code>runAsync</code> handler (async.go) - reduced from 28 to 18 lines
+- [x] Add comprehensive unit tests (<code>internal/api/helpers_test.go</code>)</p>
+<p><strong>Impact</strong>:
+- ✅ Reduced code duplication across handlers
+- ✅ Standardized error response handling
+- ✅ Improved maintainability and readability
+- ✅ All handlers now focus on HTTP concerns
+- ✅ Business logic extracted to reusable helpers</p>
+<p><strong>Completion Date</strong>: January 22, 2026</p>
+<hr />
+<h3 id="7-add-e2e-test-suite">7. Add E2E Test Suite<a class="headerlink" href="#7-add-e2e-test-suite" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Status</strong>: ✅ COMPLETED (Jan 22, 2026)</li>
+<li><strong>Priority</strong>: MEDIUM</li>
+<li><strong>Effort</strong>: ~6-8 hours</li>
+<li><strong>Location</strong>: <code>tests/e2e/</code></li>
+</ul>
+<p><strong>Why Important</strong>: No end-to-end coverage testing full API flows.</p>
+<p><strong>Tasks Completed</strong>:
+- [x] Create <code>tests/e2e/</code> directory structure
+- [x] Create E2E test setup/teardown infrastructure (<code>e2e_test.go</code>)
+- [x] Create test helpers and utilities (<code>helpers.go</code>)
+- [x] Test: Health and status endpoints (<code>health_test.go</code>)
+- [x] Test: Sync execution flow (<code>run_test.go</code>)
+- [x] Test: Async execution with job management (<code>async_test.go</code>)
+- [x] Test: Streaming output and SSE format (<code>stream_test.go</code>)
+- [x] Test: Session lifecycle (create, resume, continue, fork, destroy) (<code>session_test.go</code>)
+- [x] Test: Webhook notifications
+- [x] Test: Error handling and request validation
+- [x] Add Makefile targets (<code>make test-e2e</code>, <code>make test-all</code>)
+- [x] Update documentation (<code>docs/TESTING.md</code>)</p>
+<p><strong>Implementation Details</strong>:
+- E2E tests start a real Stromboli server on random port
+- Tests gracefully skip Claude-dependent tests when <code>ANTHROPIC_API_KEY</code> not set
+- All tests use <code>//go:build e2e</code> build tag
+- Comprehensive coverage of all API endpoints and flows
+- Tests verify HTTP status codes, response formats, and API contracts</p>
+<p><strong>Completion Date</strong>: January 22, 2026</p>
+<hr />
+<h2 id="low-priority-nice-to-have">🟢 LOW Priority (Nice to Have)<a class="headerlink" href="#low-priority-nice-to-have" title="Permanent link">&para;</a></h2>
+<h3 id="8-decide-container-package-fate">8. Decide Container Package Fate<a class="headerlink" href="#8-decide-container-package-fate" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Status</strong>: ✅ COMPLETED (Jan 22, 2026)</li>
+<li><strong>Priority</strong>: LOW</li>
+<li><strong>Effort</strong>: ~5 minutes</li>
+<li><strong>Location</strong>: <code>internal/container/</code> (removed)</li>
+</ul>
+<p><strong>Current State</strong>: Was well-implemented but completely unused.</p>
+<p><strong>Options Considered</strong>:
+- [ ] <strong>Option A</strong>: Integrate with runner (4-6h additional work)
+- [ ] <strong>Option B</strong>: Document as future work (30m)
+- [x] <strong>Option C</strong>: Remove entirely (5m) ← <strong>SELECTED</strong></p>
+<p><strong>Decision</strong>: Removed the package entirely. The runner uses the podman package directly for command building, and the container package added maintenance burden without providing value. Can be recreated if needed in the future.</p>
+<p><strong>Completion Date</strong>: January 22, 2026</p>
+<hr />
+<h3 id="9-enhanced-jwt-authentication">9. Enhanced JWT Authentication<a class="headerlink" href="#9-enhanced-jwt-authentication" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Status</strong>: ✅ COMPLETED (Jan 22, 2026)</li>
+<li><strong>Priority</strong>: LOW</li>
+<li><strong>Effort</strong>: ~4 hours</li>
+<li><strong>Location</strong>: <code>internal/auth/</code></li>
+</ul>
+<p><strong>Current State</strong>: JWT authentication with token expiration and refresh capabilities is fully implemented.</p>
+<p><strong>Tasks Completed</strong>:
+- [x] Add <code>github.com/golang-jwt/jwt/v5</code> dependency
+- [x] Implement JWT token generation and validation (<code>internal/auth/token.go</code>)
+- [x] Add token expiration support (configurable, default: 24h access, 7d refresh)
+- [x] Add refresh token support
+- [x] Implement three auth endpoints:
+  - <code>POST /auth/token</code> - Generate JWT tokens (requires API token)
+  - <code>POST /auth/refresh</code> - Refresh access token using refresh token
+  - <code>GET /auth/validate</code> - Validate token and return claims
+- [x] Update auth middleware to support both legacy tokens and JWT
+- [x] Add comprehensive unit tests (<code>internal/auth/token_test.go</code>)
+- [x] Add API endpoint tests (<code>internal/api/auth_test.go</code>)
+- [x] Create comprehensive documentation (<code>docs/AUTHENTICATION.md</code>)
+- [x] Maintain full backward compatibility with existing simple token auth</p>
+<p><strong>Implementation Details</strong>:
+- JWT tokens use HS256 signing algorithm
+- Configurable via environment variables:
+  - <code>STROMBOLI_JWT_SECRET</code> - Secret for signing tokens
+  - <code>STROMBOLI_JWT_EXPIRY</code> - Access token expiry (default: 24h)
+  - <code>STROMBOLI_JWT_REFRESH_EXPIRY</code> - Refresh token expiry (default: 168h)
+- JWT is opt-in: enabled when JWT_SECRET is set
+- Backward compatible: legacy tokens continue to work alongside JWT
+- Tokens include claims: subject, issued at, expiration, is_refresh flag
+- Middleware validates legacy tokens first, then JWT tokens</p>
+<p><strong>Completion Date</strong>: January 22, 2026</p>
+<hr />
+<h3 id="10-viper-configuration-management">10. Viper Configuration Management<a class="headerlink" href="#10-viper-configuration-management" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Status</strong>: ✅ COMPLETED (Jan 22, 2026)</li>
+<li><strong>Priority</strong>: LOW</li>
+<li><strong>Effort</strong>: ~3 hours</li>
+<li><strong>Location</strong>: <code>internal/config/</code>, <code>cmd/stromboli/main.go</code></li>
+</ul>
+<p><strong>Current State</strong>: Centralized configuration management using Viper is fully implemented.</p>
+<p><strong>Tasks Completed</strong>:
+- [x] Add <code>github.com/spf13/viper</code> dependency to go.mod
+- [x] Implement <code>internal/config/config.go</code> with Config struct and Load function
+- [x] Support config file loading from multiple locations (., ~/.stromboli, /etc/stromboli)
+- [x] Support environment variable override (all existing env vars maintained)
+- [x] Migrate all hardcoded constants from main.go
+- [x] Add comprehensive unit tests with TDD approach
+- [x] Create <code>stromboli.example.yaml</code> example configuration
+- [x] Document all configuration options in <code>docs/CONFIGURATION.md</code>
+- [x] Maintain full backward compatibility with existing environment variables</p>
+<p><strong>Implementation Details</strong>:
+- Configuration priority: Environment variables &gt; Config file &gt; Defaults
+- Config struct includes: Server, Agent, Resources, Auth, RateLimit, JWT, Jobs
+- All existing env vars work unchanged (STROMBOLI_* prefix)
+- YAML config file support with automatic discovery
+- Comprehensive validation on startup
+- Config file is optional - can use env vars or defaults only
+- Backward compatible: no changes required for existing deployments</p>
+<p><strong>Completion Date</strong>: January 22, 2026</p>
+<hr />
+<h3 id="11-token-caching">11. Token Caching<a class="headerlink" href="#11-token-caching" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Status</strong>: ✅ COMPLETED (Jan 22, 2026)</li>
+<li><strong>Priority</strong>: LOW</li>
+<li><strong>Effort</strong>: ~2 hours</li>
+<li><strong>Location</strong>: <code>internal/claude/claude.go</code></li>
+</ul>
+<p><strong>Current State</strong>: Token caching with TTL-based expiration is fully implemented.</p>
+<p><strong>Tasks Completed</strong>:
+- [x] Add token cache with TTL (default: 5 minutes)
+- [x] Thread-safe implementation using sync.RWMutex
+- [x] Cache invalidation on TTL expiration
+- [x] Manual cache invalidation via InvalidateCache()
+- [x] Configuration via environment variables (STROMBOLI_TOKEN_CACHE_ENABLED, STROMBOLI_TOKEN_CACHE_TTL)
+- [x] Add comprehensive unit tests (10 new tests)
+- [x] Add config integration tests
+- [x] Update example configuration file</p>
+<p><strong>Implementation Details</strong>:
+- Cache is enabled by default with 5 minute TTL
+- Configurable via config file or environment variables
+- Thread-safe concurrent access using RWMutex
+- Cache miss behavior: reads from file and updates cache
+- Cache hit behavior: returns cached value without file I/O
+- Backward compatible: existing code works unchanged
+- NewClient() uses defaults, NewClientWithCache() allows customization
+- InvalidateCache() method for manual cache clearing</p>
+<p><strong>Completion Date</strong>: January 22, 2026</p>
+<hr />
+<h2 id="summary">📊 Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Priority</th>
+<th>Items</th>
+<th>Total Effort</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>🔴 Critical</td>
+<td>1</td>
+<td>~2h</td>
+<td>✅ 1/1 complete</td>
+</tr>
+<tr>
+<td>🟡 High</td>
+<td>3</td>
+<td>~5.5h</td>
+<td>✅ 3/3 complete</td>
+</tr>
+<tr>
+<td>🟠 Medium</td>
+<td>3</td>
+<td>~12h</td>
+<td>✅ 3/3 complete</td>
+</tr>
+<tr>
+<td>🟢 Low</td>
+<td>4</td>
+<td>~9.5h</td>
+<td>✅ 4/4 complete</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td><strong>11</strong></td>
+<td><strong>~29h</strong></td>
+<td><strong>✅ 11/11 complete</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="milestones">🎯 Milestones<a class="headerlink" href="#milestones" title="Permanent link">&para;</a></h2>
+<h3 id="v10-alpha-critical-complete">v1.0-alpha (Critical Complete) ✅<a class="headerlink" href="#v10-alpha-critical-complete" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Item <a class="magiclink magiclink-github magiclink-issue" href="https://github.com/tomblancdev/stromboli/issues/1" title="GitHub Issue: tomblancdev/stromboli #1">#1</a>: Session tests (Jan 22, 2026)</li>
+</ul>
+<h3 id="v10-beta-production-ready">v1.0-beta (Production Ready) ✅<a class="headerlink" href="#v10-beta-production-ready" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Item <a class="magiclink magiclink-github magiclink-issue" href="https://github.com/tomblancdev/stromboli/issues/1" title="GitHub Issue: tomblancdev/stromboli #1">#1</a>: Session tests (Jan 22, 2026)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Item <a class="magiclink magiclink-github magiclink-issue" href="https://github.com/tomblancdev/stromboli/issues/2" title="GitHub Issue: tomblancdev/stromboli #2">#2</a>: Rate limiting (Jan 22, 2026)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Item <a class="magiclink magiclink-github magiclink-issue" href="https://github.com/tomblancdev/stromboli/issues/3" title="GitHub Issue: tomblancdev/stromboli #3">#3</a>: Default resource limits (Jan 22, 2026)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Item <a class="magiclink magiclink-github magiclink-issue" href="https://github.com/tomblancdev/stromboli/issues/4" title="GitHub Issue: tomblancdev/stromboli #4">#4</a>: Integration test build tags (Jan 22, 2026)</li>
+</ul>
+<h3 id="v10-rc-release-candidate">v1.0-rc (Release Candidate) ✅<a class="headerlink" href="#v10-rc-release-candidate" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Items <a class="magiclink magiclink-github magiclink-issue" href="https://github.com/tomblancdev/stromboli/issues/1" title="GitHub Issue: tomblancdev/stromboli #1">#1</a>-7: All critical, high, and medium (Jan 22, 2026)</li>
+</ul>
+<h3 id="v10-stable-release">v1.0 (Stable Release) 🎉<a class="headerlink" href="#v10-stable-release" title="Permanent link">&para;</a></h3>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> All items complete (Jan 22, 2026)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Full documentation</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Performance benchmarks (optional post-v1.0)</li>
+</ul>
+<hr />
+<h2 id="notes">📝 Notes<a class="headerlink" href="#notes" title="Permanent link">&para;</a></h2>
+<p><strong>🎉 ROADMAP COMPLETE - v1.0 READY! 🎉</strong></p>
+<p>All 11 items completed on January 22, 2026. Stromboli is now production-ready with:
+- Comprehensive test coverage (unit, integration, E2E)
+- Production-grade security (rate limiting, JWT auth)
+- Performance optimizations (token caching, resource limits)
+- Clean architecture (executor interface, refactored handlers)
+- Full configuration management (Viper with env var overrides)
+- Complete documentation</p>
+<p>Next steps for v1.0 release:
+1. Final code review
+2. Update version to 1.0.0
+3. Create release notes
+4. Tag release in git
+5. Publish container images
+6. Announce release!</p>
+<hr />
+<h2 id="changelog">🔄 Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Date</th>
+<th>Item</th>
+<th>Action</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Jan 22, 2026</td>
+<td><strong>v1.0 COMPLETE</strong></td>
+<td>🎉 <strong>ALL ITEMS DONE</strong></td>
+<td><strong>Production ready! All 11 roadmap items completed</strong></td>
+</tr>
+<tr>
+<td>Jan 22, 2026</td>
+<td><a class="magiclink magiclink-github magiclink-issue" href="https://github.com/tomblancdev/stromboli/issues/11" title="GitHub Issue: tomblancdev/stromboli #11">#11</a> Token Caching</td>
+<td>✅ Completed</td>
+<td>TTL-based caching (5m default), thread-safe, configurable, 10 new tests</td>
+</tr>
+<tr>
+<td>Jan 22, 2026</td>
+<td><a class="magiclink magiclink-github magiclink-issue" href="https://github.com/tomblancdev/stromboli/issues/10" title="GitHub Issue: tomblancdev/stromboli #10">#10</a> Viper Configuration</td>
+<td>✅ Completed</td>
+<td>Centralized config management with file/env/defaults hierarchy</td>
+</tr>
+<tr>
+<td>Jan 22, 2026</td>
+<td><a class="magiclink magiclink-github magiclink-issue" href="https://github.com/tomblancdev/stromboli/issues/9" title="GitHub Issue: tomblancdev/stromboli #9">#9</a> Enhanced JWT Authentication</td>
+<td>✅ Completed</td>
+<td>JWT with expiration &amp; refresh, backward compatible with legacy tokens</td>
+</tr>
+<tr>
+<td>Jan 22, 2026</td>
+<td><a class="magiclink magiclink-github magiclink-issue" href="https://github.com/tomblancdev/stromboli/issues/8" title="GitHub Issue: tomblancdev/stromboli #8">#8</a> Container Package Fate</td>
+<td>✅ Completed</td>
+<td>Removed unused package entirely</td>
+</tr>
+<tr>
+<td>Jan 22, 2026</td>
+<td><a class="magiclink magiclink-github magiclink-issue" href="https://github.com/tomblancdev/stromboli/issues/7" title="GitHub Issue: tomblancdev/stromboli #7">#7</a> E2E Test Suite</td>
+<td>✅ Completed</td>
+<td>Comprehensive E2E tests for all API endpoints, graceful Claude skipping</td>
+</tr>
+<tr>
+<td>Jan 22, 2026</td>
+<td><a class="magiclink magiclink-github magiclink-issue" href="https://github.com/tomblancdev/stromboli/issues/6" title="GitHub Issue: tomblancdev/stromboli #6">#6</a> Refactor API Handlers</td>
+<td>✅ Completed</td>
+<td>Extracted helpers, reduced duplication, standardized error handling</td>
+</tr>
+<tr>
+<td>Jan 22, 2026</td>
+<td><a class="magiclink magiclink-github magiclink-issue" href="https://github.com/tomblancdev/stromboli/issues/5" title="GitHub Issue: tomblancdev/stromboli #5">#5</a> Extract Executor Interface</td>
+<td>✅ Completed</td>
+<td>Enables unit testing without Podman, 28 new tests, full backward compatibility</td>
+</tr>
+<tr>
+<td>Jan 22, 2026</td>
+<td><a class="magiclink magiclink-github magiclink-issue" href="https://github.com/tomblancdev/stromboli/issues/4" title="GitHub Issue: tomblancdev/stromboli #4">#4</a> Integration Test Build Tags</td>
+<td>✅ Completed</td>
+<td>Separated unit/integration tests with build tags, added docs/TESTING.md</td>
+</tr>
+<tr>
+<td>Jan 22, 2026</td>
+<td><a class="magiclink magiclink-github magiclink-issue" href="https://github.com/tomblancdev/stromboli/issues/3" title="GitHub Issue: tomblancdev/stromboli #3">#3</a> Default Resource Limits</td>
+<td>✅ Completed</td>
+<td>Memory: 512m, CPUs: 1, Timeout: 30m - configurable via env vars</td>
+</tr>
+<tr>
+<td>Jan 22, 2026</td>
+<td><a class="magiclink magiclink-github magiclink-issue" href="https://github.com/tomblancdev/stromboli/issues/2" title="GitHub Issue: tomblancdev/stromboli #2">#2</a> Rate Limiting</td>
+<td>✅ Completed</td>
+<td>Per-IP limiting, configurable via env vars</td>
+</tr>
+<tr>
+<td>Jan 22, 2026</td>
+<td><a class="magiclink magiclink-github magiclink-issue" href="https://github.com/tomblancdev/stromboli/issues/1" title="GitHub Issue: tomblancdev/stromboli #1">#1</a> Session Tests</td>
+<td>✅ Completed</td>
+<td>21 tests, all passing</td>
+</tr>
+<tr>
+<td>Jan 22, 2026</td>
+<td>Roadmap</td>
+<td>Created</td>
+<td>Initial planning document</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/tomblancdev/stromboli" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "content.action.edit"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,2913 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Container orchestration API for Claude Code agents">
+      
+      
+      
+        <link rel="canonical" href="https://tomblancdev.github.io/stromboli/0.1.6/CODE_REVIEW/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/logo.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Stromboli Code Review Report - Stromboli</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#stromboli-code-review-report" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Stromboli" class="md-header__button md-logo" aria-label="Stromboli" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Stromboli
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Stromboli Code Review Report
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="amber"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/tomblancdev/stromboli" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    tomblancdev/stromboli
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../getting-started/quickstart/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../guide/running-agents/" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api/overview/" class="md-tabs__link">
+          
+  
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../deployment/docker/" class="md-tabs__link">
+          
+  
+  
+  Deployment
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../development/contributing/" class="md-tabs__link">
+          
+  
+  
+  Development
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Stromboli" class="md-nav__button md-logo" aria-label="Stromboli" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="logo">
+
+    </a>
+    Stromboli
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/tomblancdev/stromboli" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    tomblancdev/stromboli
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/running-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running Agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/sessions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sessions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/secrets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Secrets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guide/workspaces/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workspaces
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/endpoints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Endpoints
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Deployment
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/docker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/compose/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker Compose
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/production/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Production
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Development
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#review-update-january-22-2026-post-v11-fixes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Review Update - January 22, 2026 (Post-V1.1 Fixes)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Review Update - January 22, 2026 (Post-V1.1 Fixes)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#executive-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Executive Summary
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#whats-changed-since-last-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What's Changed Since Last Review
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What&#39;s Changed Since Last Review">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#v11-fixes-january-22-2026" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        V1.1 Fixes (January 22, 2026)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#major-improvements-v10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Major Improvements (V1.0)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architecture-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture Overview
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Architecture Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#current-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Current Structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#architectural-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architectural Patterns
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#code-quality-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Code Quality Analysis
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Code Quality Analysis">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#naming-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Naming Conventions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Handling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#code-organization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Code Organization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Documentation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security Analysis
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Security Analysis">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#security-controls-implemented" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security Controls Implemented
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security-score" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security Score
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#remaining-security-recommendations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Remaining Security Recommendations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Analysis
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Testing Analysis">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#coverage-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coverage Summary
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#test-quality-assessment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test Quality Assessment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#test-score" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test Score
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#performance-characteristics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Characteristics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Performance Characteristics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#optimizations-implemented" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optimizations Implemented
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#potential-bottlenecks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Potential Bottlenecks
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration Management
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration Management">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#viper-integration-excellent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Viper Integration (Excellent)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#completed-in-v11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Completed in V1.1
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Completed in V1.1">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ✅ Fixed Issues
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommendations-for-v12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommendations for v1.2
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Recommendations for v1.2">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#priority-1-quick-wins" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Priority 1 - Quick Wins
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#priority-2-enhancements-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Priority 2 - Enhancements (Optional)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#priority-3-future-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Priority 3 - Future Features
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#summary-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summary Metrics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#final-assessment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Final Assessment
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Final Assessment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-makes-this-codebase-excellent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Makes This Codebase Excellent
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#areas-for-improvement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Areas for Improvement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#comparison-with-industry-standards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Comparison with Industry Standards
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verdict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verdict
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#review-changelog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Review Changelog
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Review Changelog">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#v14-changes-january-23-2026" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        V1.4 Changes (January 23, 2026)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v13-changes-january-23-2026" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        V1.3 Changes (January 23, 2026)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v12-changes-january-23-2026" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        V1.2 Changes (January 23, 2026)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v11-changes-january-22-2026" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        V1.1 Changes (January 22, 2026)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v10-changes-january-2026" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        V1.0 Changes (January 2026)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#issues-resolved-from-code-reviews" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Issues Resolved from Code Reviews
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/tomblancdev/stromboli/edit/main/docs/CODE_REVIEW.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="stromboli-code-review-report">Stromboli Code Review Report<a class="headerlink" href="#stromboli-code-review-report" title="Permanent link">&para;</a></h1>
+<h2 id="review-update-january-22-2026-post-v11-fixes">Review Update - January 22, 2026 (Post-V1.1 Fixes)<a class="headerlink" href="#review-update-january-22-2026-post-v11-fixes" title="Permanent link">&para;</a></h2>
+<h3 id="executive-summary">Executive Summary<a class="headerlink" href="#executive-summary" title="Permanent link">&para;</a></h3>
+<p><strong>Project</strong>: Stromboli - Claude Code Container Orchestration API
+<strong>Language</strong>: Go 1.24.2
+<strong>Framework</strong>: Gin (HTTP), Podman (Container Runtime)
+<strong>Review Date</strong>: January 22, 2026 (Updated - Post V1.1 fixes)
+<strong>Lines of Code</strong>: ~7,200 (up from ~6,400)
+<strong>Test Files</strong>: 19 test files with ~255+ test functions
+<strong>Packages</strong>: 15 internal packages</p>
+<p><strong>Overall Assessment</strong>: The codebase has achieved production-ready status with excellent architecture, comprehensive security, and complete feature set. All 11 roadmap items have been implemented, plus v1.1 improvements addressing code review recommendations. The project demonstrates exemplary Go practices and serves as a reference implementation for container orchestration APIs.</p>
+<p><strong>Overall Score: 9.5/10</strong> (up from 9.0/10)</p>
+<hr />
+<h2 id="whats-changed-since-last-review">What's Changed Since Last Review<a class="headerlink" href="#whats-changed-since-last-review" title="Permanent link">&para;</a></h2>
+<h3 id="v11-fixes-january-22-2026">V1.1 Fixes (January 22, 2026)<a class="headerlink" href="#v11-fixes-january-22-2026" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Issue</th>
+<th>Fix</th>
+<th>Impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Error Handling</strong></td>
+<td>String-based error matching</td>
+<td>Replaced with <code>errors.Is()</code></td>
+<td>More robust error checks</td>
+</tr>
+<tr>
+<td><strong>Rate Limiter</strong></td>
+<td>IP map grows indefinitely</td>
+<td>Added periodic cleanup</td>
+<td>Prevents memory leaks</td>
+</tr>
+</tbody>
+</table>
+<h3 id="major-improvements-v10">Major Improvements (V1.0)<a class="headerlink" href="#major-improvements-v10" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Previous State</th>
+<th>Current State</th>
+<th>Impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Session Package Testing</strong></td>
+<td>Zero tests</td>
+<td>25 comprehensive tests</td>
+<td>Critical gap closed</td>
+</tr>
+<tr>
+<td><strong>Viper Configuration</strong></td>
+<td>Mentioned but minimal</td>
+<td>Fully integrated</td>
+<td>Production-ready config</td>
+</tr>
+<tr>
+<td><strong>Rate Limiting</strong></td>
+<td>Not implemented</td>
+<td>IP-based with cleanup</td>
+<td>DoS protection + memory safety</td>
+</tr>
+<tr>
+<td><strong>JWT Authentication</strong></td>
+<td>Basic tokens only</td>
+<td>Full JWT with refresh</td>
+<td>Enterprise-ready auth</td>
+</tr>
+<tr>
+<td><strong>Executor Interface</strong></td>
+<td>Partially done</td>
+<td>Complete with mocks</td>
+<td>Excellent testability</td>
+</tr>
+<tr>
+<td><strong>Resource Defaults</strong></td>
+<td>Not enforced</td>
+<td>Configurable defaults</td>
+<td>Container resource control</td>
+</tr>
+<tr>
+<td><strong>E2E Tests</strong></td>
+<td>Missing</td>
+<td>Comprehensive suite</td>
+<td>Full integration coverage</td>
+</tr>
+<tr>
+<td><strong>Token Caching</strong></td>
+<td>Not implemented</td>
+<td>With TTL support</td>
+<td>Performance optimization</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="architecture-overview">Architecture Overview<a class="headerlink" href="#architecture-overview" title="Permanent link">&para;</a></h2>
+<h3 id="current-structure">Current Structure<a class="headerlink" href="#current-structure" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>stromboli/
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── cmd/stromboli/main.go          # Entry point with graceful shutdown
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── internal/
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│   ├── api/                       # HTTP layer (10 files, 7 test files)
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│   │   ├── server.go              # Core server with route setup
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│   │   ├── run.go                 # DTOs and request types
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│   │   ├── async.go               # Async job endpoints
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│   │   ├── stream.go              # SSE streaming
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│   │   ├── auth.go                # JWT auth endpoints
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│   │   ├── helpers.go             # Shared handler helpers
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│   │   ├── middleware.go          # Logging, request ID, metrics
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│   │   └── ratelimit.go           # IP-based rate limiting
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│   ├── auth/                      # Authentication (4 files)
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│   │   ├── jwt.go                 # JWT middleware
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│   │   └── token.go               # Token generation/validation
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>│   ├── claude/                    # Claude CLI integration (4 files)
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>│   │   ├── claude.go              # Token client with caching
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>│   │   └── builder.go             # Fluent command builder
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>│   ├── config/                    # Viper configuration (2 files)
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>│   ├── errors/                    # Centralized errors (2 files)
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>│   ├── job/                       # Async job management (3 files)
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>│   ├── metrics/                   # Prometheus metrics (2 files)
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>│   ├── podman/                    # Command building (3 files)
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>│   ├── runner/                    # Core orchestration (8 files)
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>│   │   ├── runner.go              # PodmanRunner implementation
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>│   │   ├── executor.go            # Executor interface
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>│   │   ├── shell_executor.go      # Real implementation
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>│   │   ├── mock_executor.go       # Test mock
+</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>│   │   └── mock.go                # Runner mock
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>│   ├── secrets/                   # Podman secrets (4 files)
+</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>│   ├── session/                   # Session lifecycle (3 files)
+</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>│   ├── types/                     # Shared types (2 files)
+</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>│   ├── webhook/                   # Webhook notifications (3 files)
+</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>│   └── workspace/                 # Path validation (3 files)
+</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>├── tests/e2e/                     # End-to-end tests (7 files)
+</span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>├── deployments/docker/            # Dockerfiles
+</span><span id="__span-0-37"><a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>└── docs/                          # Documentation
+</span></code></pre></div>
+<h3 id="architectural-patterns">Architectural Patterns<a class="headerlink" href="#architectural-patterns" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Implementation</th>
+<th>Assessment</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Dependency Injection</strong></td>
+<td>Constructor-based in <code>main.go</code></td>
+<td>Clean, testable</td>
+</tr>
+<tr>
+<td><strong>Fluent Builder</strong></td>
+<td><code>claude.CommandBuilder</code>, <code>podman.CommandBuilder</code></td>
+<td>Excellent readability</td>
+</tr>
+<tr>
+<td><strong>Interface Abstraction</strong></td>
+<td><code>Runner</code>, <code>Executor</code> interfaces</td>
+<td>Enables testing</td>
+</tr>
+<tr>
+<td><strong>Layer Separation</strong></td>
+<td>API -&gt; Runner -&gt; Domain packages</td>
+<td>Clear boundaries</td>
+</tr>
+<tr>
+<td><strong>Middleware Chain</strong></td>
+<td>Request ID -&gt; Logging -&gt; Metrics -&gt; Rate Limit -&gt; Auth</td>
+<td>Composable</td>
+</tr>
+<tr>
+<td><strong>Configuration</strong></td>
+<td>Viper with env + file + defaults</td>
+<td>Production-ready</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="code-quality-analysis">Code Quality Analysis<a class="headerlink" href="#code-quality-analysis" title="Permanent link">&para;</a></h2>
+<h3 id="naming-conventions">Naming Conventions<a class="headerlink" href="#naming-conventions" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Element</th>
+<th>Convention</th>
+<th>Compliance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Packages</td>
+<td>lowercase, short</td>
+<td><code>api</code>, <code>claude</code>, <code>runner</code></td>
+</tr>
+<tr>
+<td>Exported Types</td>
+<td>PascalCase</td>
+<td><code>CommandBuilder</code>, <code>PodmanRunner</code></td>
+</tr>
+<tr>
+<td>Unexported</td>
+<td>camelCase</td>
+<td><code>generateSessionID</code></td>
+</tr>
+<tr>
+<td>Files</td>
+<td>snake_case</td>
+<td><code>server_test.go</code></td>
+</tr>
+<tr>
+<td>Interfaces</td>
+<td><code>-er</code> suffix</td>
+<td><code>Runner</code>, <code>Executor</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="error-handling">Error Handling<a class="headerlink" href="#error-handling" title="Permanent link">&para;</a></h3>
+<p><strong>Strengths</strong>:
+<div class="language-go highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1">// Centralized sentinel errors (errors/errors.go)</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kd">var</span><span class="w"> </span><span class="p">(</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nx">ErrTokenNotFound</span><span class="w">     </span><span class="p">=</span><span class="w"> </span><span class="nx">errors</span><span class="p">.</span><span class="nx">New</span><span class="p">(</span><span class="s">&quot;token not found&quot;</span><span class="p">)</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nx">ErrSessionNotFound</span><span class="w">   </span><span class="p">=</span><span class="w"> </span><span class="nx">errors</span><span class="p">.</span><span class="nx">New</span><span class="p">(</span><span class="s">&quot;session not found&quot;</span><span class="p">)</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nx">ErrInvalidSessionID</span><span class="w">  </span><span class="p">=</span><span class="w"> </span><span class="nx">errors</span><span class="p">.</span><span class="nx">New</span><span class="p">(</span><span class="s">&quot;invalid session ID&quot;</span><span class="p">)</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nx">ErrWorkspaceNotAllowed</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">errors</span><span class="p">.</span><span class="nx">New</span><span class="p">(</span><span class="s">&quot;workspace path not allowed&quot;</span><span class="p">)</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="p">)</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="c1">// Proper error wrapping (runner.go)</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="k">return</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;failed to setup secrets: %w&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+</span></code></pre></div></p>
+<p><strong>Fixed in V1.1 - Proper Error Checking</strong>:
+<div class="language-go highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1">// server.go:201-203 - Now uses errors.Is() for error classification</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">if</span><span class="w"> </span><span class="nx">errors</span><span class="p">.</span><span class="nx">Is</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="nx">strerrors</span><span class="p">.</span><span class="nx">ErrSessionIDRequired</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">errors</span><span class="p">.</span><span class="nx">Is</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="nx">strerrors</span><span class="p">.</span><span class="nx">ErrInvalidSessionID</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nx">status</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">http</span><span class="p">.</span><span class="nx">StatusBadRequest</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="nx">errors</span><span class="p">.</span><span class="nx">Is</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="nx">strerrors</span><span class="p">.</span><span class="nx">ErrSessionNotFound</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="nx">status</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">http</span><span class="p">.</span><span class="nx">StatusNotFound</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="p">}</span>
+</span></code></pre></div>
+<strong>Status</strong>: ✅ Resolved - Proper sentinel error checking implemented.</p>
+<h3 id="code-organization">Code Organization<a class="headerlink" href="#code-organization" title="Permanent link">&para;</a></h3>
+<p><strong>Function Sizes</strong>: Generally excellent (10-50 lines)
+- <code>applyClaudeOptions</code> properly decomposed into helper functions
+- Largest functions are straightforward mapping logic</p>
+<p><strong>Cyclomatic Complexity</strong>: Low throughout - simple, linear logic</p>
+<h3 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Quality</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Package Comments</strong></td>
+<td>Excellent</td>
+<td>All packages have <code>doc.go</code> files</td>
+</tr>
+<tr>
+<td><strong>Exported Functions</strong></td>
+<td>Good</td>
+<td>Most have godoc comments</td>
+</tr>
+<tr>
+<td><strong>Swagger Annotations</strong></td>
+<td>Excellent</td>
+<td>Full OpenAPI spec generation</td>
+</tr>
+<tr>
+<td><strong>README/CLAUDE.md</strong></td>
+<td>Comprehensive</td>
+<td>Clear guidelines</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="security-analysis">Security Analysis<a class="headerlink" href="#security-analysis" title="Permanent link">&para;</a></h2>
+<h3 id="security-controls-implemented">Security Controls Implemented<a class="headerlink" href="#security-controls-implemented" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Control</th>
+<th>Location</th>
+<th>Status</th>
+<th>Assessment</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Podman Secrets</strong></td>
+<td><code>secrets/secrets.go</code></td>
+<td>Implemented</td>
+<td>Token via <code>--secret</code>, not in process list</td>
+</tr>
+<tr>
+<td><strong>Path Traversal Prevention</strong></td>
+<td><code>session/session.go</code></td>
+<td>Implemented</td>
+<td>Blocks <code>../</code> and <code>/</code> in session IDs</td>
+</tr>
+<tr>
+<td><strong>Workspace Validation</strong></td>
+<td><code>workspace/workspace.go</code></td>
+<td>Implemented</td>
+<td>Allowlist-based with <code>filepath.Clean()</code></td>
+</tr>
+<tr>
+<td><strong>JWT Authentication</strong></td>
+<td><code>auth/token.go</code></td>
+<td>Implemented</td>
+<td>HS256 signing with access/refresh tokens</td>
+</tr>
+<tr>
+<td><strong>Bearer Token Auth</strong></td>
+<td><code>auth/jwt.go</code></td>
+<td>Implemented</td>
+<td>Legacy + JWT with configurable enable</td>
+</tr>
+<tr>
+<td><strong>Rate Limiting</strong></td>
+<td><code>api/ratelimit.go</code></td>
+<td>Implemented</td>
+<td>IP-based with X-RateLimit headers</td>
+</tr>
+<tr>
+<td><strong>Non-root Container</strong></td>
+<td><code>Dockerfile.agent</code></td>
+<td>Implemented</td>
+<td>Runs as <code>claude</code> user</td>
+</tr>
+<tr>
+<td><strong>Session Permissions</strong></td>
+<td><code>session/session.go</code></td>
+<td>Implemented</td>
+<td><code>0700</code> permissions</td>
+</tr>
+<tr>
+<td><strong>Context Cancellation</strong></td>
+<td>Throughout</td>
+<td>Implemented</td>
+<td>Proper propagation for timeouts</td>
+</tr>
+<tr>
+<td><strong>Graceful Shutdown</strong></td>
+<td><code>main.go</code></td>
+<td>Implemented</td>
+<td><code>signal.NotifyContext</code> with cleanup</td>
+</tr>
+</tbody>
+</table>
+<h3 id="security-score">Security Score<a class="headerlink" href="#security-score" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Previous</th>
+<th>Current</th>
+<th>Change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Authentication</strong></td>
+<td>8/10</td>
+<td>10/10</td>
+<td>+2 (JWT with refresh)</td>
+</tr>
+<tr>
+<td><strong>Authorization</strong></td>
+<td>9/10</td>
+<td>9/10</td>
+<td>0</td>
+</tr>
+<tr>
+<td><strong>Secrets Management</strong></td>
+<td>10/10</td>
+<td>10/10</td>
+<td>0</td>
+</tr>
+<tr>
+<td><strong>Input Validation</strong></td>
+<td>9/10</td>
+<td>10/10</td>
+<td>+1 (comprehensive tests)</td>
+</tr>
+<tr>
+<td><strong>Container Isolation</strong></td>
+<td>8/10</td>
+<td>9/10</td>
+<td>+1 (resource defaults)</td>
+</tr>
+<tr>
+<td><strong>DoS Protection</strong></td>
+<td>0/10</td>
+<td>9/10</td>
+<td>+9 (rate limiting)</td>
+</tr>
+<tr>
+<td><strong>Overall Security</strong></td>
+<td><strong>9/10</strong></td>
+<td><strong>9.5/10</strong></td>
+<td><strong>+0.5</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="remaining-security-recommendations">Remaining Security Recommendations<a class="headerlink" href="#remaining-security-recommendations" title="Permanent link">&para;</a></h3>
+<p><strong>FIXED: Container Image Pinning</strong>
+- ✅ Added <code>image_tag</code> configuration option (v1.2)
+- Users can now pin to specific versions: <code>image: "stromboli-agent"</code>, <code>image_tag: "v1.0.0"</code>
+- Default remains <code>latest</code> for backward compatibility
+- Documented in CONFIGURATION.md</p>
+<p><strong>FIXED: Token Blacklist for Logout (v1.3)</strong>
+- ✅ Added in-memory TokenBlacklist manager with automatic cleanup
+- ✅ JWT tokens now include JTI (JWT ID) claim for unique identification
+- ✅ Middleware checks blacklist before allowing access
+- ✅ Added POST /auth/logout endpoint to invalidate tokens
+- ✅ Comprehensive test coverage for all blacklist functionality</p>
+<hr />
+<h2 id="testing-analysis">Testing Analysis<a class="headerlink" href="#testing-analysis" title="Permanent link">&para;</a></h2>
+<h3 id="coverage-summary">Coverage Summary<a class="headerlink" href="#coverage-summary" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>Test Files</th>
+<th>Test Functions</th>
+<th>Coverage Focus</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>api</code></td>
+<td>7 files</td>
+<td>~55</td>
+<td>HTTP handlers, middleware, auth, <strong>rate limiter cleanup</strong></td>
+</tr>
+<tr>
+<td><code>auth</code></td>
+<td>2 files</td>
+<td>~15</td>
+<td>JWT generation, validation</td>
+</tr>
+<tr>
+<td><code>claude</code></td>
+<td>2 files</td>
+<td>~40</td>
+<td>Token handling, command building</td>
+</tr>
+<tr>
+<td><code>config</code></td>
+<td>1 file</td>
+<td>~10</td>
+<td>Configuration loading, validation</td>
+</tr>
+<tr>
+<td><code>job</code></td>
+<td>1 file</td>
+<td>~25</td>
+<td>Job lifecycle, cleanup, concurrency</td>
+</tr>
+<tr>
+<td><code>metrics</code></td>
+<td>1 file</td>
+<td>~5</td>
+<td>Prometheus recording</td>
+</tr>
+<tr>
+<td><code>podman</code></td>
+<td>1 file</td>
+<td>~10</td>
+<td>Command building</td>
+</tr>
+<tr>
+<td><code>runner</code></td>
+<td>4 files</td>
+<td>~30</td>
+<td>Orchestration, mocking, execution</td>
+</tr>
+<tr>
+<td><code>secrets</code></td>
+<td>2 files</td>
+<td>~10</td>
+<td>Secrets management</td>
+</tr>
+<tr>
+<td><code>session</code></td>
+<td>1 file</td>
+<td>~25</td>
+<td>Session lifecycle, path traversal</td>
+</tr>
+<tr>
+<td><code>webhook</code></td>
+<td>1 file</td>
+<td>~10</td>
+<td>Webhook notifications, retry</td>
+</tr>
+<tr>
+<td><code>workspace</code></td>
+<td>1 file</td>
+<td>~8</td>
+<td>Path validation</td>
+</tr>
+<tr>
+<td><strong>E2E</strong></td>
+<td>7 files</td>
+<td>~20</td>
+<td>Full API integration</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td><strong>~32 files</strong></td>
+<td><strong>~255+</strong></td>
+<td><strong>Excellent coverage</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="test-quality-assessment">Test Quality Assessment<a class="headerlink" href="#test-quality-assessment" title="Permanent link">&para;</a></h3>
+<p><strong>Excellent Practices</strong>:</p>
+<ol>
+<li>
+<p><strong>Table-Driven Tests</strong>:
+<div class="language-go highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1">// session/session_test.go</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nx">tests</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[]</span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="nx">name</span><span class="w">      </span><span class="kt">string</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="nx">sessionID</span><span class="w"> </span><span class="kt">string</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nx">shouldFail</span><span class="w"> </span><span class="kt">bool</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="p">}{</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="p">{</span><span class="s">&quot;basic traversal&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;../etc&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">true</span><span class="p">},</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="p">{</span><span class="s">&quot;double traversal&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;../../etc&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">true</span><span class="p">},</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="o">...</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="p">}</span>
+</span></code></pre></div></p>
+</li>
+<li>
+<p><strong>Concurrency Testing</strong>:
+<div class="language-go highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1">// session/session_test.go - Thread-safe session operations</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kd">func</span><span class="w"> </span><span class="nx">TestManager_ConcurrentCreate</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">testing</span><span class="p">.</span><span class="nx">T</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="c1">// 10 goroutines creating sessions concurrently</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="p">}</span>
+</span></code></pre></div></p>
+</li>
+<li>
+<p><strong>Mock Executor Pattern</strong>:
+<div class="language-go highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1">// runner/mock_executor.go - Enables testing without Podman</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kd">type</span><span class="w"> </span><span class="nx">MockExecutor</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="nx">DefaultOutput</span><span class="w">    </span><span class="p">[]</span><span class="kt">byte</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="nx">DefaultError</span><span class="w">     </span><span class="kt">error</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="nx">StreamOutput</span><span class="w">     </span><span class="kt">string</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="o">...</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="p">}</span>
+</span></code></pre></div></p>
+</li>
+<li>
+<p><strong>E2E with Build Tags</strong>:
+<div class="language-go highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1">//go:build e2e</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">package</span><span class="w"> </span><span class="nx">e2e</span>
+</span></code></pre></div></p>
+</li>
+</ol>
+<h3 id="test-score">Test Score<a class="headerlink" href="#test-score" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Previous</th>
+<th>Current</th>
+<th>Change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Unit Test Coverage</strong></td>
+<td>8/10</td>
+<td>9/10</td>
+<td>+1 (session tests added)</td>
+</tr>
+<tr>
+<td><strong>Integration Tests</strong></td>
+<td>5/10</td>
+<td>8/10</td>
+<td>+3 (E2E suite)</td>
+</tr>
+<tr>
+<td><strong>E2E Tests</strong></td>
+<td>2/10</td>
+<td>8/10</td>
+<td>+6 (comprehensive suite)</td>
+</tr>
+<tr>
+<td><strong>Test Organization</strong></td>
+<td>9/10</td>
+<td>10/10</td>
+<td>+1</td>
+</tr>
+<tr>
+<td><strong>Mock Quality</strong></td>
+<td>9/10</td>
+<td>10/10</td>
+<td>+1 (executor mocks)</td>
+</tr>
+<tr>
+<td><strong>Overall Testing</strong></td>
+<td><strong>7/10</strong></td>
+<td><strong>9/10</strong></td>
+<td><strong>+2</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="performance-characteristics">Performance Characteristics<a class="headerlink" href="#performance-characteristics" title="Permanent link">&para;</a></h2>
+<h3 id="optimizations-implemented">Optimizations Implemented<a class="headerlink" href="#optimizations-implemented" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Token Caching</strong> (<code>claude/claude.go</code>)</li>
+<li>Configurable TTL (default 5 minutes)</li>
+<li>Thread-safe with RWMutex</li>
+<li>
+<p>Reduces file I/O per request</p>
+</li>
+<li>
+<p><strong>Job TTL Cleanup</strong> (<code>job/job.go</code>)</p>
+</li>
+<li>Background cleanup of completed jobs</li>
+<li>Configurable TTL and interval</li>
+<li>
+<p>Prevents memory leaks</p>
+</li>
+<li>
+<p><strong>Context Timeouts</strong> (<code>runner/runner.go</code>)</p>
+</li>
+<li>Configurable per-request timeouts</li>
+<li>Proper context propagation</li>
+</ol>
+<h3 id="potential-bottlenecks">Potential Bottlenecks<a class="headerlink" href="#potential-bottlenecks" title="Permanent link">&para;</a></h3>
+<p><strong>Session Directory Scanning</strong>:
+<div class="language-go highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1">// session/session.go:77-78 - O(n) for n sessions</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nx">entries</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">ReadDir</span><span class="p">(</span><span class="nx">m</span><span class="p">.</span><span class="nx">sessionsDir</span><span class="p">)</span>
+</span></code></pre></div>
+- Current: Acceptable for typical usage (&lt;1000 sessions)
+- Future: Consider indexing/database for large scale</p>
+<p><strong>Rate Limiter Memory - Fixed in V1.1</strong>:
+<div class="language-go highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1">// api/ratelimit.go - Now includes automatic cleanup</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kd">type</span><span class="w"> </span><span class="nx">ipLimiterEntry</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="nx">limiter</span><span class="w">    </span><span class="o">*</span><span class="nx">rate</span><span class="p">.</span><span class="nx">Limiter</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="nx">lastAccess</span><span class="w"> </span><span class="nx">time</span><span class="p">.</span><span class="nx">Time</span><span class="w">  </span><span class="c1">// Track last access</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="p">}</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">i</span><span class="w"> </span><span class="o">*</span><span class="nx">ipRateLimiter</span><span class="p">)</span><span class="w"> </span><span class="nx">cleanupStaleEntries</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">    </span><span class="c1">// Periodic cleanup removes entries not accessed in cleanupInterval</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">    </span><span class="nx">ticker</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">time</span><span class="p">.</span><span class="nx">NewTicker</span><span class="p">(</span><span class="nx">i</span><span class="p">.</span><span class="nx">cleanupInterval</span><span class="p">)</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">    </span><span class="c1">// ...</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="p">}</span>
+</span></code></pre></div>
+- Status: ✅ Resolved - Configurable cleanup (default 10 minutes)
+- Impact: Prevents memory leaks from stale IP entries</p>
+<hr />
+<h2 id="configuration-management">Configuration Management<a class="headerlink" href="#configuration-management" title="Permanent link">&para;</a></h2>
+<h3 id="viper-integration-excellent">Viper Integration (Excellent)<a class="headerlink" href="#viper-integration-excellent" title="Permanent link">&para;</a></h3>
+<div class="language-go highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1">// config/config.go - Clean, comprehensive configuration</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kd">type</span><span class="w"> </span><span class="nx">Config</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="nx">Server</span><span class="w">    </span><span class="nx">ServerConfig</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="nx">Agent</span><span class="w">     </span><span class="nx">AgentConfig</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span><span class="nx">Resources</span><span class="w"> </span><span class="nx">ResourceConfig</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="nx">Auth</span><span class="w">      </span><span class="nx">AuthConfig</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">    </span><span class="nx">RateLimit</span><span class="w"> </span><span class="nx">RateLimitConfig</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">    </span><span class="nx">JWT</span><span class="w">       </span><span class="nx">JWTConfig</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">    </span><span class="nx">Jobs</span><span class="w">      </span><span class="nx">JobsConfig</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><strong>Priority Chain</strong>: Environment -&gt; Config File -&gt; Defaults</p>
+<p><strong>Environment Variables Supported</strong>:
+- <code>STROMBOLI_SERVER_ADDRESS</code>
+- <code>STROMBOLI_AGENT_IMAGE</code>
+- <code>STROMBOLI_AUTH_ENABLED</code>
+- <code>STROMBOLI_API_TOKENS</code>
+- <code>STROMBOLI_RATE_LIMIT_ENABLED</code>
+- <code>STROMBOLI_JWT_SECRET</code>
+- <code>STROMBOLI_DEFAULT_MEMORY</code>
+- <code>STROMBOLI_DEFAULT_CPUS</code>
+- And more...</p>
+<p><strong>Configuration Validation</strong> (<code>config/config.go:282-318</code>):
+- Rate limit values
+- JWT expiry
+- Job cleanup TTL
+- Token cache TTL</p>
+<hr />
+<h2 id="completed-in-v11">Completed in V1.1<a class="headerlink" href="#completed-in-v11" title="Permanent link">&para;</a></h2>
+<h3 id="fixed-issues">✅ Fixed Issues<a class="headerlink" href="#fixed-issues" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Replace String Matching with errors.Is()</strong> - DONE</li>
+<li>Location: <code>api/server.go:201-204</code></li>
+<li>Change: Now uses <code>errors.Is()</code> with sentinel errors</li>
+<li>Impact: More robust error handling</li>
+<li>
+<p>Tests: Existing tests verify behavior</p>
+</li>
+<li>
+<p><strong>Add Rate Limiter Cleanup</strong> - DONE</p>
+</li>
+<li>Location: <code>api/ratelimit.go</code></li>
+<li>Change: Added <code>cleanupStaleEntries()</code> goroutine with configurable interval</li>
+<li>Impact: Prevents memory leaks from stale IP entries</li>
+<li>Tests: 4 new tests in <code>ratelimit_test.go</code></li>
+</ol>
+<h2 id="recommendations-for-v12">Recommendations for v1.2<a class="headerlink" href="#recommendations-for-v12" title="Permanent link">&para;</a></h2>
+<h3 id="priority-1-quick-wins">Priority 1 - Quick Wins<a class="headerlink" href="#priority-1-quick-wins" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Pin Container Image Version</strong></li>
+<li>Location: <code>main.go:46</code> / config</li>
+<li>Impact: Prevents breaking changes</li>
+<li>Effort: 15 minutes</li>
+</ol>
+<h3 id="priority-2-enhancements-optional">Priority 2 - Enhancements (Optional)<a class="headerlink" href="#priority-2-enhancements-optional" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Add Request Tracing</strong> (OpenTelemetry) - FIXED in v1.4</li>
+<li>✅ Added OpenTelemetry tracing package (<code>internal/tracing/</code>)</li>
+<li>✅ Configurable via env vars and config file</li>
+<li>✅ OTLP gRPC exporter for Jaeger/Grafana Tempo/etc</li>
+<li>✅ HTTP request tracing via otelgin middleware</li>
+<li>✅ Internal spans for runner execution</li>
+<li>
+<p>✅ Noop provider when disabled (zero overhead)</p>
+</li>
+<li>
+<p><strong>Health Check Enhancement</strong> - FIXED in v1.2</p>
+</li>
+<li>✅ Added Podman connectivity check via <code>podman version</code></li>
+<li>✅ Added secrets availability check via <code>podman secret exists claude-token</code></li>
+<li>✅ Returns detailed health status with component breakdown</li>
+<li>✅ Uses 5 second timeout per check</li>
+<li>✅ Status is "ok" when all components healthy, "degraded" when any component unhealthy</li>
+</ol>
+<h3 id="priority-3-future-features">Priority 3 - Future Features<a class="headerlink" href="#priority-3-future-features" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Token Blacklist for Logout</strong> - FIXED in v1.3</li>
+<li>✅ Added TokenBlacklist manager with automatic cleanup</li>
+<li>✅ JWT tokens include JTI claim</li>
+<li>
+<p>✅ POST /auth/logout endpoint added</p>
+</li>
+<li>
+<p><strong>Metrics Dashboard</strong> - FIXED in v1.2</p>
+</li>
+<li>✅ Added Grafana dashboard JSON (<code>deployments/grafana/stromboli-dashboard.json</code>)</li>
+<li>✅ Documented all metrics with example PromQL queries</li>
+<li>
+<p>✅ Included recommended alerting rules</p>
+</li>
+<li>
+<p><strong>Session Persistence Backend</strong></p>
+</li>
+<li>Add optional SQLite/PostgreSQL backend</li>
+<li>Enable session search/filter</li>
+<li>Effort: 8-12 hours</li>
+</ol>
+<hr />
+<h2 id="summary-metrics">Summary Metrics<a class="headerlink" href="#summary-metrics" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>V1.0</th>
+<th>V1.1</th>
+<th>Assessment</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Code Quality</strong></td>
+<td>9.5/10</td>
+<td>10/10</td>
+<td>Exceptional structure, proper error handling</td>
+</tr>
+<tr>
+<td><strong>Test Coverage</strong></td>
+<td>9/10</td>
+<td>9/10</td>
+<td>Session tests + E2E suite + rate limiter cleanup tests</td>
+</tr>
+<tr>
+<td><strong>Security</strong></td>
+<td>9.5/10</td>
+<td>9.5/10</td>
+<td>JWT + Rate limiting + all controls</td>
+</tr>
+<tr>
+<td><strong>Documentation</strong></td>
+<td>10/10</td>
+<td>10/10</td>
+<td>Comprehensive throughout</td>
+</tr>
+<tr>
+<td><strong>Performance</strong></td>
+<td>9/10</td>
+<td>9.5/10</td>
+<td>Token caching, rate limiter cleanup, good patterns</td>
+</tr>
+<tr>
+<td><strong>Go Best Practices</strong></td>
+<td>9.5/10</td>
+<td>10/10</td>
+<td>Exemplary Go idioms with proper error handling</td>
+</tr>
+<tr>
+<td><strong>Production Readiness</strong></td>
+<td>9.5/10</td>
+<td>10/10</td>
+<td>Full feature set, no memory leaks</td>
+</tr>
+<tr>
+<td><strong>Feature Completeness</strong></td>
+<td>10/10</td>
+<td>10/10</td>
+<td>All roadmap items complete</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Overall Score: 9.5/10</strong> (up from 9.0/10)</p>
+<hr />
+<h2 id="final-assessment">Final Assessment<a class="headerlink" href="#final-assessment" title="Permanent link">&para;</a></h2>
+<h3 id="what-makes-this-codebase-excellent">What Makes This Codebase Excellent<a class="headerlink" href="#what-makes-this-codebase-excellent" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Architectural Excellence</strong></li>
+<li>15 focused packages with single responsibilities</li>
+<li>Clean interfaces enabling testability</li>
+<li>Proper dependency injection</li>
+<li>
+<p>Follows CLAUDE.md guidelines</p>
+</li>
+<li>
+<p><strong>Security-First Design</strong></p>
+</li>
+<li>Podman secrets for token handling</li>
+<li>JWT with access/refresh tokens</li>
+<li>IP-based rate limiting</li>
+<li>Workspace allowlist validation</li>
+<li>
+<p>Path traversal prevention</p>
+</li>
+<li>
+<p><strong>Production-Ready Features</strong></p>
+</li>
+<li>Viper configuration management</li>
+<li>Prometheus metrics</li>
+<li>Structured logging</li>
+<li>Graceful shutdown</li>
+<li>Async execution with webhooks</li>
+<li>
+<p>Real-time streaming (SSE)</p>
+</li>
+<li>
+<p><strong>Comprehensive Testing</strong></p>
+</li>
+<li>250+ test functions</li>
+<li>Executor mocking for unit tests</li>
+<li>E2E test suite with build tags</li>
+<li>Concurrency testing</li>
+<li>
+<p>Path traversal attack tests</p>
+</li>
+<li>
+<p><strong>Developer Experience</strong></p>
+</li>
+<li>All packages documented with doc.go</li>
+<li>Fluent builder APIs</li>
+<li>Clear error messages</li>
+<li>Swagger annotations</li>
+</ol>
+<h3 id="areas-for-improvement">Areas for Improvement<a class="headerlink" href="#areas-for-improvement" title="Permanent link">&para;</a></h3>
+<p><strong>Minor</strong> (Optional for future versions):
+- Pin container image versions (low priority)</p>
+<p><strong>Nice to Have</strong> (Future enhancements):
+- ✅ OpenTelemetry tracing (IMPLEMENTED in v1.4)
+- Container package integration
+- ✅ Token blacklist for logout (IMPLEMENTED in v1.3)</p>
+<h3 id="comparison-with-industry-standards">Comparison with Industry Standards<a class="headerlink" href="#comparison-with-industry-standards" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Industry Standard</th>
+<th>Stromboli</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Architecture</strong></td>
+<td>Standard</td>
+<td>Exceeds</td>
+<td>Exemplary separation</td>
+</tr>
+<tr>
+<td><strong>Security</strong></td>
+<td>Standard</td>
+<td>Exceeds</td>
+<td>Comprehensive controls</td>
+</tr>
+<tr>
+<td><strong>Testing</strong></td>
+<td>Standard</td>
+<td>Exceeds</td>
+<td>E2E + unit + mocking</td>
+</tr>
+<tr>
+<td><strong>Documentation</strong></td>
+<td>Standard</td>
+<td>Exceeds</td>
+<td>All packages documented</td>
+</tr>
+<tr>
+<td><strong>Observability</strong></td>
+<td>Standard</td>
+<td>Meets</td>
+<td>Metrics + logging</td>
+</tr>
+<tr>
+<td><strong>API Design</strong></td>
+<td>Standard</td>
+<td>Exceeds</td>
+<td>REST + streaming + async</td>
+</tr>
+<tr>
+<td><strong>Configuration</strong></td>
+<td>Standard</td>
+<td>Exceeds</td>
+<td>Viper + validation</td>
+</tr>
+</tbody>
+</table>
+<h3 id="verdict">Verdict<a class="headerlink" href="#verdict" title="Permanent link">&para;</a></h3>
+<p><strong>Previous Review (Pre-V1.0)</strong>: "Production-ready API with excellent architecture, comprehensive security, and robust feature set."</p>
+<p><strong>V1.0 Review</strong>: "Exemplary Go codebase achieving reference-implementation quality. All roadmap items complete with excellent test coverage and production-ready features."</p>
+<p><strong>Current Review (V1.1)</strong>: <strong>"Polished, production-ready Go codebase with no known issues. Proper error handling, memory-safe rate limiting, comprehensive testing, and exemplary Go practices throughout. Ready for production deployment."</strong></p>
+<p>This codebase is ready for production deployment and serves as an excellent example of Go best practices for container orchestration APIs. The v1.1 improvements addressed the two identified code review issues (string-based error matching and rate limiter memory leak).</p>
+<p><strong>Recommended Next Steps</strong>:
+1. Deploy to production with confidence
+2. Monitor metrics and rate limiter cleanup effectiveness
+3. Consider optional v1.2 enhancements (OpenTelemetry tracing, health check improvements)</p>
+<hr />
+<h2 id="review-changelog">Review Changelog<a class="headerlink" href="#review-changelog" title="Permanent link">&para;</a></h2>
+<h3 id="v14-changes-january-23-2026">V1.4 Changes (January 23, 2026)<a class="headerlink" href="#v14-changes-january-23-2026" title="Permanent link">&para;</a></h3>
+<ul>
+<li>✅ Added OpenTelemetry distributed tracing support</li>
+<li>✅ Created <code>internal/tracing/</code> package with OTLP gRPC exporter</li>
+<li>✅ Added otelgin middleware for HTTP request tracing</li>
+<li>✅ Added internal spans for runner execution (Run, RunStream, RunAsync)</li>
+<li>✅ Configuration via env vars: <code>STROMBOLI_TRACING_ENABLED</code>, <code>_SERVICE_NAME</code>, <code>_ENDPOINT</code>, <code>_INSECURE</code></li>
+<li>✅ Noop provider when disabled (zero overhead in production)</li>
+<li>✅ Full test coverage for tracing initialization and span creation</li>
+</ul>
+<h3 id="v13-changes-january-23-2026">V1.3 Changes (January 23, 2026)<a class="headerlink" href="#v13-changes-january-23-2026" title="Permanent link">&para;</a></h3>
+<ul>
+<li>✅ Added Token Blacklist for logout support</li>
+<li>✅ JWT tokens now include JTI (JWT ID) claim for unique identification</li>
+<li>✅ Added <code>TokenBlacklist</code> manager in <code>internal/auth/blacklist.go</code> with automatic cleanup</li>
+<li>✅ Middleware checks blacklist before allowing access (rejects with "token revoked")</li>
+<li>✅ Added <code>POST /auth/logout</code> endpoint to invalidate tokens</li>
+<li>✅ Blacklist cleanup runs hourly to remove expired tokens</li>
+<li>✅ Comprehensive test coverage (10+ new tests)</li>
+</ul>
+<h3 id="v12-changes-january-23-2026">V1.2 Changes (January 23, 2026)<a class="headerlink" href="#v12-changes-january-23-2026" title="Permanent link">&para;</a></h3>
+<ul>
+<li>✅ Added detailed health check endpoint with component breakdown</li>
+<li>✅ Health check now verifies Podman connectivity via <code>podman version</code></li>
+<li>✅ Health check now verifies claude-token secret exists via <code>podman secret exists</code></li>
+<li>✅ Uses configurable 5-second timeout per check</li>
+<li>✅ Returns "ok" when all components healthy, "degraded" when any component unhealthy</li>
+<li>✅ Added comprehensive tests for HealthChecker in <code>health_test.go</code></li>
+</ul>
+<h3 id="v11-changes-january-22-2026">V1.1 Changes (January 22, 2026)<a class="headerlink" href="#v11-changes-january-22-2026" title="Permanent link">&para;</a></h3>
+<ul>
+<li>✅ Replaced string-based error matching with <code>errors.Is()</code> in <code>api/server.go</code></li>
+<li>✅ Added periodic cleanup for rate limiter IP map with configurable interval</li>
+<li>✅ Added 4 new tests for rate limiter cleanup functionality</li>
+<li>✅ Improved overall score from 9.0/10 to 9.5/10</li>
+<li>✅ No known issues remaining</li>
+</ul>
+<h3 id="v10-changes-january-2026">V1.0 Changes (January 2026)<a class="headerlink" href="#v10-changes-january-2026" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Added session package tests (25 test functions)</li>
+<li>Implemented full Viper configuration management</li>
+<li>Added IP-based rate limiting with X-RateLimit headers</li>
+<li>Implemented complete JWT authentication with refresh tokens</li>
+<li>Added Executor interface with mock implementation</li>
+<li>Added comprehensive E2E test suite</li>
+<li>Added token caching with configurable TTL</li>
+<li>Added configurable resource defaults</li>
+<li>Improved overall score from 8.5/10 to 9.0/10</li>
+</ul>
+<h3 id="issues-resolved-from-code-reviews">Issues Resolved from Code Reviews<a class="headerlink" href="#issues-resolved-from-code-reviews" title="Permanent link">&para;</a></h3>
+<ul>
+<li>✅ OpenTelemetry tracing (LOW -&gt; RESOLVED in V1.4)</li>
+<li>✅ Token blacklist for logout (LOW -&gt; RESOLVED in V1.3)</li>
+<li>✅ String-based error matching (MINOR -&gt; RESOLVED in V1.1)</li>
+<li>✅ Rate limiter memory leak (MINOR -&gt; RESOLVED in V1.1)</li>
+<li>✅ Session package testing (CRITICAL -&gt; RESOLVED in V1.0)</li>
+<li>✅ Rate limiting (HIGH -&gt; RESOLVED in V1.0)</li>
+<li>✅ Default resource limits (MEDIUM -&gt; RESOLVED in V1.0)</li>
+<li>✅ E2E tests (MEDIUM -&gt; RESOLVED in V1.0)</li>
+<li>✅ Viper configuration (LOW -&gt; RESOLVED in V1.0)</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/tomblancdev/stromboli" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "content.action.edit"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
