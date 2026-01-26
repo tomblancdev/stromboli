@@ -111,12 +111,19 @@ func main() {
 		Timeout: cfg.Resources.Timeout,
 	}
 
-	podmanRunner, err := runner.NewPodmanRunnerWithDefaults(
+	imageConfig := runner.ImageConfig{
+		AllowedPatterns: cfg.Agent.AllowedImagePatterns,
+		MountClaudeCLI:  cfg.Agent.MountClaudeCLI,
+	}
+
+	podmanRunner, err := runner.NewPodmanRunnerFull(
 		fullImage,
 		cfg.Agent.CredentialsFile,
 		cfg.Agent.SessionsDir,
 		allowedWorkspaces,
 		resourceDefaults,
+		imageConfig,
+		runner.NewShellExecutor(),
 	)
 	if err != nil {
 		slog.Error("Failed to create runner", "error", err)
@@ -127,6 +134,12 @@ func main() {
 		"memory", cfg.Resources.Memory,
 		"cpus", cfg.Resources.CPUs,
 		"timeout", cfg.Resources.Timeout)
+
+	if len(cfg.Agent.AllowedImagePatterns) > 0 {
+		slog.Info("Dynamic images enabled",
+			"allowed_patterns", cfg.Agent.AllowedImagePatterns,
+			"mount_claude_cli", cfg.Agent.MountClaudeCLI)
+	}
 
 	// Cleanup orphaned containers from previous runs
 	slog.Info("Cleaning up orphaned containers...")

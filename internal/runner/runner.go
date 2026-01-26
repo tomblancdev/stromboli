@@ -58,12 +58,20 @@ type ResourceDefaults struct {
 	Timeout string
 }
 
+// ImageConfig contains image-related configuration
+type ImageConfig struct {
+	AllowedPatterns []string // Allowed image patterns (empty = allow all)
+	MountClaudeCLI  bool     // Mount claude-cli volume into containers
+}
+
 // PodmanRunner runs Claude using Podman containers
 type PodmanRunner struct {
 	image              string
 	secretsMgr         *secrets.Manager
 	sessionMgr         *session.Manager
 	workspaceValidator *workspace.Validator
+	imageValidator     *ImageValidator
+	mountClaudeCLI     bool
 	defaults           ResourceDefaults
 	executor           Executor
 }
@@ -89,6 +97,11 @@ func NewPodmanRunnerWithDefaults(image, secretsFile, sessionsDir string, allowed
 // NewPodmanRunnerWithDefaultsAndExecutor creates a new Podman-based runner with default resource limits and custom executor
 // This is the most flexible constructor, primarily useful for testing
 func NewPodmanRunnerWithDefaultsAndExecutor(image, credentialsFile, sessionsDir string, allowedWorkspaces []string, defaults ResourceDefaults, executor Executor) (*PodmanRunner, error) {
+	return NewPodmanRunnerFull(image, credentialsFile, sessionsDir, allowedWorkspaces, defaults, ImageConfig{}, executor)
+}
+
+// NewPodmanRunnerFull creates a new Podman-based runner with all configuration options
+func NewPodmanRunnerFull(image, credentialsFile, sessionsDir string, allowedWorkspaces []string, defaults ResourceDefaults, imageConfig ImageConfig, executor Executor) (*PodmanRunner, error) {
 	// Create secrets manager and ensure credentials exist + Podman secret is created
 	secretsMgr := secrets.NewManagerWithPath(credentialsFile)
 	if err := secretsMgr.EnsureExists(context.Background(), ""); err != nil {
@@ -100,6 +113,8 @@ func NewPodmanRunnerWithDefaultsAndExecutor(image, credentialsFile, sessionsDir 
 		secretsMgr:         secretsMgr,
 		sessionMgr:         session.NewManager(sessionsDir),
 		workspaceValidator: workspace.NewValidator(allowedWorkspaces),
+		imageValidator:     NewImageValidator(imageConfig.AllowedPatterns, image),
+		mountClaudeCLI:     imageConfig.MountClaudeCLI,
 		defaults:           defaults,
 		executor:           executor,
 	}, nil
@@ -131,6 +146,12 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 		ctx, cancel = context.WithTimeout(ctx, timeout)
 		defer cancel()
 	}
+
+	// Validate and resolve container image
+	if err := r.imageValidator.Validate(req.Podman.Image); err != nil {
+		return nil, fmt.Errorf("image validation failed: %w", err)
+	}
+	containerImage := r.imageValidator.Resolve(req.Podman.Image)
 
 	// Create or get session directory
 	sessionID, absSessionPath, err := r.sessionMgr.Create(req.Claude.SessionID)
@@ -164,7 +185,12 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 		WithKeepID().
 		WithUser(currentUser).
 		WithEnv("HOME", "/home/user").
-		WithImage(r.image)
+		WithImage(containerImage)
+
+	// Mount Claude CLI volume if configured (for dynamic images)
+	if r.mountClaudeCLI {
+		podmanBuilder.WithVolumeRaw(ClaudeCLIVolumeName + ":" + ClaudeCLIPath + ":ro")
+	}
 
 	// SESSION ISOLATION: Mount session-specific directory as user's home
 	// Each session gets its own persistent storage at /home/user
@@ -287,6 +313,12 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 		defer cancel()
 	}
 
+	// Validate and resolve container image
+	if err := r.imageValidator.Validate(req.Podman.Image); err != nil {
+		return nil, fmt.Errorf("image validation failed: %w", err)
+	}
+	containerImage := r.imageValidator.Resolve(req.Podman.Image)
+
 	// Create or get session directory
 	sessionID, absSessionPath, err := r.sessionMgr.Create(req.Claude.SessionID)
 	if err != nil {
@@ -316,7 +348,12 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 		WithKeepID().
 		WithUser(currentUser).
 		WithEnv("HOME", "/home/user").
-		WithImage(r.image)
+		WithImage(containerImage)
+
+	// Mount Claude CLI volume if configured (for dynamic images)
+	if r.mountClaudeCLI {
+		podmanBuilder.WithVolumeRaw(ClaudeCLIVolumeName + ":" + ClaudeCLIPath + ":ro")
+	}
 
 	// Mount session-specific directory as user's home
 	podmanBuilder.WithVolume(absSessionPath, "/home/user")

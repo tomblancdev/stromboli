@@ -596,6 +596,10 @@ definitions:
         description: CPU limit (e.g., "0.5", "2")
         example: "1"
         type: string
+      image:
+        description: Container image override (must match allowed patterns)
+        example: python:3.12
+        type: string
       memory:
         description: Memory limit (e.g., "512m", "1g")
         example: 512m

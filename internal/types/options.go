@@ -117,6 +117,9 @@ type ClaudeOptions struct {
 // PodmanOptions contains Podman container configuration
 // @Description Podman container mount configuration
 type PodmanOptions struct {
+	// Container image override (must match allowed patterns)
+	Image string `json:"image,omitempty" example:"python:3.12"`
+
 	// Volume mounts (host:container or host:container:options format)
 	Volumes []string `json:"volumes,omitempty" example:"/data:/data:ro"`
 
