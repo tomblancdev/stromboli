@@ -270,8 +270,13 @@ claude-logout:
 # Build the server container image
 build-server-image:
 	@echo "🏗️  Building Stromboli server image..."
-	podman build -t stromboli:latest -f deployments/docker/Dockerfile.server .
-	@echo "✅ Server image built: stromboli:latest"
+	podman build \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg COMMIT=$(COMMIT) \
+		--build-arg BUILD_TIME=$(BUILD_TIME) \
+		-t stromboli:latest \
+		-f deployments/docker/Dockerfile.server .
+	@echo "✅ Server image built: stromboli:latest ($(VERSION))"
 
 # Build all images (server + agent + claude-cli)
 build-images: build-server-image build-agent-image build-claude-cli
