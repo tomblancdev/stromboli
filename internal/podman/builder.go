@@ -88,6 +88,14 @@ func (b *CommandBuilder) WithSecretTarget(name, targetPath string) *CommandBuild
 	return b
 }
 
+// WithSecretEnv adds a podman secret as an environment variable
+// The secret must be created beforehand with `podman secret create`
+// Example: WithSecretEnv("github-token", "GH_TOKEN") exposes secret as $GH_TOKEN
+func (b *CommandBuilder) WithSecretEnv(secretName, envVarName string) *CommandBuilder {
+	b.secrets = append(b.secrets, fmt.Sprintf("%s,type=env,target=%s", secretName, envVarName))
+	return b
+}
+
 // WithSecretFile is deprecated - use WithSecret instead
 // This mounts a file read-only but has permission issues with rootless podman
 func (b *CommandBuilder) WithSecretFile(hostPath, containerPath string) *CommandBuilder {

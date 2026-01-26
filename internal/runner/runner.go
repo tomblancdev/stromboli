@@ -238,6 +238,14 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 		podmanBuilder.WithVolumeRaw(vol)
 	}
 
+	// Validate and mount secrets as environment variables
+	if err := ValidateSecretsEnv(req.Podman.SecretsEnv); err != nil {
+		return nil, fmt.Errorf("secrets validation failed: %w", err)
+	}
+	for envVar, secretName := range req.Podman.SecretsEnv {
+		podmanBuilder.WithSecretEnv(secretName, envVar)
+	}
+
 	// Apply resource limits
 	if req.Podman.Memory != "" {
 		podmanBuilder.WithMemory(req.Podman.Memory)
@@ -410,6 +418,14 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	// Add additional volumes from request
 	for _, vol := range req.Podman.Volumes {
 		podmanBuilder.WithVolumeRaw(vol)
+	}
+
+	// Validate and mount secrets as environment variables
+	if err := ValidateSecretsEnv(req.Podman.SecretsEnv); err != nil {
+		return nil, fmt.Errorf("secrets validation failed: %w", err)
+	}
+	for envVar, secretName := range req.Podman.SecretsEnv {
+		podmanBuilder.WithSecretEnv(secretName, envVar)
 	}
 
 	// Apply resource limits

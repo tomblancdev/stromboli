@@ -463,3 +463,153 @@ func TestDestroySession_NotFound(t *testing.T) {
 	assert.False(t, response.Success)
 	assert.Contains(t, response.Error, "session not found")
 }
+
+func TestListSecrets_Success(t *testing.T) {
+	tmpDir := t.TempDir()
+	credentialsFile := filepath.Join(tmpDir, ".credentials.json")
+	require.NoError(t, os.WriteFile(credentialsFile, []byte("{}"), 0600))
+	claudeClient := claude.NewClient(credentialsFile)
+	authConfig := auth.Config{Enabled: false}
+	rateLimitConfig := RateLimitConfig{Enabled: false}
+	jobMgr := job.NewManager()
+
+	// Create mock executor that returns secret list
+	mockExecutor := runner.NewMockExecutor()
+	mockExecutor.RunFunc = func(ctx context.Context, args []string) ([]byte, error) {
+		if len(args) >= 4 && args[0] == "podman" && args[1] == "secret" && args[2] == "ls" {
+			return []byte("claude-credentials\ngithub-token\ngitlab-token\n"), nil
+		}
+		return []byte("ok"), nil
+	}
+
+	healthConfig := HealthConfig{
+		Timeout:         5 * time.Second,
+		CredentialsFile: credentialsFile,
+		SecretName:      "claude-credentials",
+	}
+	healthChecker := NewHealthChecker(mockExecutor, healthConfig)
+
+	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, nil, false, tmpDir)
+
+	req, err := http.NewRequest(http.MethodGet, "/secrets", nil)
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	server.router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response SecretsListResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	assert.Empty(t, response.Error)
+	assert.Len(t, response.Secrets, 3)
+	assert.Contains(t, response.Secrets, "claude-credentials")
+	assert.Contains(t, response.Secrets, "github-token")
+	assert.Contains(t, response.Secrets, "gitlab-token")
+}
+
+func TestListSecrets_NoHealthChecker(t *testing.T) {
+	// Server without health checker
+	server := newTestServer(t, nil, true)
+
+	req, err := http.NewRequest(http.MethodGet, "/secrets", nil)
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	server.router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+
+	var response SecretsListResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	assert.Contains(t, response.Error, "health checker not configured")
+}
+
+func TestListSecrets_PodmanError(t *testing.T) {
+	tmpDir := t.TempDir()
+	credentialsFile := filepath.Join(tmpDir, ".credentials.json")
+	require.NoError(t, os.WriteFile(credentialsFile, []byte("{}"), 0600))
+	claudeClient := claude.NewClient(credentialsFile)
+	authConfig := auth.Config{Enabled: false}
+	rateLimitConfig := RateLimitConfig{Enabled: false}
+	jobMgr := job.NewManager()
+
+	// Create mock executor that returns error for secret ls
+	mockExecutor := runner.NewMockExecutor()
+	mockExecutor.RunFunc = func(ctx context.Context, args []string) ([]byte, error) {
+		if len(args) >= 4 && args[0] == "podman" && args[1] == "secret" && args[2] == "ls" {
+			return nil, context.DeadlineExceeded
+		}
+		return []byte("ok"), nil
+	}
+
+	healthConfig := HealthConfig{
+		Timeout:         5 * time.Second,
+		CredentialsFile: credentialsFile,
+		SecretName:      "claude-credentials",
+	}
+	healthChecker := NewHealthChecker(mockExecutor, healthConfig)
+
+	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, nil, false, tmpDir)
+
+	req, err := http.NewRequest(http.MethodGet, "/secrets", nil)
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	server.router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+
+	var response SecretsListResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	assert.Contains(t, response.Error, "failed to list secrets")
+}
+
+func TestListSecrets_EmptyList(t *testing.T) {
+	tmpDir := t.TempDir()
+	credentialsFile := filepath.Join(tmpDir, ".credentials.json")
+	require.NoError(t, os.WriteFile(credentialsFile, []byte("{}"), 0600))
+	claudeClient := claude.NewClient(credentialsFile)
+	authConfig := auth.Config{Enabled: false}
+	rateLimitConfig := RateLimitConfig{Enabled: false}
+	jobMgr := job.NewManager()
+
+	// Create mock executor that returns empty list
+	mockExecutor := runner.NewMockExecutor()
+	mockExecutor.RunFunc = func(ctx context.Context, args []string) ([]byte, error) {
+		if len(args) >= 4 && args[0] == "podman" && args[1] == "secret" && args[2] == "ls" {
+			return []byte(""), nil
+		}
+		return []byte("ok"), nil
+	}
+
+	healthConfig := HealthConfig{
+		Timeout:         5 * time.Second,
+		CredentialsFile: credentialsFile,
+		SecretName:      "claude-credentials",
+	}
+	healthChecker := NewHealthChecker(mockExecutor, healthConfig)
+
+	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, nil, false, tmpDir)
+
+	req, err := http.NewRequest(http.MethodGet, "/secrets", nil)
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	server.router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response SecretsListResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	assert.Empty(t, response.Error)
+	assert.Empty(t, response.Secrets)
+}

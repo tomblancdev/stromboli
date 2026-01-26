@@ -191,3 +191,39 @@ func TestWithResourceLimits(t *testing.T) {
 	assert.Contains(t, cmd, "--cpu-shares")
 	assert.Contains(t, cmd, "1024")
 }
+
+func TestWithSecretTarget(t *testing.T) {
+	cmd := NewCommand().
+		WithSecretTarget("claude-credentials", "/home/user/.claude/.credentials.json").
+		WithImage("alpine").
+		Build()
+	assert.Contains(t, cmd, "--secret")
+	assert.Contains(t, cmd, "claude-credentials,target=/home/user/.claude/.credentials.json")
+}
+
+func TestWithSecretEnv(t *testing.T) {
+	cmd := NewCommand().
+		WithSecretEnv("github-token", "GH_TOKEN").
+		WithImage("alpine").
+		Build()
+	assert.Contains(t, cmd, "--secret")
+	assert.Contains(t, cmd, "github-token,type=env,target=GH_TOKEN")
+}
+
+func TestWithMultipleSecretEnv(t *testing.T) {
+	cmd := NewCommand().
+		WithSecretEnv("github-token", "GH_TOKEN").
+		WithSecretEnv("gitlab-token", "GITLAB_TOKEN").
+		WithImage("alpine").
+		Build()
+	// Count --secret flags
+	count := 0
+	for _, arg := range cmd {
+		if arg == "--secret" {
+			count++
+		}
+	}
+	assert.Equal(t, 2, count)
+	assert.Contains(t, cmd, "github-token,type=env,target=GH_TOKEN")
+	assert.Contains(t, cmd, "gitlab-token,type=env,target=GITLAB_TOKEN")
+}

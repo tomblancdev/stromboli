@@ -123,6 +123,11 @@ type PodmanOptions struct {
 	// Volume mounts (host:container or host:container:options format)
 	Volumes []string `json:"volumes,omitempty" example:"/data:/data:ro"`
 
+	// Secrets to inject as environment variables (env_var_name -> podman_secret_name)
+	// The Podman secret must exist beforehand (created via `podman secret create`)
+	// Example: {"GH_TOKEN": "github-token"} mounts secret "github-token" as env var GH_TOKEN
+	SecretsEnv map[string]string `json:"secrets_env,omitempty"`
+
 	// Container timeout (e.g., "5m", "1h", "30s")
 	Timeout string `json:"timeout,omitempty" example:"5m"`
 
