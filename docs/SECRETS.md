@@ -2,6 +2,8 @@
 
 Stromboli allows you to securely inject secrets into agent containers as environment variables. This enables agents to access external services like GitHub, GitLab, cloud providers, etc.
 
+> **⚠️ Security Model**: Stromboli is designed for **single-tenant deployments**. All API users have access to all Podman secrets on the host. For multi-tenant environments, deploy separate Stromboli instances per tenant.
+
 ## How It Works
 
 ```
@@ -31,14 +33,18 @@ Stromboli allows you to securely inject secrets into agent containers as environ
 ### GitHub CLI Token
 
 ```bash
-# Extract token from gh CLI config
-podman secret create github-token - < ~/.config/gh/hosts.yml
+# Option 1: Extract OAuth token from gh CLI config (requires yq)
+yq -r '.["github.com"].oauth_token' ~/.config/gh/hosts.yml | podman secret create github-token -
 
-# Or create from a token file
+# Option 2: Create from a Personal Access Token
 echo "ghp_xxxxxxxxxxxx" | podman secret create github-token -
 
-# Or from environment variable
+# Option 3: From environment variable
 echo "$GITHUB_TOKEN" | podman secret create github-token -
+
+# Option 4: Create interactively (token won't appear in shell history)
+podman secret create github-token -
+# Then paste the token and press Ctrl+D
 ```
 
 ### GitLab Token
@@ -94,6 +100,24 @@ The format is:
   "secrets_env": {
     "<ENV_VAR_NAME>": "<podman_secret_name>"
   }
+}
+```
+
+### Validation Rules
+
+Stromboli validates `secrets_env` before creating containers:
+
+| Rule | Description |
+|------|-------------|
+| **Env var format** | Must start with letter or underscore, contain only `[a-zA-Z0-9_]` |
+| **Blocked vars** | `LD_PRELOAD`, `LD_LIBRARY_PATH` are blocked for security |
+| **Secret name** | Cannot be empty, max 253 characters |
+| **Max secrets** | Maximum 50 secrets per request |
+
+Invalid requests return `400 Bad Request` with details:
+```json
+{
+  "error": "secrets validation failed: invalid environment variable name \"MY-VAR\": must start with letter or underscore, contain only alphanumeric and underscore"
 }
 ```
 
