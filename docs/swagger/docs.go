@@ -728,6 +728,10 @@ const docTemplate = `{
                 "status": {
                     "type": "string",
                     "example": "ok"
+                },
+                "version": {
+                    "type": "string",
+                    "example": "0.1.4"
                 }
             }
         },

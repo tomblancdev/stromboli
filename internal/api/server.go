@@ -13,6 +13,7 @@ import (
 	strerrors "stromboli/internal/errors"
 	"stromboli/internal/job"
 	"stromboli/internal/runner"
+	"stromboli/internal/version"
 )
 
 // Server represents the HTTP API server
@@ -120,15 +121,21 @@ func (s *Server) healthCheck(c *gin.Context) {
 	// If no health checker is configured, return basic health response
 	if s.healthChecker == nil {
 		c.JSON(http.StatusOK, HealthResponse{
-			Status: "ok",
-			Name:   "stromboli",
+			Status:  "ok",
+			Name:    "stromboli",
+			Version: version.Version,
 		})
 		return
 	}
 
 	// Perform detailed health check
 	health := s.healthChecker.Check(c.Request.Context())
-	c.JSON(http.StatusOK, HealthResponse(health))
+	c.JSON(http.StatusOK, HealthResponse{
+		Status:     health.Status,
+		Name:       health.Name,
+		Version:    health.Version,
+		Components: health.Components,
+	})
 }
 
 // claudeStatus checks if Claude credentials are configured

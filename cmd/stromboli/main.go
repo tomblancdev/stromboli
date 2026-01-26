@@ -40,6 +40,7 @@ import (
 	"stromboli/internal/runner"
 	"stromboli/internal/secrets"
 	"stromboli/internal/tracing"
+	"stromboli/internal/version"
 )
 
 // defaultHealthTimeout is the timeout for each health check component
@@ -57,7 +58,7 @@ func main() {
 	}))
 	slog.SetDefault(logger)
 
-	slog.Info("Starting Stromboli 🌋")
+	slog.Info("Starting Stromboli 🌋", "version", version.String())
 
 	// Load configuration
 	cfg, err := config.Load()

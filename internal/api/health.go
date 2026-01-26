@@ -8,6 +8,7 @@ import (
 
 	"stromboli/internal/runner"
 	"stromboli/internal/secrets"
+	"stromboli/internal/version"
 )
 
 // HealthConfig holds health check configuration
@@ -45,6 +46,8 @@ type DetailedHealth struct {
 	Status string `json:"status" example:"ok"`
 	// Name of the service
 	Name string `json:"name" example:"stromboli"`
+	// Version of the service
+	Version string `json:"version" example:"0.1.4"`
 	// Components contains individual component health statuses
 	Components []ComponentHealth `json:"components"`
 }
@@ -82,6 +85,7 @@ func (h *HealthChecker) Check(ctx context.Context) DetailedHealth {
 	return DetailedHealth{
 		Status:     status,
 		Name:       "stromboli",
+		Version:    version.Version,
 		Components: components,
 	}
 }

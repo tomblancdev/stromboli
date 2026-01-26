@@ -3,13 +3,21 @@
 # Binary name
 BINARY=stromboli
 
+# Version info from git
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_TIME ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# Linker flags to inject version
+LDFLAGS=-ldflags "-X stromboli/internal/version.Version=$(VERSION) -X stromboli/internal/version.Commit=$(COMMIT) -X stromboli/internal/version.BuildTime=$(BUILD_TIME)"
+
 # Go container command - uses --userns=keep-id to preserve host file ownership
 GO_IMAGE=golang:1.24
 GO_RUN=podman run --rm --userns=keep-id -v $(PWD):/app -w /app $(GO_IMAGE)
 
 # Build the application
 build:
-	$(GO_RUN) go build -o bin/$(BINARY) ./cmd/stromboli
+	$(GO_RUN) go build $(LDFLAGS) -o bin/$(BINARY) ./cmd/stromboli
 
 # Run the application
 run: build

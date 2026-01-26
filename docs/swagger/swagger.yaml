@@ -50,6 +50,9 @@ definitions:
       status:
         example: ok
         type: string
+      version:
+        example: 0.1.4
+        type: string
     type: object
   internal_api.JobListResponse:
     description: List of async jobs

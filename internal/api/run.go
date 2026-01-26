@@ -9,6 +9,7 @@ import (
 type HealthResponse struct {
 	Status     string            `json:"status" example:"ok"`
 	Name       string            `json:"name" example:"stromboli"`
+	Version    string            `json:"version" example:"0.1.4"`
 	Components []ComponentHealth `json:"components,omitempty"`
 }
 
