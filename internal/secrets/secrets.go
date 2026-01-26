@@ -2,11 +2,15 @@ package secrets
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 const (
@@ -20,6 +24,8 @@ const (
 type Manager struct {
 	credentialsFile string
 	secretName      string
+	cachedHash      string     // SHA256 hash of last synced credentials file
+	mu              sync.Mutex // Protects cachedHash
 }
 
 // NewManager creates a new credentials manager with default settings
@@ -112,7 +118,11 @@ func (m *Manager) UpdateSecret(ctx context.Context) error {
 }
 
 // EnsureExists validates credentials file exists and creates/updates the Podman secret
+// It also initializes the cached hash for subsequent SyncIfChanged calls
 func (m *Manager) EnsureExists(ctx context.Context, filePath string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	// Use provided filePath if given
 	if filePath != "" {
 		m.credentialsFile = expandPath(filePath)
@@ -131,11 +141,24 @@ func (m *Manager) EnsureExists(ctx context.Context, filePath string) error {
 
 	if !exists {
 		// Create new secret
-		return m.CreateSecret(ctx)
+		if err := m.CreateSecret(ctx); err != nil {
+			return err
+		}
+	} else {
+		// Secret exists - update it to ensure it has latest content
+		if err := m.UpdateSecret(ctx); err != nil {
+			return err
+		}
 	}
 
-	// Secret exists - update it to ensure it has latest content
-	return m.UpdateSecret(ctx)
+	// Initialize cached hash after successful sync
+	hash, err := m.GetFileHash()
+	if err != nil {
+		return fmt.Errorf("failed to initialize credentials hash: %w", err)
+	}
+	m.cachedHash = hash
+
+	return nil
 }
 
 // expandPath expands ~ to home directory
@@ -148,4 +171,47 @@ func expandPath(path string) string {
 		return filepath.Join(home, path[2:])
 	}
 	return path
+}
+
+// GetFileHash computes the SHA256 hash of the credentials file
+func (m *Manager) GetFileHash() (string, error) {
+	f, err := os.Open(m.credentialsFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to open credentials file: %w", err)
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", fmt.Errorf("failed to hash credentials file: %w", err)
+	}
+
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// SyncIfChanged updates the Podman secret if the credentials file has changed
+// Returns true if the secret was updated, false if no change was detected
+func (m *Manager) SyncIfChanged(ctx context.Context) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Get current file hash
+	currentHash, err := m.GetFileHash()
+	if err != nil {
+		return false, err
+	}
+
+	// If hash matches cached value, no sync needed
+	if currentHash == m.cachedHash {
+		return false, nil
+	}
+
+	// Hash changed - update the secret
+	if err := m.UpdateSecret(ctx); err != nil {
+		return false, fmt.Errorf("failed to sync secret: %w", err)
+	}
+
+	// Update cached hash after successful sync
+	m.cachedHash = currentHash
+	return true, nil
 }
