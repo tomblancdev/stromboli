@@ -146,3 +146,43 @@ func (h *HealthChecker) checkSecret(ctx context.Context) ComponentHealth {
 		Status: "ok",
 	}
 }
+
+// ListSecrets returns a list of all available Podman secrets
+func (h *HealthChecker) ListSecrets(ctx context.Context) ([]string, error) {
+	ctx, cancel := context.WithTimeout(ctx, h.config.Timeout)
+	defer cancel()
+
+	// Run podman secret ls with format to get just names
+	output, err := h.executor.Run(ctx, []string{"podman", "secret", "ls", "--format", "{{.Name}}"})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list secrets: %w", err)
+	}
+
+	// Parse output - one secret name per line
+	var secrets []string
+	for _, line := range splitLines(string(output)) {
+		if line != "" {
+			secrets = append(secrets, line)
+		}
+	}
+
+	return secrets, nil
+}
+
+// splitLines splits a string into lines, handling different line endings
+func splitLines(s string) []string {
+	var lines []string
+	var current string
+	for _, r := range s {
+		if r == '\n' {
+			lines = append(lines, current)
+			current = ""
+		} else if r != '\r' {
+			current += string(r)
+		}
+	}
+	if current != "" {
+		lines = append(lines, current)
+	}
+	return lines
+}

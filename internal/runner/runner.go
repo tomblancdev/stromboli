@@ -238,6 +238,11 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 		podmanBuilder.WithVolumeRaw(vol)
 	}
 
+	// Mount secrets as environment variables
+	for envVar, secretName := range req.Podman.SecretsEnv {
+		podmanBuilder.WithSecretEnv(secretName, envVar)
+	}
+
 	// Apply resource limits
 	if req.Podman.Memory != "" {
 		podmanBuilder.WithMemory(req.Podman.Memory)
@@ -410,6 +415,11 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	// Add additional volumes from request
 	for _, vol := range req.Podman.Volumes {
 		podmanBuilder.WithVolumeRaw(vol)
+	}
+
+	// Mount secrets as environment variables
+	for envVar, secretName := range req.Podman.SecretsEnv {
+		podmanBuilder.WithSecretEnv(secretName, envVar)
 	}
 
 	// Apply resource limits

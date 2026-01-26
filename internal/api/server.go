@@ -107,6 +107,9 @@ func (s *Server) setupRoutes() {
 		// Session history (message retrieval)
 		protected.GET("/sessions/:id/messages", s.historyHandler.ListMessages)
 		protected.GET("/sessions/:id/messages/:message_id", s.historyHandler.GetMessage)
+
+		// Secrets (list available Podman secrets)
+		protected.GET("/secrets", s.listSecrets)
 	}
 }
 
@@ -252,5 +255,34 @@ func (s *Server) destroySession(c *gin.Context) {
 	c.JSON(http.StatusOK, SessionDestroyResponse{
 		Success:   true,
 		SessionID: sessionID,
+	})
+}
+
+// listSecrets returns all available Podman secrets
+// @Summary List secrets
+// @Description Returns all available Podman secrets that can be injected into agents
+// @Tags secrets
+// @Produce json
+// @Success 200 {object} SecretsListResponse
+// @Failure 500 {object} SecretsListResponse
+// @Router /secrets [get]
+func (s *Server) listSecrets(c *gin.Context) {
+	if s.healthChecker == nil {
+		c.JSON(http.StatusInternalServerError, SecretsListResponse{
+			Error: "health checker not configured",
+		})
+		return
+	}
+
+	secrets, err := s.healthChecker.ListSecrets(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, SecretsListResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SecretsListResponse{
+		Secrets: secrets,
 	})
 }

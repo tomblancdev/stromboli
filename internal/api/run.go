@@ -68,3 +68,10 @@ type SessionDestroyResponse struct {
 	SessionID string `json:"session_id,omitempty" example:"sess-abc123"`
 	Error     string `json:"error,omitempty"`
 }
+
+// SecretsListResponse represents the list of available Podman secrets
+// @Description List of available secrets that can be injected into agents
+type SecretsListResponse struct {
+	Secrets []string `json:"secrets" example:"github-token,gitlab-token"`
+	Error   string   `json:"error,omitempty"`
+}
