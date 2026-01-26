@@ -32,11 +32,13 @@ type ServerConfig struct {
 
 // AgentConfig holds agent container configuration
 type AgentConfig struct {
-	Image           string           // Container image name
-	ImageTag        string           // Container image tag
-	CredentialsFile string           // Path to Claude credentials file (~/.claude/.credentials.json)
-	SessionsDir     string           // Directory for session data
-	TokenCache      TokenCacheConfig // Token cache configuration
+	Image                string           // Container image name (default)
+	ImageTag             string           // Container image tag
+	AllowedImagePatterns []string         // Allowed image patterns (e.g., "python:*", "golang:*")
+	MountClaudeCLI       bool             // Mount claude-cli volume into containers
+	CredentialsFile      string           // Path to Claude credentials file (~/.claude/.credentials.json)
+	SessionsDir          string           // Directory for session data
+	TokenCache           TokenCacheConfig // Token cache configuration
 }
 
 // TokenCacheConfig holds token caching configuration
@@ -152,6 +154,8 @@ func setupViper(v *viper.Viper) {
 	v.SetDefault("server.address", defaultServerAddress)
 	v.SetDefault("agent.image", defaultAgentImage)
 	v.SetDefault("agent.image_tag", defaultAgentImageTag)
+	v.SetDefault("agent.allowed_image_patterns", []string{})
+	v.SetDefault("agent.mount_claude_cli", false)
 	v.SetDefault("agent.credentials_file", defaultCredentialsFile)
 	v.SetDefault("agent.sessions_dir", defaultSessionsDir)
 	v.SetDefault("agent.token_cache.enabled", true)
@@ -184,6 +188,8 @@ func setupViper(v *viper.Viper) {
 	_ = v.BindEnv("server.address", "STROMBOLI_SERVER_ADDRESS")
 	_ = v.BindEnv("agent.image", "STROMBOLI_AGENT_IMAGE")
 	_ = v.BindEnv("agent.image_tag", "STROMBOLI_AGENT_IMAGE_TAG")
+	_ = v.BindEnv("agent.allowed_image_patterns", "STROMBOLI_AGENT_ALLOWED_IMAGE_PATTERNS")
+	_ = v.BindEnv("agent.mount_claude_cli", "STROMBOLI_AGENT_MOUNT_CLAUDE_CLI")
 	_ = v.BindEnv("agent.credentials_file", "STROMBOLI_AGENT_CREDENTIALS_FILE")
 	_ = v.BindEnv("agent.sessions_dir", "STROMBOLI_AGENT_SESSIONS_DIR")
 	_ = v.BindEnv("agent.token_cache.enabled", "STROMBOLI_TOKEN_CACHE_ENABLED")
@@ -220,10 +226,12 @@ func parseConfig(v *viper.Viper) (*Config, error) {
 			Address: v.GetString("server.address"),
 		},
 		Agent: AgentConfig{
-			Image:           v.GetString("agent.image"),
-			ImageTag:        v.GetString("agent.image_tag"),
-			CredentialsFile: v.GetString("agent.credentials_file"),
-			SessionsDir:     v.GetString("agent.sessions_dir"),
+			Image:                v.GetString("agent.image"),
+			ImageTag:             v.GetString("agent.image_tag"),
+			AllowedImagePatterns: getStringSliceOrSplit(v, "agent.allowed_image_patterns"),
+			MountClaudeCLI:       v.GetBool("agent.mount_claude_cli"),
+			CredentialsFile:      v.GetString("agent.credentials_file"),
+			SessionsDir:          v.GetString("agent.sessions_dir"),
 			TokenCache: TokenCacheConfig{
 				Enabled: v.GetBool("agent.token_cache.enabled"),
 				TTL:     cacheTTL,
@@ -313,6 +321,27 @@ func getValidTokens(v *viper.Viper) []string {
 		tokens[i] = strings.TrimSpace(tokens[i])
 	}
 	return tokens
+}
+
+// getStringSliceOrSplit gets a string slice from viper, handling comma-separated env vars
+func getStringSliceOrSplit(v *viper.Viper, key string) []string {
+	values := v.GetStringSlice(key)
+
+	// If we got a single element that contains commas, it's from an env var
+	if len(values) == 1 && strings.Contains(values[0], ",") {
+		values = strings.Split(values[0], ",")
+	}
+
+	// If empty, return empty slice
+	if len(values) == 0 || (len(values) == 1 && values[0] == "") {
+		return []string{}
+	}
+
+	// Trim whitespace
+	for i := range values {
+		values[i] = strings.TrimSpace(values[i])
+	}
+	return values
 }
 
 // parseDuration parses a duration string, handling both Go durations and integers

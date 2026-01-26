@@ -1,4 +1,4 @@
-.PHONY: build run test test-integration test-e2e test-all test-coverage lint dev clean claude-setup claude-check claude-status claude-logout secret-create secret-update secret-remove secret-status docs docs-swagger docs-godoc docs-serve docs-stop docs-logs
+.PHONY: build run test test-integration test-e2e test-all test-coverage lint dev clean claude-setup claude-check claude-status claude-logout secret-create secret-update secret-remove secret-status docs docs-swagger docs-godoc docs-serve docs-stop docs-logs build-claude-cli build-claude-cli-version
 
 # Binary name
 BINARY=stromboli
@@ -46,6 +46,18 @@ deps:
 # Build the agent Docker image
 build-agent-image:
 	podman build -t stromboli-agent:latest -f deployments/docker/Dockerfile.agent deployments/docker
+
+# Build the Claude CLI image (for dynamic image support)
+build-claude-cli:
+	@echo "🔧 Building Claude CLI image..."
+	podman build -t stromboli-claude-cli:latest -f deployments/docker/Dockerfile.claude-cli deployments/docker
+	@echo "✅ Claude CLI image built: stromboli-claude-cli:latest"
+
+# Build Claude CLI image with specific version
+build-claude-cli-version:
+	@echo "🔧 Building Claude CLI image (version: $(VERSION))..."
+	podman build --build-arg CLAUDE_CODE_VERSION=$(VERSION) -t stromboli-claude-cli:$(VERSION) -f deployments/docker/Dockerfile.claude-cli deployments/docker
+	@echo "✅ Claude CLI image built: stromboli-claude-cli:$(VERSION)"
 
 # Clean build artifacts
 clean:
@@ -253,8 +265,8 @@ build-server-image:
 	podman build -t stromboli:latest -f deployments/docker/Dockerfile.server .
 	@echo "✅ Server image built: stromboli:latest"
 
-# Build all images (server + agent)
-build-images: build-server-image build-agent-image
+# Build all images (server + agent + claude-cli)
+build-images: build-server-image build-agent-image build-claude-cli
 	@echo "✅ All images built"
 
 # Start Stromboli in container (requires Podman socket)
@@ -350,7 +362,8 @@ help:
 	@echo "  container-restart  Restart Stromboli container"
 	@echo "  container-logs     View container logs"
 	@echo "  container-status   Check container status"
-	@echo "  build-images       Build all container images (server + agent)"
+	@echo "  build-images       Build all container images (server + agent + claude-cli)"
+	@echo "  build-claude-cli   Build Claude CLI image (for dynamic images)"
 	@echo "  podman-socket-enable Enable Podman socket"
 	@echo ""
 	@echo "Testing:"

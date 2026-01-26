@@ -1,0 +1,19 @@
+# Claude CLI Image
+# Image containing Claude CLI + Node runtime (glibc-compatible)
+# Used as mount source for dynamic images via --mount=type=image
+
+FROM node:20-slim
+
+ARG CLAUDE_CODE_VERSION=latest
+
+# Install Claude CLI globally
+RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} && \
+    npm cache clean --force
+
+# Verify installation
+RUN claude --version
+
+# This image is used as a mount source, not run directly
+# Mount into target containers with:
+#   --mount=type=image,src=stromboli-claude-cli,dst=/opt/claude
+CMD ["echo", "This image is meant to be mounted, not run directly"]

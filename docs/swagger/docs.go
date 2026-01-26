@@ -1476,6 +1476,11 @@ const docTemplate = `{
                     "type": "string",
                     "example": "1"
                 },
+                "image": {
+                    "description": "Container image override (must match allowed patterns)",
+                    "type": "string",
+                    "example": "python:3.12"
+                },
                 "memory": {
                     "description": "Memory limit (e.g., \"512m\", \"1g\")",
                     "type": "string",

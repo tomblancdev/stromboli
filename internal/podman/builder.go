@@ -8,6 +8,7 @@ type CommandBuilder struct {
 	image       string
 	env         map[string]string
 	volumes     []string
+	mounts      []string // --mount flags (for type=image, type=bind, etc.)
 	secrets     []string // podman secrets (--secret flag)
 	tmpfs       []string // tmpfs mounts for isolation
 	workdir     string
@@ -107,6 +108,20 @@ func (b *CommandBuilder) WithTmpfsSized(containerPath, size string) *CommandBuil
 	return b
 }
 
+// WithMountImage adds a mount from another image (--mount=type=image)
+// This allows copying files from a source image into the container at runtime
+// Example: WithMountImage("stromboli-claude-cli", "/opt/claude")
+func (b *CommandBuilder) WithMountImage(srcImage, dstPath string) *CommandBuilder {
+	b.mounts = append(b.mounts, fmt.Sprintf("type=image,src=%s,dst=%s", srcImage, dstPath))
+	return b
+}
+
+// WithMount adds a raw mount string for complex mount options
+func (b *CommandBuilder) WithMount(mount string) *CommandBuilder {
+	b.mounts = append(b.mounts, mount)
+	return b
+}
+
 // WithWorkdir sets the working directory
 func (b *CommandBuilder) WithWorkdir(dir string) *CommandBuilder {
 	b.workdir = dir
@@ -186,6 +201,10 @@ func (b *CommandBuilder) Build() []string {
 
 	for _, secret := range b.secrets {
 		args = append(args, "--secret", secret)
+	}
+
+	for _, mount := range b.mounts {
+		args = append(args, "--mount", mount)
 	}
 
 	for _, tmpfs := range b.tmpfs {
