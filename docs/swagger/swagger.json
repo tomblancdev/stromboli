@@ -471,6 +471,32 @@
                 }
             }
         },
+        "/secrets": {
+            "get": {
+                "description": "Returns all available Podman secrets that can be injected into agents",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "secrets"
+                ],
+                "summary": "List secrets",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SecretsListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SecretsListResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/sessions": {
             "get": {
                 "description": "Returns all existing session IDs",
@@ -871,6 +897,25 @@
                     "description": "Execution status: completed, error",
                     "type": "string",
                     "example": "completed"
+                }
+            }
+        },
+        "internal_api.SecretsListResponse": {
+            "description": "List of available secrets that can be injected into agents",
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "secrets": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "github-token",
+                        "gitlab-token"
+                    ]
                 }
             }
         },
@@ -1483,6 +1528,13 @@
                     "description": "Memory limit (e.g., \"512m\", \"1g\")",
                     "type": "string",
                     "example": "512m"
+                },
+                "secrets_env": {
+                    "description": "Secrets to inject as environment variables (env_var_name -\u003e podman_secret_name)\nThe Podman secret must exist beforehand (created via `podman secret create`)\nExample: {\"GH_TOKEN\": \"github-token\"} mounts secret \"github-token\" as env var GH_TOKEN",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "timeout": {
                     "description": "Container timeout (e.g., \"5m\", \"1h\", \"30s\")",

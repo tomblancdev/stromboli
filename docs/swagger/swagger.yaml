@@ -153,6 +153,19 @@ definitions:
         example: completed
         type: string
     type: object
+  internal_api.SecretsListResponse:
+    description: List of available secrets that can be injected into agents
+    properties:
+      error:
+        type: string
+      secrets:
+        example:
+        - github-token
+        - gitlab-token
+        items:
+          type: string
+        type: array
+    type: object
   internal_api.SessionDestroyResponse:
     description: Result of session destruction
     properties:
@@ -607,6 +620,14 @@ definitions:
         description: Memory limit (e.g., "512m", "1g")
         example: 512m
         type: string
+      secrets_env:
+        additionalProperties:
+          type: string
+        description: |-
+          Secrets to inject as environment variables (env_var_name -> podman_secret_name)
+          The Podman secret must exist beforehand (created via `podman secret create`)
+          Example: {"GH_TOKEN": "github-token"} mounts secret "github-token" as env var GH_TOKEN
+        type: object
       timeout:
         description: Container timeout (e.g., "5m", "1h", "30s")
         example: 5m
@@ -926,6 +947,24 @@ paths:
       summary: Stream Claude output
       tags:
       - execution
+  /secrets:
+    get:
+      description: Returns all available Podman secrets that can be injected into
+        agents
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.SecretsListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_api.SecretsListResponse'
+      summary: List secrets
+      tags:
+      - secrets
   /sessions:
     get:
       description: Returns all existing session IDs
