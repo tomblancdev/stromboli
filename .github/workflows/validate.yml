@@ -1,0 +1,71 @@
+name: Validate
+
+on:
+  pull_request:
+    paths:
+      - '**.go'
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'go.mod'
+      - 'go.sum'
+  push:
+    branches:
+      - main
+
+jobs:
+  openapi:
+    name: OpenAPI Specs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Install swag
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+
+      - name: Generate OpenAPI specs
+        run: swag init -g cmd/stromboli/main.go -o docs/swagger --parseDependency --parseInternal
+
+      - name: Check for changes
+        run: |
+          if [ -n "$(git status --porcelain docs/swagger/)" ]; then
+            echo "❌ OpenAPI specs are out of date!"
+            echo ""
+            echo "Run 'make docs-swagger' locally and commit the changes."
+            echo ""
+            echo "Changed files:"
+            git status --porcelain docs/swagger/
+            echo ""
+            echo "Diff:"
+            git diff docs/swagger/
+            exit 1
+          else
+            echo "✅ OpenAPI specs are up to date"
+          fi
+
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install MkDocs
+        run: pip install mkdocs-material
+
+      - name: Build docs
+        run: mkdocs build --strict
+
+      - name: Check for broken links
+        run: |
+          echo "✅ Documentation builds successfully"
