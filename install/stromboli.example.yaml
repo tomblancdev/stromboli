@@ -1,0 +1,131 @@
+# Stromboli Configuration Example
+# Copy this file to stromboli.yaml and customize as needed
+# Environment variables will override these settings
+#
+# RECOMMENDED: Use container deployment instead of config file:
+#   make claude-setup && make build-images && make container-start
+#
+# This config file is useful for:
+# - Host deployment (./bin/stromboli)
+# - Customizing settings beyond compose defaults
+
+# HTTP Server Configuration
+server:
+  address: ":8080"  # Server listen address
+
+# Agent Container Configuration
+agent:
+  image: "stromboli-agent"  # Container image to use (without tag)
+  image_tag: "latest"  # Container image tag (pin to specific version for production, e.g., "v1.0.0")
+  secrets_file: ".claude-secrets"  # Path to Claude API secrets file
+  sessions_dir: ".stromboli/sessions"  # Directory for session data
+  token_cache:
+    enabled: true  # Enable token caching (reduces file reads)
+    ttl: "5m"      # Cache time-to-live (e.g., "5m", "10m", "1h")
+
+# Default Resource Limits for Containers
+resources:
+  memory: "512m"  # Memory limit (e.g., "512m", "1g", "2g")
+  cpus: "1"       # CPU limit (e.g., "1", "2", "4")
+  timeout: "30m"  # Execution timeout (e.g., "30m", "1h", "2h")
+
+# Authentication Configuration
+auth:
+  enabled: false  # Enable authentication (recommended for production)
+  valid_tokens:   # List of valid API tokens (legacy, use JWT in production)
+    # - "token1"
+    # - "token2"
+
+# Rate Limiting Configuration
+rate_limit:
+  enabled: false  # Enable rate limiting
+  rate: 10        # Requests per second
+  burst: 20       # Maximum burst size
+
+# JWT Authentication Configuration
+jwt:
+  secret: ""              # Secret key for signing tokens (required for JWT)
+  access_expiry: "24h"    # Access token lifetime
+  refresh_expiry: "168h"  # Refresh token lifetime (7 days)
+
+# Job Management Configuration
+jobs:
+  cleanup_ttl: "1h"      # How long to keep completed jobs
+  cleanup_interval: "5m" # How often to run cleanup
+
+# OpenTelemetry Tracing Configuration (v1.4+)
+tracing:
+  enabled: false             # Enable distributed tracing
+  service_name: "stromboli"  # Service name in traces
+  endpoint: "localhost:4317" # OTLP collector endpoint (gRPC)
+  insecure: true             # Use insecure connection (no TLS)
+
+# =============================================================================
+# Container Deployment (Recommended)
+# =============================================================================
+#
+# For production, use the included Podman Compose file:
+#
+#   # Setup
+#   systemctl --user enable --now podman.socket
+#   make claude-setup
+#   make build-images
+#
+#   # Configure via environment
+#   export STROMBOLI_AUTH_ENABLED=true
+#   export STROMBOLI_JWT_SECRET="$(openssl rand -base64 32)"
+#   export STROMBOLI_RESOURCES_MEMORY="2g"
+#
+#   # Start
+#   make container-start
+#
+# The compose file handles:
+# - Podman socket mount for spawning agents
+# - Compose-managed secrets for Claude token
+# - User namespace mapping (userns_mode: keep-id)
+# - Sessions persistence (/tmp/stromboli-sessions)
+#
+# =============================================================================
+# Example Host Deployment Configuration
+# =============================================================================
+#
+# server:
+#   address: ":8080"
+#
+# agent:
+#   image: "ghcr.io/your-org/stromboli-agent"
+#   image_tag: "v1.0.0"
+#   secrets_file: "/secrets/claude-api-key"
+#   sessions_dir: "/data/sessions"
+#   token_cache:
+#     enabled: true
+#     ttl: "5m"
+#
+# resources:
+#   memory: "1g"
+#   cpus: "2"
+#   timeout: "1h"
+#
+# auth:
+#   enabled: true
+#   valid_tokens: []  # Use JWT instead
+#
+# rate_limit:
+#   enabled: true
+#   rate: 50
+#   burst: 100
+#
+# jwt:
+#   secret: "your-secure-random-secret-key-here"
+#   access_expiry: "24h"
+#   refresh_expiry: "168h"
+#
+# jobs:
+#   cleanup_ttl: "2h"
+#   cleanup_interval: "10m"
+#
+# tracing:
+#   enabled: true
+#   service_name: "stromboli-prod"
+#   endpoint: "jaeger:4317"
+#   insecure: false  # Use TLS in production
