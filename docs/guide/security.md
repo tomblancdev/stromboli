@@ -4,54 +4,46 @@ Comprehensive security documentation for deploying and operating Stromboli safel
 
 ## Security Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                            INTERNET                                      │
-└─────────────────────────────────┬───────────────────────────────────────┘
-                                  │
-                                  ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                      REVERSE PROXY (TLS)                                 │
-│  • TLS termination        • Rate limiting (L7)                          │
-│  • Request validation     • IP allowlisting                             │
-└─────────────────────────────────┬───────────────────────────────────────┘
-                                  │
-                                  ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        STROMBOLI SERVER                                  │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐         │
-│  │ Authentication  │  │  Rate Limiting  │  │  Input Validation│         │
-│  │ • JWT tokens    │  │  • Per-IP       │  │  • Prompt size   │         │
-│  │ • API tokens    │  │  • Per-user     │  │  • Path traversal│         │
-│  └────────┬────────┘  └────────┬────────┘  └────────┬────────┘         │
-│           │                    │                    │                   │
-│           └────────────────────┼────────────────────┘                   │
-│                                │                                        │
-│                                ▼                                        │
-│  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │                     REQUEST HANDLER                               │  │
-│  │  • Workspace validation   • Image validation                      │  │
-│  │  • Resource limits        • Secrets injection                     │  │
-│  └──────────────────────────────┬───────────────────────────────────┘  │
-└─────────────────────────────────┼───────────────────────────────────────┘
-                                  │
-                                  ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                      PODMAN CONTAINER ENGINE                             │
-│                                                                         │
-│  ┌───────────────────────────────────────────────────────────────────┐ │
-│  │                    ISOLATED AGENT CONTAINER                        │ │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐               │ │
-│  │  │ Claude CLI  │  │  Workspace  │  │ Credentials │               │ │
-│  │  │ (mounted)   │  │ (read/write)│  │ (read-only) │               │ │
-│  │  └─────────────┘  └─────────────┘  └─────────────┘               │ │
-│  │                                                                   │ │
-│  │  Isolation:                                                       │ │
-│  │  • Separate network namespace    • Memory limits                  │ │
-│  │  • No host access                • CPU limits                     │ │
-│  │  • Timeout enforcement           • Rootless execution             │ │
-│  └───────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Internet
+        Client[🌐 Client]
+    end
+
+    subgraph Proxy["Reverse Proxy (TLS)"]
+        TLS[TLS Termination]
+        IPFilter[IP Allowlisting]
+        L7Rate[Rate Limiting L7]
+    end
+
+    subgraph Stromboli["Stromboli Server"]
+        subgraph Middleware
+            Auth[🔐 Authentication<br/>JWT / API Tokens]
+            Rate[⏱️ Rate Limiting<br/>Per-IP / Per-User]
+            Validate[✅ Input Validation<br/>Prompt Size / Path Traversal]
+        end
+
+        Handler[📥 Request Handler<br/>Workspace & Image Validation<br/>Resource Limits / Secrets]
+    end
+
+    subgraph Podman["Podman Container Engine"]
+        subgraph Container["Isolated Agent Container"]
+            CLI[🤖 Claude CLI<br/>mounted]
+            Workspace[📁 Workspace<br/>read/write]
+            Creds[🔑 Credentials<br/>read-only]
+        end
+        Isolation["🛡️ Isolation<br/>• Network namespace<br/>• Memory/CPU limits<br/>• Timeout enforcement<br/>• Rootless execution"]
+    end
+
+    Client --> TLS
+    TLS --> IPFilter
+    IPFilter --> L7Rate
+    L7Rate --> Auth
+    Auth --> Rate
+    Rate --> Validate
+    Validate --> Handler
+    Handler --> Container
+    Container -.-> Isolation
 ```
 
 ## Threat Model
@@ -93,30 +85,23 @@ jwt:
 
 **Token Flow:**
 
-```
-┌────────┐                    ┌──────────────┐
-│ Client │                    │  Stromboli   │
-└───┬────┘                    └──────┬───────┘
-    │                                │
-    │  POST /auth/token              │
-    │  {api_token: "..."}            │
-    │ ──────────────────────────────>│
-    │                                │
-    │  {access_token, refresh_token} │
-    │ <──────────────────────────────│
-    │                                │
-    │  GET /run (Bearer token)       │
-    │ ──────────────────────────────>│
-    │                                │
-    │  {output: "..."}               │
-    │ <──────────────────────────────│
-    │                                │
-    │  POST /auth/refresh            │
-    │  (when access expires)         │
-    │ ──────────────────────────────>│
-    │                                │
-    │  {new access_token}            │
-    │ <──────────────────────────────│
+```mermaid
+sequenceDiagram
+    participant C as 🖥️ Client
+    participant S as 🌋 Stromboli
+
+    C->>S: POST /auth/token<br/>{api_token: "..."}
+    S-->>C: {access_token, refresh_token}
+
+    Note over C,S: Use access token for requests
+
+    C->>S: POST /run<br/>Authorization: Bearer <token>
+    S-->>C: {output: "..."}
+
+    Note over C,S: When access token expires
+
+    C->>S: POST /auth/refresh<br/>{refresh_token: "..."}
+    S-->>C: {new access_token}
 ```
 
 **Best Practices:**
