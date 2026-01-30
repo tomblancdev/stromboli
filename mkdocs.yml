@@ -131,3 +131,4 @@ nav:
     - Architecture: development/architecture.md
     - Testing: development/testing.md
   - Changelog: changelog.md
+  - Acknowledgements: acknowledgements.md
