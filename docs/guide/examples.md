@@ -20,7 +20,10 @@ curl -X POST http://localhost:8080/run \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
     "prompt": "Analyze the code structure",
-    "workspace": "/home/user/myproject",
+    "workdir": "/workspace",
+    "podman": {
+      "volumes": ["/home/user/myproject:/workspace"]
+    },
     "claude": {
       "model": "sonnet",
       "max_budget_usd": 1.00
@@ -32,7 +35,10 @@ curl -X POST http://localhost:8080/run/async \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "Refactor this codebase",
-    "workspace": "/home/user/myproject",
+    "workdir": "/workspace",
+    "podman": {
+      "volumes": ["/home/user/myproject:/workspace"]
+    },
     "webhook_url": "https://myserver.com/webhook"
   }'
 
@@ -62,7 +68,8 @@ class StromboliClient:
     def run(
         self,
         prompt: str,
-        workspace: Optional[str] = None,
+        workdir: Optional[str] = None,
+        volumes: Optional[list[str]] = None,
         model: str = "sonnet",
         max_budget_usd: Optional[float] = None,
         allowed_tools: Optional[list[str]] = None,
@@ -71,7 +78,7 @@ class StromboliClient:
         """Run a synchronous Claude agent."""
         payload = {"prompt": prompt}
 
-        if workspace:
+        if workdir:
             payload["workspace"] = workspace
 
         claude_opts = {"model": model}
@@ -81,8 +88,13 @@ class StromboliClient:
             claude_opts["allowed_tools"] = allowed_tools
         payload["claude"] = claude_opts
 
+        podman_opts = {}
+        if volumes:
+            podman_opts["volumes"] = volumes
         if timeout:
-            payload["podman"] = {"timeout": timeout}
+            podman_opts["timeout"] = timeout
+        if podman_opts:
+            payload["podman"] = podman_opts
 
         response = self.session.post(f"{self.base_url}/run", json=payload)
         response.raise_for_status()
@@ -91,13 +103,13 @@ class StromboliClient:
     def run_async(
         self,
         prompt: str,
-        workspace: Optional[str] = None,
+        workdir: Optional[str] = None,
         webhook_url: Optional[str] = None,
         **kwargs
     ) -> dict:
         """Start an async Claude agent job."""
         payload = {"prompt": prompt}
-        if workspace:
+        if workdir:
             payload["workspace"] = workspace
         if webhook_url:
             payload["webhook_url"] = webhook_url
@@ -112,10 +124,10 @@ class StromboliClient:
         response.raise_for_status()
         return response.json()
 
-    def stream(self, prompt: str, workspace: Optional[str] = None):
+    def stream(self, prompt: str, workdir: Optional[str] = None):
         """Stream agent output via Server-Sent Events."""
         params = {"prompt": prompt}
-        if workspace:
+        if workdir:
             params["workspace"] = workspace
 
         response = self.session.get(
@@ -146,10 +158,11 @@ if __name__ == "__main__":
     result = client.run("What is 2 + 2?")
     print(result["output"])
 
-    # With workspace
+    # With workspace and volumes
     result = client.run(
         prompt="Analyze this Python project and suggest improvements",
-        workspace="/home/user/myproject",
+        workdir="/workspace",
+        volumes=["/home/user/myproject:/workspace"],
         model="sonnet",
         max_budget_usd=0.50
     )
@@ -276,9 +289,10 @@ const client = new StromboliClient();
 const result = await client.run('What is 2 + 2?');
 console.log(result.output);
 
-// With workspace
+// With workspace and volumes
 const analysis = await client.run('Analyze this project', {
-  workspace: '/home/user/myproject',
+  workdir: '/workspace',
+  volumes: ['/home/user/myproject:/workspace'],
   model: 'sonnet',
   maxBudget: 0.50,
 });
@@ -420,7 +434,10 @@ func (c *Client) Health(ctx context.Context) error {
 //
 //   result, err := client.Run(context.Background(), &stromboli.RunRequest{
 //       Prompt:    "Analyze this code",
-//       Workspace: "/home/user/project",
+//       Workdir: "/workspace",
+//       Podman: &stromboli.PodmanOptions{
+//           Volumes: []string{"/home/user/project:/workspace"},
+//       },
 //       Claude: &stromboli.ClaudeOptions{
 //           Model:        "sonnet",
 //           MaxBudgetUSD: 0.50,
@@ -497,7 +514,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{
               "prompt": "Review the code changes in this PR for bugs, security issues, and improvements. Focus on the changed files: ${{ steps.changed.outputs.files }}",
-              "workspace": "'"$WORKSPACE"'",
+              "workdir": "'"$WORKSPACE"'",
               "claude": {
                 "model": "sonnet",
                 "max_budget_usd": 1.00,
@@ -610,7 +627,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{
               "prompt": "Review this codebase for issues",
-              "workspace": "${{ github.workspace }}",
+              "workdir": "${{ github.workspace }}",
               "claude": {
                 "model": "sonnet",
                 "allowed_tools": ["Read", "Grep", "Glob"]
@@ -643,7 +660,7 @@ def generate_docs(project_path: str, output_dir: str):
         - Contributing guidelines
 
         Output only the markdown content.""",
-        workspace=project_path,
+        workdir=project_path,
         model="sonnet",
         max_budget_usd=1.00,
         allowed_tools=["Read", "Glob", "Grep"]
@@ -656,7 +673,7 @@ def generate_docs(project_path: str, output_dir: str):
     result = client.run(
         prompt="""List all Python modules in this project that have public APIs.
         Output as JSON: {"modules": ["path/to/module.py", ...]}""",
-        workspace=project_path,
+        workdir=project_path,
         allowed_tools=["Glob", "Read"]
     )
 
@@ -668,7 +685,7 @@ def generate_docs(project_path: str, output_dir: str):
             prompt=f"""Generate API documentation for {module}.
             Include all public classes, functions, and their parameters.
             Output as markdown.""",
-            workspace=project_path,
+            workdir=project_path,
             allowed_tools=["Read"]
         )
 
@@ -702,7 +719,7 @@ def batch_migrate(project_path: str, migration_prompt: str):
         {migration_prompt}
 
         Output as JSON: {{"files": ["path1", "path2", ...]}}""",
-        workspace=project_path,
+        workdir=project_path,
         allowed_tools=["Glob", "Grep", "Read"]
     )
 
@@ -718,7 +735,7 @@ def batch_migrate(project_path: str, migration_prompt: str):
             {migration_prompt}
 
             Make the changes directly to the file.""",
-            workspace=project_path,
+            workdir=project_path,
             model="sonnet",
             allowed_tools=["Read", "Edit"]
         )
@@ -807,7 +824,7 @@ def chat():
     workspace = os.getcwd()
 
     print("Stromboli Chat (type 'quit' to exit, 'new' for new session)")
-    print(f"Workspace: {workspace}")
+    print(f"Workdir: {workspace}")
     print("-" * 50)
 
     while True:
@@ -828,7 +845,7 @@ def chat():
         # Build request
         payload = {
             "prompt": user_input,
-            "workspace": workspace,
+            "workdir": workspace,
             "claude": {"model": "sonnet"}
         }
 
@@ -838,7 +855,7 @@ def chat():
         print("\nClaude: ", end="", flush=True)
 
         # Use streaming for real-time output
-        for event in client.stream(user_input, {"workspace": workspace}):
+        for event in client.stream(user_input, {"workdir": workspace}):
             if event["type"] == "output":
                 print(event["content"], end="", flush=True)
             elif event["type"] == "done":
@@ -878,7 +895,7 @@ def generate_tests(project_path: str, source_file: str):
         - Follow the existing test patterns in this project
 
         Create the test file in the tests/ directory with proper naming.""",
-        workspace=project_path,
+        workdir=project_path,
         model="sonnet",
         max_budget_usd=1.00,
         allowed_tools=["Read", "Glob", "Grep", "Write"]
@@ -905,7 +922,7 @@ import requests
 client = StromboliClient()
 
 try:
-    result = client.run("Analyze this code", workspace="/path/to/project")
+    result = client.run("Analyze this code", workdir="/path/to/project")
     print(result["output"])
 except requests.exceptions.ConnectionError:
     print("Error: Cannot connect to Stromboli server")
@@ -955,14 +972,14 @@ class ConversationManager:
         self.client = client
         self.sessions = {}  # user_id -> session_id
 
-    def chat(self, user_id: str, message: str, workspace: str = None):
+    def chat(self, user_id: str, message: str, workdir: str = None):
         """Send message with session continuity."""
         session_id = self.sessions.get(user_id)
 
         payload = {"prompt": message}
         if session_id:
             payload["session_id"] = session_id
-        if workspace:
+        if workdir:
             payload["workspace"] = workspace
 
         result = self.client.run(**payload)

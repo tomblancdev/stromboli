@@ -251,40 +251,148 @@ func TestPodmanRunner_Run_SessionHandling(t *testing.T) {
 	assert.Contains(t, cmd2, "--resume") // Second call should have resume
 }
 
-// TestPodmanRunner_Run_WorkspaceValidation tests workspace validation
-func TestPodmanRunner_Run_WorkspaceValidation(t *testing.T) {
+// TestPodmanRunner_Run_WorkspaceAsWorkdir tests workspace sets the working directory
+func TestPodmanRunner_Run_WorkspaceAsWorkdir(t *testing.T) {
 	skipIfNoPodman(t)
 	tmpDir := t.TempDir()
 	secretsFile := filepath.Join(tmpDir, ".credentials.json")
 	sessionsDir := filepath.Join(tmpDir, "sessions")
-	workspaceDir := filepath.Join(tmpDir, "workspace")
 	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
-	require.NoError(t, err)
-	err = os.MkdirAll(workspaceDir, 0755)
 	require.NoError(t, err)
 
 	// Create mock executor
 	mock := NewMockExecutor()
 	mock.DefaultOutput = []byte("ok")
 
-	// Only allow workspaceDir
-	runner, err := NewPodmanRunnerWithExecutor("test-image", secretsFile, sessionsDir, []string{workspaceDir}, mock)
+	runner, err := NewPodmanRunnerWithExecutor("test-image", secretsFile, sessionsDir, []string{}, mock)
 	require.NoError(t, err)
 
-	// Valid workspace
+	// Workspace is now just a container path (working directory)
 	_, err = runner.Run(context.Background(), Request{
 		Prompt:    "test",
-		Workspace: workspaceDir,
+		Workdir: "/workspace",
 	})
 	require.NoError(t, err)
 
-	// Invalid workspace
+	// Verify --workdir is set in the command
+	calls := mock.GetCalls()
+	require.Len(t, calls, 1)
+	cmdStr := strings.Join(calls[0], " ")
+	assert.Contains(t, cmdStr, "--workdir=/workspace")
+
+	// Workspace should NOT create a volume mount (that's what volumes are for)
+	// Count volume mounts - should only be the session mount, not workspace
+	volCount := strings.Count(cmdStr, "-v ")
+	assert.Equal(t, 1, volCount, "should only have session volume mount, not workspace")
+}
+
+// TestPodmanRunner_Run_VolumeMounting tests volume mounts via podman.volumes
+func TestPodmanRunner_Run_VolumeMounting(t *testing.T) {
+	skipIfNoPodman(t)
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	hostCodeDir := filepath.Join(tmpDir, "code")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+	err = os.MkdirAll(hostCodeDir, 0755)
+	require.NoError(t, err)
+
+	// Create mock executor
+	mock := NewMockExecutor()
+	mock.DefaultOutput = []byte("ok")
+
+	// Allow tmpDir for volume mounts
+	runner, err := NewPodmanRunnerWithExecutor("test-image", secretsFile, sessionsDir, []string{tmpDir}, mock)
+	require.NoError(t, err)
+
+	// Use volumes to mount host paths
 	_, err = runner.Run(context.Background(), Request{
-		Prompt:    "test",
-		Workspace: "/invalid/path",
+		Prompt:  "test",
+		Workdir: "/app", // Container working directory
+		Podman: types.PodmanOptions{
+			Volumes: []string{hostCodeDir + ":/app:ro"}, // Host path mount
+		},
+	})
+	require.NoError(t, err)
+
+	// Verify both workdir and volume are in the command
+	calls := mock.GetCalls()
+	require.Len(t, calls, 1)
+	cmdStr := strings.Join(calls[0], " ")
+	assert.Contains(t, cmdStr, "--workdir=/app")
+	assert.Contains(t, cmdStr, "-v "+hostCodeDir+":/app:ro")
+}
+
+// TestPodmanRunner_Run_VolumeValidation tests volume validation against allowlist
+func TestPodmanRunner_Run_VolumeValidation(t *testing.T) {
+	skipIfNoPodman(t)
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	allowedDir := filepath.Join(tmpDir, "allowed")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+	err = os.MkdirAll(allowedDir, 0755)
+	require.NoError(t, err)
+
+	// Create mock executor
+	mock := NewMockExecutor()
+	mock.DefaultOutput = []byte("ok")
+
+	// Only allow the allowedDir
+	runner, err := NewPodmanRunnerWithExecutor("test-image", secretsFile, sessionsDir, []string{allowedDir}, mock)
+	require.NoError(t, err)
+
+	// Valid volume (path in allowlist)
+	_, err = runner.Run(context.Background(), Request{
+		Prompt: "test",
+		Podman: types.PodmanOptions{
+			Volumes: []string{allowedDir + ":/workspace"},
+		},
+	})
+	require.NoError(t, err)
+
+	// Invalid volume (path not in allowlist)
+	_, err = runner.Run(context.Background(), Request{
+		Prompt: "test",
+		Podman: types.PodmanOptions{
+			Volumes: []string{"/not/allowed:/workspace"},
+		},
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "workspace validation failed")
+	assert.Contains(t, err.Error(), "volume validation failed")
+}
+
+// TestPodmanRunner_Run_WorkdirAutoCreate tests that workdir command includes mkdir
+func TestPodmanRunner_Run_WorkdirAutoCreate(t *testing.T) {
+	skipIfNoPodman(t)
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+
+	// Create mock executor
+	mock := NewMockExecutor()
+	mock.DefaultOutput = []byte("ok")
+
+	runner, err := NewPodmanRunnerWithExecutor("test-image", secretsFile, sessionsDir, []string{}, mock)
+	require.NoError(t, err)
+
+	// Run with workdir
+	_, err = runner.Run(context.Background(), Request{
+		Prompt:  "test",
+		Workdir: "/my/custom/workdir",
+	})
+	require.NoError(t, err)
+
+	// Verify command is wrapped with mkdir
+	calls := mock.GetCalls()
+	require.Len(t, calls, 1)
+	cmdStr := strings.Join(calls[0], " ")
+	assert.Contains(t, cmdStr, "sh -c")
+	assert.Contains(t, cmdStr, "mkdir -p '/my/custom/workdir'")
 }
 
 // TestPodmanRunner_RunStream_StartError tests handling of start errors

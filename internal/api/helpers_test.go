@@ -41,7 +41,7 @@ func TestBuildRunnerRequest(t *testing.T) {
 	t.Run("builds runner request with all fields", func(t *testing.T) {
 		apiReq := RunRequest{
 			Prompt:    "test prompt",
-			Workspace: "/test/workspace",
+			Workdir: "/test/workspace",
 			Claude: types.ClaudeOptions{
 				SessionID: "sess-123",
 				Model:     "claude-opus-4",

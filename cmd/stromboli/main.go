@@ -46,10 +46,6 @@ import (
 // defaultHealthTimeout is the timeout for each health check component
 const defaultHealthTimeout = 5 * time.Second
 
-// allowedWorkspaces restricts which host paths can be mounted as workspaces.
-// Empty slice allows all paths (backward compatible).
-// In production, configure this to restrict access to specific directories.
-var allowedWorkspaces = []string{}
 
 func main() {
 	// Setup structured logging
@@ -135,13 +131,18 @@ func main() {
 		MountClaudeCLI:  cfg.Agent.MountClaudeCLI,
 	}
 
+	volumeConfig := runner.VolumeConfig{
+		AllowedVolumes:    cfg.Agent.AllowedVolumes,
+		WorkdirAutoCreate: cfg.Agent.WorkdirAutoCreate,
+	}
+
 	podmanRunner, err := runner.NewPodmanRunnerFull(
 		fullImage,
 		cfg.Agent.CredentialsFile,
 		cfg.Agent.SessionsDir,
-		allowedWorkspaces,
 		resourceDefaults,
 		imageConfig,
+		volumeConfig,
 		runner.NewShellExecutor(),
 	)
 	if err != nil {
@@ -159,6 +160,13 @@ func main() {
 			"allowed_patterns", cfg.Agent.AllowedImagePatterns,
 			"mount_claude_cli", cfg.Agent.MountClaudeCLI)
 	}
+
+	if len(cfg.Agent.AllowedVolumes) > 0 {
+		slog.Info("Volume allowlist configured",
+			"allowed_volumes", cfg.Agent.AllowedVolumes)
+	}
+
+	slog.Info("Workdir auto-creation", "enabled", cfg.Agent.WorkdirAutoCreate)
 
 	// Cleanup orphaned containers from previous runs
 	slog.Info("Cleaning up orphaned containers...")

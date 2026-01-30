@@ -142,31 +142,26 @@ Stromboli validates all prompts:
 
 ### Workspace Security
 
-Workspaces are validated against an allowlist:
-
-```yaml
-# Only allow these directories to be mounted
-agent:
-  allowed_workspaces:
-    - "/data/projects"
-    - "/home/*/workspace"
-```
-
-**Protections:**
-
-- Path traversal prevention (`../` blocked)
-- Symlink resolution validation
-- Allowlist enforcement
-- Read-only options available
+Volume mounts give agents access to host directories:
 
 ```bash
-# Request with workspace
+# Mount host directory into container
 curl -X POST http://localhost:8080/run \
   -d '{
     "prompt": "Analyze code",
-    "workspace": "/data/projects/myapp"  # Must match allowed pattern
+    "workdir": "/workspace",
+    "podman": {
+      "volumes": ["/data/projects/myapp:/workspace:ro"]
+    }
   }'
 ```
+
+**Best practices:**
+
+- Use read-only mounts (`:ro`) when analysis-only access is needed
+- Mount specific directories, not entire home or root
+- Avoid mounting sensitive directories (`~/.ssh`, `~/.aws`, `/etc`)
+- Use separate volumes for input (read-only) and output (write)
 
 ### Image Validation
 
@@ -384,7 +379,7 @@ Stromboli logs all requests in structured format:
   "client_ip": "192.168.1.100",
   "user_id": "user-123",
   "session_id": "sess-abc",
-  "workspace": "/data/projects/myapp"
+  "workdir": "/workspace"
 }
 ```
 
@@ -413,7 +408,7 @@ Stromboli logs all requests in structured format:
 - [ ] **Set JWT secret** - `STROMBOLI_JWT_SECRET=<random-256-bit>`
 - [ ] **Enable TLS** - Use reverse proxy with HTTPS
 - [ ] **Enable rate limiting** - `STROMBOLI_RATE_LIMIT_ENABLED=true`
-- [ ] **Set workspace allowlist** - Restrict mountable directories
+- [ ] **Review volume mounts** - Audit what directories are mounted
 - [ ] **Use rootless Podman** - Non-root container execution
 
 ### Recommended

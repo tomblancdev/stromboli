@@ -57,12 +57,15 @@ graph LR
 ## Quick Example
 
 ```bash
-# Run a Claude agent
+# Run a Claude agent with a mounted project
 curl -X POST http://localhost:8080/run \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "Analyze this Go project and suggest improvements",
-    "workspace": "/home/user/myproject"
+    "workdir": "/workspace",
+    "podman": {
+      "volumes": ["/home/user/myproject:/workspace"]
+    }
   }'
 ```
 

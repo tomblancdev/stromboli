@@ -27,6 +27,28 @@ All environment variables use the `STROMBOLI_` prefix.
 | `STROMBOLI_AGENT_IMAGE_TAG` | `latest` | Default base image tag |
 | `STROMBOLI_AGENT_CREDENTIALS_FILE` | `~/.claude/.credentials.json` | Path to Claude credentials |
 | `STROMBOLI_AGENT_SESSIONS_DIR` | `.stromboli/sessions` | Session storage directory |
+| `STROMBOLI_AGENT_ALLOWED_VOLUMES` | (empty) | Comma-separated allowed volume host paths |
+| `STROMBOLI_AGENT_WORKDIR_AUTO_CREATE` | `true` | Auto-create workdir if it doesn't exist |
+
+### Volume Security
+
+Control which host directories can be mounted via `volumes`:
+
+```bash
+# Only allow mounting from these directories
+STROMBOLI_AGENT_ALLOWED_VOLUMES="/home/user/projects,/data/workspaces"
+```
+
+If empty (default), **all paths are allowed**. In production, set this to restrict what can be mounted.
+
+### Workdir Auto-Creation
+
+By default, Stromboli auto-creates the `workdir` inside the container if it doesn't exist:
+
+```bash
+# Disable workdir auto-creation (container will fail if path doesn't exist)
+STROMBOLI_AGENT_WORKDIR_AUTO_CREATE=false
+```
 
 ### Claude CLI Image Settings
 

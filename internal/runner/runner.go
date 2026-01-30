@@ -38,7 +38,7 @@ type Runner interface {
 // Request contains the parameters for running Claude
 type Request struct {
 	Prompt    string
-	Workspace string
+	Workdir string
 	Claude    types.ClaudeOptions
 	Podman    types.PodmanOptions
 }
@@ -64,44 +64,55 @@ type ImageConfig struct {
 	MountClaudeCLI  bool     // Mount claude-cli volume into containers
 }
 
+// VolumeConfig contains volume-related configuration
+type VolumeConfig struct {
+	AllowedVolumes    []string // Allowed host paths for volume mounts (empty = allow all)
+	WorkdirAutoCreate bool     // Auto-create workdir if it doesn't exist
+}
+
 // PodmanRunner runs Claude using Podman containers
 type PodmanRunner struct {
-	image              string
-	secretsMgr         *secrets.Manager
-	sessionMgr         *session.Manager
-	workspaceValidator *workspace.Validator
-	imageValidator     *ImageValidator
-	mountClaudeCLI     bool
-	defaults           ResourceDefaults
-	executor           Executor
+	image             string
+	secretsMgr        *secrets.Manager
+	sessionMgr        *session.Manager
+	volumeValidator   *workspace.Validator
+	imageValidator    *ImageValidator
+	mountClaudeCLI    bool
+	workdirAutoCreate bool
+	defaults          ResourceDefaults
+	executor          Executor
 }
 
 // NewPodmanRunner creates a new Podman-based runner with no default resource limits
 // It ensures the Podman secret exists for secure token handling
-func NewPodmanRunner(image, secretsFile, sessionsDir string, allowedWorkspaces []string) (*PodmanRunner, error) {
-	return NewPodmanRunnerWithDefaults(image, secretsFile, sessionsDir, allowedWorkspaces, ResourceDefaults{})
+func NewPodmanRunner(image, secretsFile, sessionsDir string, allowedVolumes []string) (*PodmanRunner, error) {
+	return NewPodmanRunnerWithDefaults(image, secretsFile, sessionsDir, allowedVolumes, ResourceDefaults{})
 }
 
 // NewPodmanRunnerWithExecutor creates a new Podman-based runner with a custom executor
 // This is primarily useful for testing
-func NewPodmanRunnerWithExecutor(image, secretsFile, sessionsDir string, allowedWorkspaces []string, executor Executor) (*PodmanRunner, error) {
-	return NewPodmanRunnerWithDefaultsAndExecutor(image, secretsFile, sessionsDir, allowedWorkspaces, ResourceDefaults{}, executor)
+func NewPodmanRunnerWithExecutor(image, secretsFile, sessionsDir string, allowedVolumes []string, executor Executor) (*PodmanRunner, error) {
+	return NewPodmanRunnerWithDefaultsAndExecutor(image, secretsFile, sessionsDir, allowedVolumes, ResourceDefaults{}, executor)
 }
 
 // NewPodmanRunnerWithDefaults creates a new Podman-based runner with default resource limits
 // It ensures the Podman secret exists for secure token handling
-func NewPodmanRunnerWithDefaults(image, secretsFile, sessionsDir string, allowedWorkspaces []string, defaults ResourceDefaults) (*PodmanRunner, error) {
-	return NewPodmanRunnerWithDefaultsAndExecutor(image, secretsFile, sessionsDir, allowedWorkspaces, defaults, NewShellExecutor())
+func NewPodmanRunnerWithDefaults(image, secretsFile, sessionsDir string, allowedVolumes []string, defaults ResourceDefaults) (*PodmanRunner, error) {
+	return NewPodmanRunnerWithDefaultsAndExecutor(image, secretsFile, sessionsDir, allowedVolumes, defaults, NewShellExecutor())
 }
 
 // NewPodmanRunnerWithDefaultsAndExecutor creates a new Podman-based runner with default resource limits and custom executor
 // This is the most flexible constructor, primarily useful for testing
-func NewPodmanRunnerWithDefaultsAndExecutor(image, credentialsFile, sessionsDir string, allowedWorkspaces []string, defaults ResourceDefaults, executor Executor) (*PodmanRunner, error) {
-	return NewPodmanRunnerFull(image, credentialsFile, sessionsDir, allowedWorkspaces, defaults, ImageConfig{}, executor)
+func NewPodmanRunnerWithDefaultsAndExecutor(image, credentialsFile, sessionsDir string, allowedVolumes []string, defaults ResourceDefaults, executor Executor) (*PodmanRunner, error) {
+	volumeConfig := VolumeConfig{
+		AllowedVolumes:    allowedVolumes,
+		WorkdirAutoCreate: true, // Default to true for backward compatibility
+	}
+	return NewPodmanRunnerFull(image, credentialsFile, sessionsDir, defaults, ImageConfig{}, volumeConfig, executor)
 }
 
 // NewPodmanRunnerFull creates a new Podman-based runner with all configuration options
-func NewPodmanRunnerFull(image, credentialsFile, sessionsDir string, allowedWorkspaces []string, defaults ResourceDefaults, imageConfig ImageConfig, executor Executor) (*PodmanRunner, error) {
+func NewPodmanRunnerFull(image, credentialsFile, sessionsDir string, defaults ResourceDefaults, imageConfig ImageConfig, volumeConfig VolumeConfig, executor Executor) (*PodmanRunner, error) {
 	// Create secrets manager and ensure credentials exist + Podman secret is created
 	secretsMgr := secrets.NewManagerWithPath(credentialsFile)
 	if err := secretsMgr.EnsureExists(context.Background(), ""); err != nil {
@@ -117,14 +128,15 @@ func NewPodmanRunnerFull(image, credentialsFile, sessionsDir string, allowedWork
 	}
 
 	return &PodmanRunner{
-		image:              image,
-		secretsMgr:         secretsMgr,
-		sessionMgr:         session.NewManager(sessionsDir),
-		workspaceValidator: workspace.NewValidator(allowedWorkspaces),
-		imageValidator:     imageValidator,
-		mountClaudeCLI:     imageConfig.MountClaudeCLI,
-		defaults:           defaults,
-		executor:           executor,
+		image:             image,
+		secretsMgr:        secretsMgr,
+		sessionMgr:        session.NewManager(sessionsDir),
+		volumeValidator:   workspace.NewValidator(volumeConfig.AllowedVolumes),
+		imageValidator:    imageValidator,
+		mountClaudeCLI:    imageConfig.MountClaudeCLI,
+		workdirAutoCreate: volumeConfig.WorkdirAutoCreate,
+		defaults:          defaults,
+		executor:          executor,
 	}, nil
 }
 
@@ -136,7 +148,7 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	// Add request attributes to span
 	tracing.AddSpanAttributes(ctx,
 		"runner.prompt_length", len(req.Prompt),
-		"runner.workspace", req.Workspace,
+		"runner.workspace", req.Workdir,
 		"runner.model", req.Claude.Model,
 		"runner.session_id", req.Claude.SessionID,
 	)
@@ -222,20 +234,17 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	// Secret is mounted at ~/.claude/.credentials.json so Claude finds it automatically
 	podmanBuilder.WithSecretTarget(r.secretsMgr.SecretName(), "/home/user/.claude/.credentials.json")
 
-	// Mount workspace for container access
-	if req.Workspace != "" {
-		validatedPath, err := r.workspaceValidator.Validate(req.Workspace)
-		if err != nil {
-			return nil, fmt.Errorf("workspace validation failed: %w", err)
-		}
-		podmanBuilder.
-			WithVolume(validatedPath, "/workspace").
-			WithWorkdir("/workspace")
+	// Validate and add volumes (host:container[:options] format)
+	if err := r.validateVolumes(req.Podman.Volumes); err != nil {
+		return nil, fmt.Errorf("volume validation failed: %w", err)
 	}
-
-	// Add additional volumes from request
 	for _, vol := range req.Podman.Volumes {
 		podmanBuilder.WithVolumeRaw(vol)
+	}
+
+	// Set working directory inside container
+	if req.Workdir != "" {
+		podmanBuilder.WithWorkdir(req.Workdir)
 	}
 
 	// Validate and mount secrets as environment variables
@@ -262,7 +271,10 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	if r.mountClaudeCLI {
 		claudeCmd = append([]string{"claude"}, claudeCmd...)
 	}
-	podmanBuilder.WithCommand(claudeCmd)
+
+	// Wrap command to create workdir if it doesn't exist
+	finalCmd := wrapCommandWithWorkdirSetup(req.Workdir, claudeCmd, r.workdirAutoCreate)
+	podmanBuilder.WithCommand(finalCmd)
 	fullCmd := podmanBuilder.Build()
 
 	// Track active container
@@ -325,7 +337,7 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	// Add request attributes to span
 	tracing.AddSpanAttributes(ctx,
 		"runner.prompt_length", len(req.Prompt),
-		"runner.workspace", req.Workspace,
+		"runner.workspace", req.Workdir,
 		"runner.model", req.Claude.Model,
 		"runner.session_id", req.Claude.SessionID,
 		"runner.streaming", true,
@@ -404,20 +416,17 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	// Mount credentials via Podman secret (more secure than volume mount)
 	podmanBuilder.WithSecretTarget(r.secretsMgr.SecretName(), "/home/user/.claude/.credentials.json")
 
-	// Mount workspace for container access
-	if req.Workspace != "" {
-		validatedPath, err := r.workspaceValidator.Validate(req.Workspace)
-		if err != nil {
-			return nil, fmt.Errorf("workspace validation failed: %w", err)
-		}
-		podmanBuilder.
-			WithVolume(validatedPath, "/workspace").
-			WithWorkdir("/workspace")
+	// Validate and add volumes (host:container[:options] format)
+	if err := r.validateVolumes(req.Podman.Volumes); err != nil {
+		return nil, fmt.Errorf("volume validation failed: %w", err)
 	}
-
-	// Add additional volumes from request
 	for _, vol := range req.Podman.Volumes {
 		podmanBuilder.WithVolumeRaw(vol)
+	}
+
+	// Set working directory inside container
+	if req.Workdir != "" {
+		podmanBuilder.WithWorkdir(req.Workdir)
 	}
 
 	// Validate and mount secrets as environment variables
@@ -444,7 +453,10 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	if r.mountClaudeCLI {
 		claudeCmd = append([]string{"claude"}, claudeCmd...)
 	}
-	podmanBuilder.WithCommand(claudeCmd)
+
+	// Wrap command to create workdir if it doesn't exist
+	finalCmd := wrapCommandWithWorkdirSetup(req.Workdir, claudeCmd, r.workdirAutoCreate)
+	podmanBuilder.WithCommand(finalCmd)
 	fullCmd := podmanBuilder.Build()
 
 	// Track active container
@@ -737,4 +749,67 @@ func (r *PodmanRunner) applyDefaults(opts types.PodmanOptions) types.PodmanOptio
 		opts.Timeout = r.defaults.Timeout
 	}
 	return opts
+}
+
+// validateVolumes validates volume mount strings against the volume allowlist
+// Volume format: host_path:container_path[:options]
+func (r *PodmanRunner) validateVolumes(volumes []string) error {
+	for _, vol := range volumes {
+		hostPath, err := parseVolumeHostPath(vol)
+		if err != nil {
+			return fmt.Errorf("invalid volume format %q: %w", vol, err)
+		}
+
+		// Validate host path against allowlist
+		if _, err := r.volumeValidator.Validate(hostPath); err != nil {
+			return fmt.Errorf("volume host path not allowed: %w", err)
+		}
+	}
+	return nil
+}
+
+// parseVolumeHostPath extracts the host path from a volume mount string
+// Supports formats: host:container, host:container:options
+func parseVolumeHostPath(volume string) (string, error) {
+	parts := strings.Split(volume, ":")
+
+	// Handle Windows paths (e.g., C:\path:container)
+	if len(parts) >= 2 && len(parts[0]) == 1 && strings.ToUpper(parts[0]) >= "A" && strings.ToUpper(parts[0]) <= "Z" {
+		// Windows path like C:\foo:/container
+		if len(parts) < 3 {
+			return "", fmt.Errorf("invalid volume format, expected host:container")
+		}
+		return parts[0] + ":" + parts[1], nil
+	}
+
+	// Unix paths
+	if len(parts) < 2 {
+		return "", fmt.Errorf("invalid volume format, expected host:container[:options]")
+	}
+
+	return parts[0], nil
+}
+
+// wrapCommandWithWorkdirSetup wraps the command to create the workdir if it doesn't exist
+func wrapCommandWithWorkdirSetup(workdir string, cmd []string, autoCreate bool) []string {
+	if workdir == "" || !autoCreate {
+		return cmd
+	}
+
+	// Escape each argument for shell
+	var escapedArgs []string
+	for _, arg := range cmd {
+		// Escape single quotes by replacing ' with '\''
+		escaped := strings.ReplaceAll(arg, "'", "'\\''")
+		escapedArgs = append(escapedArgs, "'"+escaped+"'")
+	}
+
+	// Escape the workdir for shell
+	escapedWorkdir := strings.ReplaceAll(workdir, "'", "'\\''")
+
+	// Build the wrapped command:
+	// mkdir -p '/workdir' && exec original_command
+	shellCmd := fmt.Sprintf("mkdir -p '%s' && exec %s", escapedWorkdir, strings.Join(escapedArgs, " "))
+
+	return []string{"sh", "-c", shellCmd}
 }

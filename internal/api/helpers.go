@@ -28,10 +28,10 @@ func validateClaudeConfigured(c *gin.Context, client *claude.Client) bool {
 // buildRunnerRequest converts an API RunRequest to a runner.Request
 func buildRunnerRequest(req RunRequest) runner.Request {
 	return runner.Request{
-		Prompt:    req.Prompt,
-		Workspace: req.Workspace,
-		Claude:    req.Claude,
-		Podman:    req.Podman,
+		Prompt:  req.Prompt,
+		Workdir: req.Workdir,
+		Claude:  req.Claude,
+		Podman:  req.Podman,
 	}
 }
 

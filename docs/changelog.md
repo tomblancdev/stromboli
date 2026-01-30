@@ -2,6 +2,32 @@
 
 All notable changes to Stromboli will be documented here.
 
+## [Unreleased]
+
+### Changed
+
+- **BREAKING: Renamed `workspace` to `workdir`**:
+  - `workdir` sets the **working directory** inside the container (e.g., `/workspace`)
+  - Use `podman.volumes` to mount host directories into the container
+  - Example migration:
+    ```json
+    // Before (v0.2.0)
+    {"workspace": "/home/user/project"}
+
+    // After
+    {
+      "workdir": "/workspace",
+      "podman": {"volumes": ["/home/user/project:/workspace"]}
+    }
+    ```
+
+### Added
+
+- **Workdir auto-creation**: If `workdir` doesn't exist in the container, it's automatically created (configurable via `STROMBOLI_AGENT_WORKDIR_AUTO_CREATE`)
+- **Volume validation**: Volume host paths are validated against `allowed_volumes` allowlist (`STROMBOLI_AGENT_ALLOWED_VOLUMES`)
+
+---
+
 ## [0.2.0-alpha] - 2026-01-30
 
 ### Added

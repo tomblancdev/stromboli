@@ -868,10 +868,10 @@ const docTemplate = `{
                     "type": "string",
                     "example": "https://example.com/webhook"
                 },
-                "workspace": {
-                    "description": "Workspace to mount (host path -\u003e /workspace in container)",
+                "workdir": {
+                    "description": "Working directory inside the container where Claude will spawn\nUse podman.volumes to mount host paths into the container",
                     "type": "string",
-                    "example": "/home/user/project"
+                    "example": "/workspace"
                 }
             }
         },

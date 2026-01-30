@@ -35,6 +35,8 @@ type AgentConfig struct {
 	Image                string           // Container image name (default)
 	ImageTag             string           // Container image tag
 	AllowedImagePatterns []string         // Allowed image patterns (e.g., "python:*", "golang:*")
+	AllowedVolumes       []string         // Allowed host paths for volume mounts
+	WorkdirAutoCreate    bool             // Auto-create workdir if it doesn't exist
 	MountClaudeCLI       bool             // Mount claude-cli volume into containers
 	CLIImage             string           // Claude CLI image for mounting (e.g., ghcr.io/tomblancdev/stromboli-agent)
 	CLIImageTag          string           // Claude CLI image tag
@@ -160,6 +162,8 @@ func setupViper(v *viper.Viper) {
 	v.SetDefault("agent.image", defaultAgentImage)
 	v.SetDefault("agent.image_tag", defaultAgentImageTag)
 	v.SetDefault("agent.allowed_image_patterns", []string{})
+	v.SetDefault("agent.allowed_volumes", []string{})
+	v.SetDefault("agent.workdir_auto_create", true)
 	v.SetDefault("agent.mount_claude_cli", false)
 	v.SetDefault("agent.cli_image", defaultCLIImage)
 	v.SetDefault("agent.cli_image_tag", defaultCLIImageTag)
@@ -197,6 +201,8 @@ func setupViper(v *viper.Viper) {
 	_ = v.BindEnv("agent.image", "STROMBOLI_AGENT_IMAGE")
 	_ = v.BindEnv("agent.image_tag", "STROMBOLI_AGENT_IMAGE_TAG")
 	_ = v.BindEnv("agent.allowed_image_patterns", "STROMBOLI_AGENT_ALLOWED_IMAGE_PATTERNS")
+	_ = v.BindEnv("agent.allowed_volumes", "STROMBOLI_AGENT_ALLOWED_VOLUMES")
+	_ = v.BindEnv("agent.workdir_auto_create", "STROMBOLI_AGENT_WORKDIR_AUTO_CREATE")
 	_ = v.BindEnv("agent.mount_claude_cli", "STROMBOLI_AGENT_MOUNT_CLAUDE_CLI")
 	_ = v.BindEnv("agent.cli_image", "STROMBOLI_AGENT_CLI_IMAGE")
 	_ = v.BindEnv("agent.cli_image_tag", "STROMBOLI_AGENT_CLI_IMAGE_TAG")
@@ -240,6 +246,8 @@ func parseConfig(v *viper.Viper) (*Config, error) {
 			Image:                v.GetString("agent.image"),
 			ImageTag:             v.GetString("agent.image_tag"),
 			AllowedImagePatterns: getStringSliceOrSplit(v, "agent.allowed_image_patterns"),
+			AllowedVolumes:       getStringSliceOrSplit(v, "agent.allowed_volumes"),
+			WorkdirAutoCreate:    v.GetBool("agent.workdir_auto_create"),
 			MountClaudeCLI:       v.GetBool("agent.mount_claude_cli"),
 			CLIImage:             v.GetString("agent.cli_image"),
 			CLIImageTag:          v.GetString("agent.cli_image_tag"),

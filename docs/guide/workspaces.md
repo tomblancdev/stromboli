@@ -1,147 +1,324 @@
-# Workspaces
+# Working Directory & Volumes
 
-Workspaces allow Claude agents to access directories on the host system.
+Configure where Claude agents work and what files they can access.
 
-## How Workspaces Work
+## Understanding Workdir vs Volumes
 
-When you specify a workspace, Stromboli mounts it into the container:
+| Parameter | Purpose | Example |
+|-----------|---------|---------|
+| `workdir` | Container working directory where Claude spawns | `/workspace`, `/app` |
+| `volumes` | Mount host paths into the container | `/host/code:/workspace:ro` |
 
+```mermaid
+graph LR
+    subgraph Host
+        H1["/home/user/project"]
+        H2["/data/input"]
+    end
+    subgraph Container
+        C1["/workspace"]
+        C2["/input"]
+    end
+    H1 -->|"volumes"| C1
+    H2 -->|"volumes"| C2
+    style C1 fill:#f9f,stroke:#333
+    C1 -.->|"workdir"| C1
 ```
-Host: /home/user/myproject
-  ↓
-Container: /workspace
-```
 
-The agent can read and write files in this directory.
+## Basic Usage
 
-## Using Workspaces
+### Set Working Directory
+
+Use `workdir` to specify where Claude starts inside the container:
 
 ```bash
 curl -X POST http://localhost:8080/run \
   -H "Content-Type: application/json" \
   -d '{
-    "prompt": "List all Go files in this project",
-    "workspace": "/home/user/myproject"
+    "prompt": "List files in the current directory",
+    "workdir": "/workspace"
   }'
 ```
 
-## Security: Workspace Allowlist
+### Mount Host Directories
 
-By default, Stromboli restricts which directories can be mounted.
-
-### Configure Allowed Workspaces
+Use `volumes` to mount host paths into the container:
 
 ```bash
-export STROMBOLI_AGENT_ALLOWED_WORKSPACES="/home/user/projects,/data/workspaces"
+curl -X POST http://localhost:8080/run \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Analyze the code in this project",
+    "workdir": "/workspace",
+    "podman": {
+      "volumes": ["/home/user/myproject:/workspace"]
+    }
+  }'
+```
+
+## Volume Format
+
+```
+host_path:container_path[:options]
+```
+
+| Component | Description | Example |
+|-----------|-------------|---------|
+| `host_path` | Absolute path on the host system | `/home/user/project` |
+| `container_path` | Path inside the container | `/workspace` |
+| `options` | Mount options (optional) | `ro`, `rw` |
+
+### Examples
+
+```bash
+# Read-write mount (default)
+"/home/user/code:/workspace"
+
+# Read-only mount
+"/home/user/data:/data:ro"
+
+# Multiple volumes
+"volumes": [
+  "/home/user/project:/workspace",
+  "/data/input:/input:ro",
+  "/data/output:/output"
+]
+```
+
+## Common Patterns
+
+### Development Workflow
+
+Mount your project and set it as the working directory:
+
+```json
+{
+  "prompt": "Fix the failing tests",
+  "workdir": "/workspace",
+  "podman": {
+    "volumes": ["/home/user/myproject:/workspace"]
+  }
+}
+```
+
+### Read-Only Analysis
+
+Analyze code without modification risk:
+
+```json
+{
+  "prompt": "Review this codebase for security issues",
+  "workdir": "/code",
+  "podman": {
+    "volumes": ["/home/user/myproject:/code:ro"]
+  }
+}
+```
+
+### Separate Input/Output
+
+Process data with clear boundaries:
+
+```json
+{
+  "prompt": "Process all CSV files in /input and save results to /output",
+  "workdir": "/workspace",
+  "podman": {
+    "volumes": [
+      "/data/raw:/input:ro",
+      "/data/processed:/output"
+    ]
+  }
+}
+```
+
+### Custom Container Images
+
+Use a specific image with your mounted code:
+
+```json
+{
+  "prompt": "Run the Python tests",
+  "workdir": "/app",
+  "podman": {
+    "image": "python:3.12",
+    "volumes": ["/home/user/python-project:/app"]
+  }
+}
+```
+
+## Best Practices
+
+### 1. Use Read-Only When Possible
+
+```bash
+# Good: Read-only for source code analysis
+"volumes": ["/code:/workspace:ro"]
+
+# Only use read-write when modifications are needed
+"volumes": ["/code:/workspace"]
+```
+
+### 2. Use Absolute Paths
+
+```bash
+# Good
+"volumes": ["/home/user/project:/workspace"]
+
+# Bad - relative paths may not resolve correctly
+"volumes": ["./project:/workspace"]
+```
+
+### 3. Limit Scope
+
+```bash
+# Good: Mount specific project
+"volumes": ["/home/user/projects/myapp:/workspace"]
+
+# Bad: Mount entire home directory
+"volumes": ["/home/user:/workspace"]
+```
+
+### 4. Avoid Sensitive Directories
+
+Never mount these paths:
+
+- `/` (root filesystem)
+- `/etc` (system configuration)
+- `~/.ssh` (SSH keys)
+- `~/.aws` (AWS credentials)
+- `~/.config` (application secrets)
+
+### 5. Separate Concerns
+
+```json
+{
+  "volumes": [
+    "/code:/workspace:ro",
+    "/data:/data:ro",
+    "/output:/output"
+  ]
+}
+```
+
+## Troubleshooting
+
+### Files Not Visible
+
+**Check the volume mount:**
+```bash
+# Verify the path exists on the host
+ls -la /home/user/project
+
+# Verify it's in your volumes array
+"volumes": ["/home/user/project:/workspace"]
+```
+
+### Permission Denied
+
+**Check file ownership:**
+```bash
+# Stromboli runs as your user, verify permissions
+ls -la /home/user/project
+
+# If needed, fix permissions
+chmod -R u+rw /home/user/project
+```
+
+### Changes Not Persisted
+
+**Check mount options:**
+```bash
+# If mounted read-only, changes won't persist
+"volumes": ["/path:/workspace:ro"]  # Read-only!
+
+# Remove :ro to allow writes
+"volumes": ["/path:/workspace"]
+```
+
+### Container Can't Find Files
+
+**Check workdir path matches volume:**
+```json
+{
+  "workdir": "/app",
+  "podman": {
+    "volumes": ["/code:/workspace"]
+  }
+}
+```
+
+The workdir is `/app` but files are mounted at `/workspace`. Fix:
+
+```json
+{
+  "workdir": "/workspace",
+  "podman": {
+    "volumes": ["/code:/workspace"]
+  }
+}
+```
+
+## Security: Volume Allowlist
+
+By default, Stromboli allows mounting any host path. In production, configure an allowlist:
+
+```bash
+export STROMBOLI_AGENT_ALLOWED_VOLUMES="/home/user/projects,/data/workspaces"
 ```
 
 Or in config file:
 ```yaml
 agent:
-  allowed_workspaces:
+  allowed_volumes:
     - /home/user/projects
     - /data/workspaces
 ```
 
-### Subdirectories
+**Rules:**
 
-Subdirectories of allowed paths are automatically permitted:
+- If allowlist is empty → all paths allowed (default)
+- If allowlist is configured → only those paths (and subdirectories) are allowed
+- Path traversal (`../`) is blocked
 
 ```bash
 # If /home/user/projects is allowed:
 /home/user/projects           # ✅ Allowed
-/home/user/projects/foo       # ✅ Allowed
-/home/user/projects/foo/bar   # ✅ Allowed
+/home/user/projects/foo       # ✅ Allowed (subdirectory)
 /home/user/other              # ❌ Denied
 ```
 
-### Path Traversal Protection
+## Workdir Auto-Creation
 
-Stromboli blocks path traversal attempts:
+By default, if the `workdir` path doesn't exist inside the container, Stromboli automatically creates it:
 
-```bash
-# These are blocked:
-/home/user/projects/../secrets  # ❌ Blocked
-/home/user/projects/./../../    # ❌ Blocked
+```json
+{
+  "workdir": "/my/custom/path",  // Auto-created if missing
+  "podman": {
+    "volumes": ["/host/data:/data"]
+  }
+}
 ```
 
-## Additional Volumes
+This runs `mkdir -p /my/custom/path` before executing Claude.
 
-Mount extra directories with the `volumes` option:
-
-```bash
-curl -X POST http://localhost:8080/run \
-  -d '{
-    "prompt": "Process the data",
-    "workspace": "/home/user/project",
-    "podman": {
-      "volumes": [
-        "/data/input:/input:ro",
-        "/data/output:/output"
-      ]
-    }
-  }'
-```
-
-Volume format: `host_path:container_path[:options]`
-
-Options:
-- `ro` - Read-only
-- `rw` - Read-write (default)
-
-## Best Practices
-
-### 1. Use Specific Paths
+To disable this behavior:
 
 ```bash
-# Good: Specific project
-"workspace": "/home/user/projects/myapp"
-
-# Bad: Too broad
-"workspace": "/home/user"
+export STROMBOLI_AGENT_WORKDIR_AUTO_CREATE=false
 ```
 
-### 2. Limit Permissions
-
-```bash
-# Mount data as read-only when possible
-"volumes": ["/data/config:/config:ro"]
+Or in config file:
+```yaml
+agent:
+  workdir_auto_create: false
 ```
 
-### 3. Don't Mount Sensitive Directories
+## Security Considerations
 
-Never allow these paths:
-- `/` (root)
-- `/etc`
-- `/home/user/.ssh`
-- `/home/user/.aws`
+!!! warning "Volume Mounting Risks"
+    Mounting host directories gives Claude read/write access to those files.
+    Always use read-only mounts (`:ro`) when analysis-only access is needed.
 
-### 4. Use Absolute Paths
-
-```bash
-# Good
-"workspace": "/home/user/projects/myapp"
-
-# Bad - relative paths may not work as expected
-"workspace": "./myapp"
-```
-
-## Troubleshooting
-
-### "Workspace not allowed"
-
-Add the path to your allowlist:
-```bash
-export STROMBOLI_AGENT_ALLOWED_WORKSPACES="/your/path"
-```
-
-### "Path traversal detected"
-
-Your path contains `..` - use an absolute path instead.
-
-### Files not visible to agent
-
-Check:
-1. The path exists on the host
-2. Stromboli has read permission
-3. The path is in the allowlist
+See the [Security Guide](security.md) for comprehensive security recommendations.
