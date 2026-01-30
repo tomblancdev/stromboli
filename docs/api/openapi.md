@@ -1,166 +1,89 @@
 # OpenAPI Specification
 
-Interactive API documentation and downloadable specifications.
+API documentation and downloadable specifications.
 
-## Swagger UI (Interactive)
+## Interactive Documentation
 
-Try out the API directly from your browser:
+View the API documentation using ReDoc:
 
-<div id="swagger-ui"></div>
+<div class="grid cards" markdown>
 
-<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
-<script>
-  window.onload = function() {
-    SwaggerUIBundle({
-      url: "../swagger/swagger.yaml",
-      dom_id: '#swagger-ui',
-      presets: [
-        SwaggerUIBundle.presets.apis,
-        SwaggerUIBundle.SwaggerUIStandalonePreset
-      ],
-      layout: "BaseLayout",
-      deepLinking: true,
-      showExtensions: true,
-      showCommonExtensions: true,
-      defaultModelsExpandDepth: 1,
-      defaultModelExpandDepth: 1,
-      docExpansion: "list",
-      filter: true,
-      tryItOutEnabled: false
-    });
-  };
-</script>
+-   :material-file-document: **ReDoc Viewer**
 
-<style>
-  #swagger-ui {
-    border: 1px solid var(--md-default-fg-color--lightest);
-    border-radius: 4px;
-    margin: 1em 0;
-  }
-  .swagger-ui .topbar { display: none; }
-  .swagger-ui .info { margin: 20px 0; }
-  .swagger-ui .scheme-container { display: none; }
-</style>
+    ---
 
----
+    Clean, readable API documentation
 
-## ReDoc (Documentation View)
+    [:octicons-link-external-16: Open ReDoc](https://redocly.github.io/redoc/?url=https://tomblancdev.github.io/stromboli/latest/swagger/swagger.yaml){ .md-button .md-button--primary target="_blank" }
 
-Clean, readable API documentation:
+</div>
 
-<div id="redoc-container"></div>
+!!! tip "Versioned Documentation"
+    The ReDoc link above uses the **latest** version. For a specific version, use:
 
-<script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
-<script>
-  Redoc.init('../swagger/swagger.yaml', {
-    scrollYOffset: 60,
-    hideDownloadButton: false,
-    expandResponses: "200,201",
-    pathInMiddlePanel: true,
-    theme: {
-      colors: {
-        primary: { main: '#673ab7' }
-      },
-      typography: {
-        fontSize: '15px',
-        fontFamily: 'inherit'
-      },
-      sidebar: {
-        backgroundColor: 'transparent'
-      }
-    }
-  }, document.getElementById('redoc-container'));
-</script>
+    ```
+    https://redocly.github.io/redoc/?url=https://tomblancdev.github.io/stromboli/VERSION/swagger/swagger.yaml
+    ```
 
-<style>
-  #redoc-container {
-    margin: 1em 0;
-  }
-</style>
-
----
+    Replace `VERSION` with `0.2.0`, `latest`, etc.
 
 ## Download Specifications
 
 Download the raw OpenAPI specification files:
 
-| Format | Download | Description |
-|--------|----------|-------------|
-| **YAML** | [swagger.yaml](../swagger/swagger.yaml) | Human-readable format |
-| **JSON** | [swagger.json](../swagger/swagger.json) | Machine-readable format |
+| Format | Latest | v0.2.0 |
+|--------|--------|--------|
+| **YAML** | [swagger.yaml](https://tomblancdev.github.io/stromboli/latest/swagger/swagger.yaml){ target="_blank" } | [swagger.yaml](https://tomblancdev.github.io/stromboli/0.2.0/swagger/swagger.yaml){ target="_blank" } |
+| **JSON** | [swagger.json](https://tomblancdev.github.io/stromboli/latest/swagger/swagger.json){ target="_blank" } | [swagger.json](https://tomblancdev.github.io/stromboli/0.2.0/swagger/swagger.json){ target="_blank" } |
 
-### Usage Examples
+## Usage Examples
 
-**Import into Postman:**
+### Import into Postman
+
 ```bash
-# Download and import
-curl -O https://tomblancdev.github.io/stromboli/swagger/swagger.yaml
-# Then import in Postman: File > Import > Upload Files
+# Download the spec
+curl -O https://tomblancdev.github.io/stromboli/latest/swagger/swagger.yaml
+
+# Then in Postman: File > Import > Upload Files
 ```
 
-**Generate client SDK:**
+### Generate Client SDK
+
 ```bash
-# Using openapi-generator
+# Using openapi-generator (Python client)
 openapi-generator generate \
-  -i https://tomblancdev.github.io/stromboli/swagger/swagger.yaml \
+  -i https://tomblancdev.github.io/stromboli/latest/swagger/swagger.yaml \
   -g python \
   -o ./stromboli-client
 
-# Using swagger-codegen
-swagger-codegen generate \
-  -i https://tomblancdev.github.io/stromboli/swagger/swagger.yaml \
-  -l javascript \
-  -o ./stromboli-js-client
+# Using openapi-generator (TypeScript client)
+openapi-generator generate \
+  -i https://tomblancdev.github.io/stromboli/latest/swagger/swagger.yaml \
+  -g typescript-fetch \
+  -o ./stromboli-ts-client
 ```
 
-**Validate the spec:**
-```bash
-# Using swagger-cli
-npx @apidevtools/swagger-cli validate swagger.yaml
+### Validate the Spec
 
+```bash
 # Using spectral
-npx @stoplight/spectral-cli lint swagger.yaml
+npx @stoplight/spectral-cli lint \
+  https://tomblancdev.github.io/stromboli/latest/swagger/swagger.yaml
 ```
 
----
+## Versioned URLs
 
-## API Versioning
+Each Stromboli release has its own OpenAPI spec:
 
-Each Stromboli release has its own OpenAPI spec matching that version.
+| Version | ReDoc | YAML | JSON |
+|---------|-------|------|------|
+| **latest** | [View](https://redocly.github.io/redoc/?url=https://tomblancdev.github.io/stromboli/latest/swagger/swagger.yaml){ target="_blank" } | [Download](https://tomblancdev.github.io/stromboli/latest/swagger/swagger.yaml){ target="_blank" } | [Download](https://tomblancdev.github.io/stromboli/latest/swagger/swagger.json){ target="_blank" } |
+| **0.2.0** | [View](https://redocly.github.io/redoc/?url=https://tomblancdev.github.io/stromboli/0.2.0/swagger/swagger.yaml){ target="_blank" } | [Download](https://tomblancdev.github.io/stromboli/0.2.0/swagger/swagger.yaml){ target="_blank" } | [Download](https://tomblancdev.github.io/stromboli/0.2.0/swagger/swagger.json){ target="_blank" } |
 
-### Versioned URLs
-
-| Version | Spec URL |
-|---------|----------|
-| **Latest** | `https://tomblancdev.github.io/stromboli/latest/swagger/swagger.yaml` |
-| **0.2.0** | `https://tomblancdev.github.io/stromboli/0.2.0/swagger/swagger.yaml` |
-
-!!! tip "Version Selector"
-    Use the version selector in the top navigation to switch between documentation versions.
-    The OpenAPI spec always matches the selected version.
-
-### Direct Links
-
-```bash
-# Latest version (always up-to-date)
-https://tomblancdev.github.io/stromboli/latest/swagger/swagger.yaml
-https://tomblancdev.github.io/stromboli/latest/swagger/swagger.json
-
-# Specific version (pinned)
-https://tomblancdev.github.io/stromboli/0.2.0/swagger/swagger.yaml
-https://tomblancdev.github.io/stromboli/0.2.0/swagger/swagger.json
-```
-
-!!! note "Breaking Changes"
-    Breaking changes will be announced in the [Changelog](../changelog.md) and will increment the major version number.
-
-## Live Server
+## Local Server
 
 When running Stromboli locally, the spec is also available at:
 
 ```
 http://localhost:8080/swagger/doc.json
 ```
-
-This always returns the spec for your running Stromboli version.
