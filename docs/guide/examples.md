@@ -436,6 +436,18 @@ func (c *Client) Health(ctx context.Context) error {
 
 Automatically review pull requests in your CI pipeline.
 
+!!! warning "Workspace Limitation"
+    The `workspace` parameter mounts paths **local to the Stromboli server**, not the CI runner.
+    For CI/CD, either:
+
+    1. **Send code in the prompt** (shown below) - Works with remote Stromboli
+    2. **Self-hosted runner** on the same machine as Stromboli
+    3. **Run Stromboli in the workflow** as a service container
+
+#### Option A: Send Diff in Prompt (Remote Stromboli)
+
+Works with any Stromboli server - send the code changes directly in the prompt:
+
 ```yaml
 # .github/workflows/ai-review.yml
 name: AI Code Review
@@ -452,25 +464,27 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get changed files
-        id: changed
+      - name: Get diff
+        id: diff
         run: |
-          echo "files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | tr '\n' ' ')" >> $GITHUB_OUTPUT
+          # Get the diff (truncate if too large)
+          DIFF=$(git diff origin/${{ github.base_ref }}...HEAD | head -c 50000)
+          # Escape for JSON
+          DIFF_ESCAPED=$(echo "$DIFF" | jq -Rs .)
+          echo "diff=$DIFF_ESCAPED" >> $GITHUB_OUTPUT
 
       - name: AI Review
         run: |
           RESPONSE=$(curl -s -X POST ${{ secrets.STROMBOLI_URL }}/run \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${{ secrets.STROMBOLI_TOKEN }}" \
-            -d '{
-              "prompt": "Review these code changes for bugs, security issues, and improvements. Changed files: ${{ steps.changed.outputs.files }}",
-              "workspace": "${{ github.workspace }}",
-              "claude": {
-                "model": "sonnet",
-                "max_budget_usd": 0.50,
-                "allowed_tools": ["Read", "Grep", "Glob"]
+            -d "{
+              \"prompt\": \"Review this code diff for bugs, security issues, and improvements:\\n\\n${{ steps.diff.outputs.diff }}\",
+              \"claude\": {
+                \"model\": \"sonnet\",
+                \"max_budget_usd\": 0.50
               }
-            }')
+            }")
 
           echo "$RESPONSE" | jq -r '.output' > review.md
 
@@ -486,6 +500,32 @@ jobs:
               issue_number: context.issue.number,
               body: `## 🤖 AI Code Review\n\n${review}`
             });
+```
+
+#### Option B: Self-Hosted Runner with Local Stromboli
+
+If Stromboli runs on the same machine as your self-hosted runner:
+
+```yaml
+jobs:
+  review:
+    runs-on: self-hosted  # Must be on same machine as Stromboli
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: AI Review
+        run: |
+          # Now workspace path is accessible to local Stromboli
+          curl -s -X POST http://localhost:8080/run \
+            -H "Content-Type: application/json" \
+            -d '{
+              "prompt": "Review this codebase for issues",
+              "workspace": "${{ github.workspace }}",
+              "claude": {
+                "model": "sonnet",
+                "allowed_tools": ["Read", "Grep", "Glob"]
+              }
+            }'
 ```
 
 ### 2. Documentation Generator
