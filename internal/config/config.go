@@ -36,6 +36,9 @@ type AgentConfig struct {
 	ImageTag             string           // Container image tag
 	AllowedImagePatterns []string         // Allowed image patterns (e.g., "python:*", "golang:*")
 	MountClaudeCLI       bool             // Mount claude-cli volume into containers
+	CLIImage             string           // Claude CLI image for mounting (e.g., ghcr.io/tomblancdev/stromboli-agent)
+	CLIImageTag          string           // Claude CLI image tag
+	AutoPullCLI          bool             // Auto-pull CLI image on startup if missing
 	CredentialsFile      string           // Path to Claude credentials file (~/.claude/.credentials.json)
 	SessionsDir          string           // Directory for session data
 	TokenCache           TokenCacheConfig // Token cache configuration
@@ -94,6 +97,8 @@ const (
 	defaultServerAddress      = ":8080"
 	defaultAgentImage         = "stromboli-agent"
 	defaultAgentImageTag      = "latest"
+	defaultCLIImage           = "ghcr.io/tomblancdev/stromboli-agent"
+	defaultCLIImageTag        = "latest"
 	defaultCredentialsFile    = "~/.claude/.credentials.json"
 	defaultSessionsDir        = ".stromboli/sessions"
 	defaultMemory            = "512m"
@@ -156,6 +161,9 @@ func setupViper(v *viper.Viper) {
 	v.SetDefault("agent.image_tag", defaultAgentImageTag)
 	v.SetDefault("agent.allowed_image_patterns", []string{})
 	v.SetDefault("agent.mount_claude_cli", false)
+	v.SetDefault("agent.cli_image", defaultCLIImage)
+	v.SetDefault("agent.cli_image_tag", defaultCLIImageTag)
+	v.SetDefault("agent.auto_pull_cli", true)
 	v.SetDefault("agent.credentials_file", defaultCredentialsFile)
 	v.SetDefault("agent.sessions_dir", defaultSessionsDir)
 	v.SetDefault("agent.token_cache.enabled", true)
@@ -190,6 +198,9 @@ func setupViper(v *viper.Viper) {
 	_ = v.BindEnv("agent.image_tag", "STROMBOLI_AGENT_IMAGE_TAG")
 	_ = v.BindEnv("agent.allowed_image_patterns", "STROMBOLI_AGENT_ALLOWED_IMAGE_PATTERNS")
 	_ = v.BindEnv("agent.mount_claude_cli", "STROMBOLI_AGENT_MOUNT_CLAUDE_CLI")
+	_ = v.BindEnv("agent.cli_image", "STROMBOLI_AGENT_CLI_IMAGE")
+	_ = v.BindEnv("agent.cli_image_tag", "STROMBOLI_AGENT_CLI_IMAGE_TAG")
+	_ = v.BindEnv("agent.auto_pull_cli", "STROMBOLI_AGENT_AUTO_PULL_CLI")
 	_ = v.BindEnv("agent.credentials_file", "STROMBOLI_AGENT_CREDENTIALS_FILE")
 	_ = v.BindEnv("agent.sessions_dir", "STROMBOLI_AGENT_SESSIONS_DIR")
 	_ = v.BindEnv("agent.token_cache.enabled", "STROMBOLI_TOKEN_CACHE_ENABLED")
@@ -230,6 +241,9 @@ func parseConfig(v *viper.Viper) (*Config, error) {
 			ImageTag:             v.GetString("agent.image_tag"),
 			AllowedImagePatterns: getStringSliceOrSplit(v, "agent.allowed_image_patterns"),
 			MountClaudeCLI:       v.GetBool("agent.mount_claude_cli"),
+			CLIImage:             v.GetString("agent.cli_image"),
+			CLIImageTag:          v.GetString("agent.cli_image_tag"),
+			AutoPullCLI:          v.GetBool("agent.auto_pull_cli"),
 			CredentialsFile:      v.GetString("agent.credentials_file"),
 			SessionsDir:          v.GetString("agent.sessions_dir"),
 			TokenCache: TokenCacheConfig{

@@ -74,6 +74,24 @@ func main() {
 		"server_address", cfg.Server.Address,
 		"agent_image", fullImage)
 
+	// Ensure Claude CLI image is available (for dynamic image mounting)
+	if cfg.Agent.MountClaudeCLI {
+		cliImageConfig := runner.CLIImageConfig{
+			Image:    cfg.Agent.CLIImage,
+			Tag:      cfg.Agent.CLIImageTag,
+			AutoPull: cfg.Agent.AutoPullCLI,
+		}
+		cliImageMgr := runner.NewCLIImageManager(cliImageConfig, runner.NewShellExecutor())
+
+		// Set the global CLI image name for the runner
+		runner.ClaudeCLIImageName = cliImageMgr.GetCLIImageName()
+
+		if err := cliImageMgr.EnsureImage(context.Background()); err != nil {
+			slog.Error("Failed to ensure CLI image", "error", err)
+			os.Exit(1)
+		}
+	}
+
 	// Initialize tracing
 	tracingCfg := tracing.Config{
 		Enabled:     cfg.Tracing.Enabled,

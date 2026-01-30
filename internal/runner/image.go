@@ -6,9 +6,13 @@ import (
 	"strings"
 )
 
-// ClaudeCLIImageName is the name of the image containing Claude CLI
-// This image is mounted into dynamic containers at runtime
-const ClaudeCLIImageName = "stromboli-claude-cli"
+// DefaultCLIImageName is the default name of the image containing Claude CLI
+// This can be overridden via configuration
+const DefaultCLIImageName = "ghcr.io/tomblancdev/stromboli-agent:latest"
+
+// ClaudeCLIImageName is kept for backward compatibility
+// Deprecated: Use CLIImageConfig instead
+var ClaudeCLIImageName = "stromboli-claude-cli"
 
 // ClaudeCLIMountPath is where the Claude CLI image is mounted inside containers
 const ClaudeCLIMountPath = "/opt/claude"
