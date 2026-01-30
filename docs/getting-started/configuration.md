@@ -277,5 +277,5 @@ On startup, Stromboli:
 ## Next Steps
 
 - [Running Agents](../guide/running-agents.md) - Learn how to run agents
-- [Authentication](../guide/authentication.md) - Set up JWT auth for production
-- [API Reference](../api/index.md) - Full API documentation
+- [Authentication](../api/authentication.md) - Set up JWT auth for production
+- [API Reference](../api/overview.md) - Full API documentation

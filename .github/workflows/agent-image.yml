@@ -1,6 +1,13 @@
 name: Agent Image
 
 on:
+  # Trigger when Dockerfile changes
+  push:
+    branches: [main]
+    paths:
+      - 'deployments/docker/Dockerfile.claude-cli'
+      - '.github/workflows/agent-image.yml'
+
   # Manual trigger with version input
   workflow_dispatch:
     inputs:
