@@ -40,7 +40,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install mkdocs-material mike
+          pip install mkdocs-material mike mkdocs-exclude
 
       - name: Extract version from tag
         if: github.event_name == 'push'

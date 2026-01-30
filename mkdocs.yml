@@ -43,6 +43,9 @@ theme:
 
 plugins:
   - search
+  - exclude:
+      glob:
+        - "swagger/docs.go"  # Exclude Go source file from docs
   # mike plugin is installed in CI for versioning
   # Uncomment for local testing with mike:
   # - mike:

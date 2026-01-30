@@ -61,7 +61,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install MkDocs
-        run: pip install mkdocs-material
+        run: pip install mkdocs-material mkdocs-exclude
 
       - name: Build docs
         run: mkdocs build --strict
