@@ -1,131 +1,233 @@
-# Stromboli Configuration Example
-# Copy this file to stromboli.yaml and customize as needed
-# Environment variables will override these settings
+# =============================================================================
+# Stromboli Configuration
+# =============================================================================
 #
-# RECOMMENDED: Use container deployment instead of config file:
-#   make claude-setup && make build-images && make container-start
+# Copy this file to stromboli.yaml and customize as needed.
+# Environment variables override config file settings (prefix: STROMBOLI_)
 #
-# This config file is useful for:
-# - Host deployment (./bin/stromboli)
-# - Customizing settings beyond compose defaults
+# Documentation: https://tomblancdev.github.io/stromboli
+#
+# =============================================================================
 
+# -----------------------------------------------------------------------------
 # HTTP Server Configuration
+# -----------------------------------------------------------------------------
 server:
-  address: ":8080"  # Server listen address
+  # Server listen address
+  # Env: STROMBOLI_SERVER_ADDRESS
+  address: ":8080"
 
+# -----------------------------------------------------------------------------
 # Agent Container Configuration
+# -----------------------------------------------------------------------------
 agent:
-  image: "stromboli-agent"  # Container image to use (without tag)
-  image_tag: "latest"  # Container image tag (pin to specific version for production, e.g., "v1.0.0")
-  secrets_file: ".claude-secrets"  # Path to Claude API secrets file
-  sessions_dir: ".stromboli/sessions"  # Directory for session data
+  # Base container image for running agents
+  # This is the default image when no custom image is specified in requests
+  # Env: STROMBOLI_AGENT_IMAGE
+  image: "ghcr.io/tomblancdev/stromboli-agent"
+
+  # Base image tag
+  # Env: STROMBOLI_AGENT_IMAGE_TAG
+  image_tag: "latest"
+
+  # ---------------------------------------------------------------------------
+  # Dynamic Images (Advanced)
+  # ---------------------------------------------------------------------------
+  # Allow users to specify custom images in requests (e.g., python:3.12, node:20)
+  # The Claude CLI is mounted into these containers at runtime
+
+  # Allowed image patterns (glob syntax)
+  # Empty = allow all images (not recommended for production)
+  # Env: STROMBOLI_AGENT_ALLOWED_IMAGE_PATTERNS (comma-separated)
+  allowed_image_patterns:
+    # - "python:*"
+    # - "node:*"
+    # - "golang:*"
+    # - "ubuntu:*"
+    # - "debian:*"
+
+  # Mount Claude CLI from separate image into containers
+  # Required for dynamic images to have Claude CLI available
+  # Env: STROMBOLI_AGENT_MOUNT_CLAUDE_CLI
+  mount_claude_cli: true
+
+  # ---------------------------------------------------------------------------
+  # Claude CLI Image Configuration
+  # ---------------------------------------------------------------------------
+  # The image containing Claude CLI, mounted into dynamic containers
+  # This is automatically pulled on startup if missing
+
+  # CLI image name (full registry path)
+  # Env: STROMBOLI_AGENT_CLI_IMAGE
+  cli_image: "ghcr.io/tomblancdev/stromboli-agent"
+
+  # CLI image tag
+  # Use "latest" for newest, or pin to specific version (e.g., "claude-1.0.3")
+  # Env: STROMBOLI_AGENT_CLI_IMAGE_TAG
+  cli_image_tag: "latest"
+
+  # Auto-pull CLI image on startup if not present locally
+  # Disable if running offline or using local images
+  # Env: STROMBOLI_AGENT_AUTO_PULL_CLI
+  auto_pull_cli: true
+
+  # ---------------------------------------------------------------------------
+  # Credentials & Sessions
+  # ---------------------------------------------------------------------------
+
+  # Path to Claude credentials file
+  # Usually ~/.claude/.credentials.json (created by 'claude' CLI login)
+  # Env: STROMBOLI_AGENT_CREDENTIALS_FILE
+  credentials_file: "~/.claude/.credentials.json"
+
+  # Directory for storing session data (conversation history)
+  # Env: STROMBOLI_AGENT_SESSIONS_DIR
+  sessions_dir: ".stromboli/sessions"
+
+  # Token cache configuration (reduces file reads)
   token_cache:
-    enabled: true  # Enable token caching (reduces file reads)
-    ttl: "5m"      # Cache time-to-live (e.g., "5m", "10m", "1h")
+    # Enable in-memory token caching
+    # Env: STROMBOLI_TOKEN_CACHE_ENABLED
+    enabled: true
 
-# Default Resource Limits for Containers
+    # Cache time-to-live
+    # Env: STROMBOLI_TOKEN_CACHE_TTL
+    ttl: "5m"
+
+# -----------------------------------------------------------------------------
+# Resource Limits (Default)
+# -----------------------------------------------------------------------------
+# These are defaults - can be overridden per-request via API
 resources:
-  memory: "512m"  # Memory limit (e.g., "512m", "1g", "2g")
-  cpus: "1"       # CPU limit (e.g., "1", "2", "4")
-  timeout: "30m"  # Execution timeout (e.g., "30m", "1h", "2h")
+  # Memory limit per container
+  # Env: STROMBOLI_RESOURCES_MEMORY
+  memory: "512m"
 
-# Authentication Configuration
+  # CPU limit per container
+  # Env: STROMBOLI_RESOURCES_CPUS
+  cpus: "1"
+
+  # Execution timeout
+  # Env: STROMBOLI_RESOURCES_TIMEOUT
+  timeout: "30m"
+
+# -----------------------------------------------------------------------------
+# Authentication
+# -----------------------------------------------------------------------------
 auth:
-  enabled: false  # Enable authentication (recommended for production)
-  valid_tokens:   # List of valid API tokens (legacy, use JWT in production)
-    # - "token1"
-    # - "token2"
+  # Enable authentication (strongly recommended for production)
+  # Env: STROMBOLI_AUTH_ENABLED
+  enabled: false
 
-# Rate Limiting Configuration
-rate_limit:
-  enabled: false  # Enable rate limiting
-  rate: 10        # Requests per second
-  burst: 20       # Maximum burst size
+  # Static API tokens (legacy - use JWT for production)
+  # Env: STROMBOLI_API_TOKENS (comma-separated)
+  valid_tokens: []
+    # - "your-api-token-here"
 
-# JWT Authentication Configuration
+# -----------------------------------------------------------------------------
+# JWT Authentication (Recommended for Production)
+# -----------------------------------------------------------------------------
 jwt:
-  secret: ""              # Secret key for signing tokens (required for JWT)
-  access_expiry: "24h"    # Access token lifetime
-  refresh_expiry: "168h"  # Refresh token lifetime (7 days)
+  # Secret key for signing JWT tokens
+  # Generate with: openssl rand -base64 32
+  # Env: STROMBOLI_JWT_SECRET
+  secret: ""
 
-# Job Management Configuration
+  # Access token lifetime
+  # Env: STROMBOLI_JWT_EXPIRY
+  access_expiry: "24h"
+
+  # Refresh token lifetime
+  # Env: STROMBOLI_JWT_REFRESH_EXPIRY
+  refresh_expiry: "168h"  # 7 days
+
+# -----------------------------------------------------------------------------
+# Rate Limiting
+# -----------------------------------------------------------------------------
+rate_limit:
+  # Enable rate limiting
+  # Env: STROMBOLI_RATE_LIMIT_ENABLED
+  enabled: false
+
+  # Requests per second
+  # Env: STROMBOLI_RATE_LIMIT_RPS
+  rate: 10
+
+  # Maximum burst size
+  # Env: STROMBOLI_RATE_LIMIT_BURST
+  burst: 20
+
+# -----------------------------------------------------------------------------
+# Job Management
+# -----------------------------------------------------------------------------
 jobs:
-  cleanup_ttl: "1h"      # How long to keep completed jobs
-  cleanup_interval: "5m" # How often to run cleanup
+  # How long to keep completed jobs in memory
+  # Env: STROMBOLI_JOBS_CLEANUP_TTL
+  cleanup_ttl: "1h"
 
-# OpenTelemetry Tracing Configuration (v1.4+)
+  # How often to run cleanup
+  # Env: STROMBOLI_JOBS_CLEANUP_INTERVAL
+  cleanup_interval: "5m"
+
+# -----------------------------------------------------------------------------
+# OpenTelemetry Tracing (Optional)
+# -----------------------------------------------------------------------------
 tracing:
-  enabled: false             # Enable distributed tracing
-  service_name: "stromboli"  # Service name in traces
-  endpoint: "localhost:4317" # OTLP collector endpoint (gRPC)
-  insecure: true             # Use insecure connection (no TLS)
+  # Enable distributed tracing
+  # Env: STROMBOLI_TRACING_ENABLED
+  enabled: false
+
+  # Service name in traces
+  # Env: STROMBOLI_TRACING_SERVICE_NAME
+  service_name: "stromboli"
+
+  # OTLP collector endpoint (gRPC)
+  # Env: STROMBOLI_TRACING_ENDPOINT
+  endpoint: "localhost:4317"
+
+  # Use insecure connection (no TLS)
+  # Set to false in production with proper TLS
+  # Env: STROMBOLI_TRACING_INSECURE
+  insecure: true
 
 # =============================================================================
-# Container Deployment (Recommended)
-# =============================================================================
-#
-# For production, use the included Podman Compose file:
-#
-#   # Setup
-#   systemctl --user enable --now podman.socket
-#   make claude-setup
-#   make build-images
-#
-#   # Configure via environment
-#   export STROMBOLI_AUTH_ENABLED=true
-#   export STROMBOLI_JWT_SECRET="$(openssl rand -base64 32)"
-#   export STROMBOLI_RESOURCES_MEMORY="2g"
-#
-#   # Start
-#   make container-start
-#
-# The compose file handles:
-# - Podman socket mount for spawning agents
-# - Compose-managed secrets for Claude token
-# - User namespace mapping (userns_mode: keep-id)
-# - Sessions persistence (/tmp/stromboli-sessions)
-#
-# =============================================================================
-# Example Host Deployment Configuration
+# Production Configuration Example
 # =============================================================================
 #
 # server:
 #   address: ":8080"
 #
 # agent:
-#   image: "ghcr.io/your-org/stromboli-agent"
-#   image_tag: "v1.0.0"
-#   secrets_file: "/secrets/claude-api-key"
-#   sessions_dir: "/data/sessions"
-#   token_cache:
-#     enabled: true
-#     ttl: "5m"
+#   image: "ghcr.io/tomblancdev/stromboli-agent"
+#   image_tag: "latest"
+#   mount_claude_cli: true
+#   cli_image: "ghcr.io/tomblancdev/stromboli-agent"
+#   cli_image_tag: "latest"
+#   auto_pull_cli: true
+#   credentials_file: "/app/.claude/.credentials.json"
+#   sessions_dir: "/app/sessions"
 #
 # resources:
-#   memory: "1g"
+#   memory: "2g"
 #   cpus: "2"
 #   timeout: "1h"
 #
 # auth:
 #   enabled: true
-#   valid_tokens: []  # Use JWT instead
+#
+# jwt:
+#   secret: "your-secure-random-secret-here"
+#   access_expiry: "24h"
+#   refresh_expiry: "168h"
 #
 # rate_limit:
 #   enabled: true
 #   rate: 50
 #   burst: 100
 #
-# jwt:
-#   secret: "your-secure-random-secret-key-here"
-#   access_expiry: "24h"
-#   refresh_expiry: "168h"
-#
-# jobs:
-#   cleanup_ttl: "2h"
-#   cleanup_interval: "10m"
-#
 # tracing:
 #   enabled: true
-#   service_name: "stromboli-prod"
 #   endpoint: "jaeger:4317"
-#   insecure: false  # Use TLS in production
+#   insecure: false
+#
+# =============================================================================

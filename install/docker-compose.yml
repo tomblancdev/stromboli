@@ -1,13 +1,18 @@
-# Stromboli - Docker Compose Deployment
+# =============================================================================
+# Stromboli - Docker/Podman Compose Deployment
+# =============================================================================
 #
 # Quick Start:
-#   1. Create Claude credentials file: ~/.claude/.credentials.json
-#   2. Start: docker compose up -d
+#   1. Ensure Claude credentials exist: ~/.claude/.credentials.json
+#   2. Start: docker compose up -d  (or: podman-compose up -d)
 #   3. Check health: curl http://localhost:8080/health
 #
 # Requirements:
-#   - Docker with Podman socket OR Podman with Docker Compose support
+#   - Podman with socket enabled: systemctl --user enable --now podman.socket
+#   - OR Docker (comment out userns_mode line)
 #   - Claude Code credentials (~/.claude/.credentials.json)
+#
+# =============================================================================
 
 services:
   stromboli:
@@ -16,11 +21,18 @@ services:
     restart: unless-stopped
     ports:
       - "8080:8080"
+
     volumes:
-      # Podman socket - required for spawning agent containers
-      # NOTE: The fallback UID 1000 may not match your user. Find yours with: id -u
-      # For Docker users: replace with /var/run/docker.sock:/run/podman/podman.sock
+      # -------------------------------------------------------------------------
+      # Podman/Docker socket - REQUIRED for spawning agent containers
+      # -------------------------------------------------------------------------
+      # For Podman (default):
+      #   Uses XDG_RUNTIME_DIR or falls back to /run/user/<UID>
+      #   Find your UID with: id -u
       - ${XDG_RUNTIME_DIR:-/run/user/${UID:-1000}}/podman/podman.sock:/run/podman/podman.sock
+      #
+      # For Docker (uncomment and use instead):
+      # - /var/run/docker.sock:/run/podman/podman.sock
 
       # Claude credentials (read-only)
       - ${HOME}/.claude:/home/stromboli/.claude:ro
@@ -29,28 +41,69 @@ services:
       - stromboli-sessions:/app/sessions
 
     environment:
-      # Server
+      # -------------------------------------------------------------------------
+      # Server Configuration
+      # -------------------------------------------------------------------------
       STROMBOLI_SERVER_ADDRESS: ":8080"
 
-      # Agent configuration (uses pre-built image from ghcr.io)
+      # -------------------------------------------------------------------------
+      # Agent Container Configuration
+      # -------------------------------------------------------------------------
+      # Base image for running agents
       STROMBOLI_AGENT_IMAGE: "ghcr.io/tomblancdev/stromboli-agent"
       STROMBOLI_AGENT_IMAGE_TAG: "latest"
-      STROMBOLI_AGENT_SECRETS_FILE: "/home/stromboli/.claude/.credentials.json"
+
+      # Enable Claude CLI mounting (required for dynamic images)
+      STROMBOLI_AGENT_MOUNT_CLAUDE_CLI: "true"
+
+      # Claude CLI image (auto-pulled on startup if missing)
+      STROMBOLI_AGENT_CLI_IMAGE: "ghcr.io/tomblancdev/stromboli-agent"
+      STROMBOLI_AGENT_CLI_IMAGE_TAG: "latest"
+      STROMBOLI_AGENT_AUTO_PULL_CLI: "true"
+
+      # Credentials and sessions
+      STROMBOLI_AGENT_CREDENTIALS_FILE: "/home/stromboli/.claude/.credentials.json"
       STROMBOLI_AGENT_SESSIONS_DIR: "/app/sessions"
 
-      # Resource limits (adjust as needed)
+      # Token cache (reduces file reads)
+      STROMBOLI_TOKEN_CACHE_ENABLED: "true"
+      STROMBOLI_TOKEN_CACHE_TTL: "5m"
+
+      # -------------------------------------------------------------------------
+      # Resource Limits (per agent container)
+      # -------------------------------------------------------------------------
       STROMBOLI_RESOURCES_MEMORY: "512m"
       STROMBOLI_RESOURCES_CPUS: "1"
       STROMBOLI_RESOURCES_TIMEOUT: "30m"
 
-      # Authentication (enable for production)
+      # -------------------------------------------------------------------------
+      # Authentication (enable for production!)
+      # -------------------------------------------------------------------------
       STROMBOLI_AUTH_ENABLED: "false"
-      # STROMBOLI_JWT_SECRET: "your-secret-here"
+      # STROMBOLI_JWT_SECRET: "generate-with-openssl-rand-base64-32"
+      # STROMBOLI_JWT_EXPIRY: "24h"
+      # STROMBOLI_JWT_REFRESH_EXPIRY: "168h"
 
-      # Rate limiting (enable for production)
+      # -------------------------------------------------------------------------
+      # Rate Limiting (enable for production!)
+      # -------------------------------------------------------------------------
       STROMBOLI_RATE_LIMIT_ENABLED: "false"
-      # STROMBOLI_RATE_LIMIT_RATE: "10"
+      # STROMBOLI_RATE_LIMIT_RPS: "10"
       # STROMBOLI_RATE_LIMIT_BURST: "20"
+
+      # -------------------------------------------------------------------------
+      # Job Cleanup
+      # -------------------------------------------------------------------------
+      STROMBOLI_JOBS_CLEANUP_TTL: "1h"
+      STROMBOLI_JOBS_CLEANUP_INTERVAL: "5m"
+
+      # -------------------------------------------------------------------------
+      # Tracing (optional)
+      # -------------------------------------------------------------------------
+      # STROMBOLI_TRACING_ENABLED: "true"
+      # STROMBOLI_TRACING_SERVICE_NAME: "stromboli"
+      # STROMBOLI_TRACING_ENDPOINT: "jaeger:4317"
+      # STROMBOLI_TRACING_INSECURE: "true"
 
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
@@ -60,7 +113,7 @@ services:
       start_period: 10s
 
     # For rootless Podman - preserves user namespace
-    # IMPORTANT: Comment out or remove this line if using Docker (not supported)
+    # IMPORTANT: Remove or comment out this line if using Docker!
     userns_mode: keep-id
 
 volumes:
@@ -68,23 +121,28 @@ volumes:
     driver: local
 
 # =============================================================================
-# Production Configuration
+# Production Deployment
 # =============================================================================
 #
-# For production deployments, create a docker-compose.override.yml:
+# 1. Create docker-compose.override.yml:
 #
-# services:
-#   stromboli:
-#     environment:
-#       STROMBOLI_AUTH_ENABLED: "true"
-#       STROMBOLI_JWT_SECRET: "${JWT_SECRET}"  # Set via .env file
-#       STROMBOLI_RATE_LIMIT_ENABLED: "true"
-#       STROMBOLI_RATE_LIMIT_RATE: "50"
-#       STROMBOLI_RATE_LIMIT_BURST: "100"
-#       STROMBOLI_RESOURCES_MEMORY: "2g"
-#       STROMBOLI_RESOURCES_CPUS: "2"
+#    services:
+#      stromboli:
+#        environment:
+#          STROMBOLI_AUTH_ENABLED: "true"
+#          STROMBOLI_JWT_SECRET: "${JWT_SECRET}"
+#          STROMBOLI_RATE_LIMIT_ENABLED: "true"
+#          STROMBOLI_RATE_LIMIT_RPS: "50"
+#          STROMBOLI_RATE_LIMIT_BURST: "100"
+#          STROMBOLI_RESOURCES_MEMORY: "2g"
+#          STROMBOLI_RESOURCES_CPUS: "2"
 #
-# Then create a .env file:
-#   JWT_SECRET=your-secure-random-secret
+# 2. Create .env file:
+#
+#    JWT_SECRET=your-secure-random-secret-generated-with-openssl
+#
+# 3. Start:
+#
+#    docker compose up -d
 #
 # =============================================================================
