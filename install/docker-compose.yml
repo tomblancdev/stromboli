@@ -32,8 +32,8 @@ services:
       # Server
       STROMBOLI_SERVER_ADDRESS: ":8080"
 
-      # Agent configuration
-      STROMBOLI_AGENT_IMAGE: "stromboli-claude-cli"
+      # Agent configuration (uses pre-built image from ghcr.io)
+      STROMBOLI_AGENT_IMAGE: "ghcr.io/tomblancdev/stromboli-agent"
       STROMBOLI_AGENT_IMAGE_TAG: "latest"
       STROMBOLI_AGENT_SECRETS_FILE: "/home/stromboli/.claude/.credentials.json"
       STROMBOLI_AGENT_SESSIONS_DIR: "/app/sessions"
