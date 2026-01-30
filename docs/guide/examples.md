@@ -436,17 +436,102 @@ func (c *Client) Health(ctx context.Context) error {
 
 Automatically review pull requests in your CI pipeline.
 
-!!! warning "Workspace Limitation"
-    The `workspace` parameter mounts paths **local to the Stromboli server**, not the CI runner.
-    For CI/CD, either:
+#### Option A: Service Container (Recommended)
 
-    1. **Send code in the prompt** (shown below) - Works with remote Stromboli
-    2. **Self-hosted runner** on the same machine as Stromboli
-    3. **Run Stromboli in the workflow** as a service container
+Run Stromboli as a **service container** in your workflow. This gives the agent full access to your codebase:
 
-#### Option A: Send Diff in Prompt (Remote Stromboli)
+```yaml
+# .github/workflows/ai-review.yml
+name: AI Code Review
 
-Works with any Stromboli server - send the code changes directly in the prompt:
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+
+    # Run Stromboli as a service container
+    services:
+      stromboli:
+        image: ghcr.io/tomblancdev/stromboli:latest
+        ports:
+          - 8080:8080
+        volumes:
+          # Mount the runner's work directory into Stromboli
+          - /home/runner/work:/workspace
+        env:
+          # No auth needed - internal to workflow
+          STROMBOLI_AUTH_ENABLED: "false"
+          # Mount Claude credentials from secrets
+          STROMBOLI_AGENT_CREDENTIALS_FILE: "/workspace/.claude-credentials.json"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Claude credentials
+        run: |
+          echo '${{ secrets.CLAUDE_CREDENTIALS }}' > .claude-credentials.json
+
+      - name: Wait for Stromboli
+        run: |
+          for i in {1..30}; do
+            curl -s http://localhost:8080/health && break
+            sleep 1
+          done
+
+      - name: Get changed files
+        id: changed
+        run: |
+          echo "files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | tr '\n' ' ')" >> $GITHUB_OUTPUT
+
+      - name: AI Review
+        run: |
+          # The workspace path inside Stromboli's container
+          WORKSPACE="/workspace/${{ github.repository }}/${{ github.ref_name }}"
+
+          RESPONSE=$(curl -s -X POST http://localhost:8080/run \
+            -H "Content-Type: application/json" \
+            -d '{
+              "prompt": "Review the code changes in this PR for bugs, security issues, and improvements. Focus on the changed files: ${{ steps.changed.outputs.files }}",
+              "workspace": "'"$WORKSPACE"'",
+              "claude": {
+                "model": "sonnet",
+                "max_budget_usd": 1.00,
+                "allowed_tools": ["Read", "Grep", "Glob"]
+              }
+            }')
+
+          echo "$RESPONSE" | jq -r '.output' > review.md
+
+      - name: Post Review Comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const review = fs.readFileSync('review.md', 'utf8');
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `## 🤖 AI Code Review\n\n${review}`
+            });
+
+      - name: Cleanup credentials
+        if: always()
+        run: rm -f .claude-credentials.json
+```
+
+!!! tip "How it works"
+    Service containers share the runner's filesystem via volume mounts.
+    After `actions/checkout`, the code is visible to Stromboli at `/workspace/<repo>/<branch>`.
+
+#### Option B: Send Diff in Prompt (Remote Stromboli)
+
+If you have a remote Stromboli server, send the code diff directly in the prompt:
 
 ```yaml
 # .github/workflows/ai-review.yml
@@ -467,7 +552,7 @@ jobs:
       - name: Get diff
         id: diff
         run: |
-          # Get the diff (truncate if too large)
+          # Get the diff (truncate if too large for prompt)
           DIFF=$(git diff origin/${{ github.base_ref }}...HEAD | head -c 50000)
           # Escape for JSON
           DIFF_ESCAPED=$(echo "$DIFF" | jq -Rs .)
@@ -502,7 +587,12 @@ jobs:
             });
 ```
 
-#### Option B: Self-Hosted Runner with Local Stromboli
+!!! warning "Limitations"
+    - Diff is truncated to ~50KB to fit in prompt
+    - Agent cannot explore the full codebase
+    - Best for small, focused PRs
+
+#### Option C: Self-Hosted Runner
 
 If Stromboli runs on the same machine as your self-hosted runner:
 
@@ -515,7 +605,7 @@ jobs:
 
       - name: AI Review
         run: |
-          # Now workspace path is accessible to local Stromboli
+          # Workspace path is directly accessible to local Stromboli
           curl -s -X POST http://localhost:8080/run \
             -H "Content-Type: application/json" \
             -d '{
