@@ -44,7 +44,8 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.24'
+          cache: true
 
       - name: Get version info
         id: version
@@ -115,7 +116,7 @@ jobs:
             type=ref,event=tag
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ !contains(github.ref, 'alpha') && !contains(github.ref, 'beta') }}
+            type=raw,value=latest,enable=${{ !contains(github.ref, 'alpha') && !contains(github.ref, 'beta') && !contains(github.ref, 'rc') }}
 
       - name: Build and push
         uses: docker/build-push-action@v5
@@ -150,8 +151,14 @@ jobs:
         run: |
           mkdir -p release
           find binaries -type f -exec mv {} release/ \;
-          chmod +x release/stromboli-*
+          chmod +x release/stromboli-linux-* release/stromboli-darwin-*
           ls -la release/
+
+      - name: Generate checksums
+        run: |
+          cd release
+          sha256sum stromboli-* > checksums-sha256.txt
+          cat checksums-sha256.txt
 
       - name: Get version
         id: version
@@ -195,4 +202,4 @@ jobs:
 
             https://tomblancdev.github.io/stromboli
           draft: false
-          prerelease: ${{ contains(steps.version.outputs.version, 'alpha') || contains(steps.version.outputs.version, 'beta') }}
+          prerelease: ${{ contains(steps.version.outputs.version, 'alpha') || contains(steps.version.outputs.version, 'beta') || contains(steps.version.outputs.version, 'rc') }}

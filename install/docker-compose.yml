@@ -18,8 +18,9 @@ services:
       - "8080:8080"
     volumes:
       # Podman socket - required for spawning agent containers
-      # For Docker: /var/run/docker.sock:/run/podman/podman.sock
-      - ${XDG_RUNTIME_DIR:-/run/user/1000}/podman/podman.sock:/run/podman/podman.sock
+      # NOTE: The fallback UID 1000 may not match your user. Find yours with: id -u
+      # For Docker users: replace with /var/run/docker.sock:/run/podman/podman.sock
+      - ${XDG_RUNTIME_DIR:-/run/user/${UID:-1000}}/podman/podman.sock:/run/podman/podman.sock
 
       # Claude credentials (read-only)
       - ${HOME}/.claude:/home/stromboli/.claude:ro
@@ -59,7 +60,7 @@ services:
       start_period: 10s
 
     # For rootless Podman - preserves user namespace
-    # Comment out if using Docker
+    # IMPORTANT: Comment out or remove this line if using Docker (not supported)
     userns_mode: keep-id
 
 volumes:

@@ -32,25 +32,25 @@ echo -e "${NC}"
 echo -e "${YELLOW}Checking requirements...${NC}"
 
 # Check for Podman first (preferred for Stromboli)
-if command -v podman &> /dev/null; then
+if command -v podman >/dev/null 2>&1; then
     RUNTIME="podman"
     echo -e "${GREEN}✓${NC} Podman found"
 
-    if command -v podman-compose &> /dev/null; then
+    if command -v podman-compose >/dev/null 2>&1; then
         COMPOSE_CMD="podman-compose"
-    elif podman compose version &> /dev/null 2>&1; then
+    elif podman compose version >/dev/null 2>&1; then
         COMPOSE_CMD="podman compose"
     fi
     [ -n "$COMPOSE_CMD" ] && echo -e "${GREEN}✓${NC} Compose found"
 
 # Fall back to Docker
-elif command -v docker &> /dev/null; then
+elif command -v docker >/dev/null 2>&1; then
     RUNTIME="docker"
     echo -e "${GREEN}✓${NC} Docker found"
 
-    if command -v docker compose &> /dev/null; then
+    if docker compose version >/dev/null 2>&1; then
         COMPOSE_CMD="docker compose"
-    elif command -v docker-compose &> /dev/null; then
+    elif command -v docker-compose >/dev/null 2>&1; then
         COMPOSE_CMD="docker-compose"
     fi
     [ -n "$COMPOSE_CMD" ] && echo -e "${GREEN}✓${NC} Compose found"
@@ -82,10 +82,16 @@ cd "$INSTALL_DIR"
 echo ""
 echo -e "${YELLOW}Downloading files...${NC}"
 
-curl -sL "${BASE_URL}/install/docker-compose.yml" -o docker-compose.yml
+if ! curl -sfL "${BASE_URL}/install/docker-compose.yml" -o docker-compose.yml; then
+    echo -e "${RED}❌ Failed to download docker-compose.yml${NC}"
+    exit 1
+fi
 echo -e "${GREEN}✓${NC} docker-compose.yml"
 
-curl -sL "${BASE_URL}/install/stromboli.example.yaml" -o stromboli.example.yaml
+if ! curl -sfL "${BASE_URL}/install/stromboli.example.yaml" -o stromboli.example.yaml; then
+    echo -e "${RED}❌ Failed to download stromboli.example.yaml${NC}"
+    exit 1
+fi
 echo -e "${GREEN}✓${NC} stromboli.example.yaml"
 
 # Summary
