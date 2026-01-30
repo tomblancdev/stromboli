@@ -118,6 +118,7 @@ nav:
     - Overview: api/overview.md
     - Endpoints: api/endpoints.md
     - Authentication: api/authentication.md
+    - OpenAPI Spec: api/openapi.md
   - Deployment:
     - Docker: deployment/docker.md
     - Docker Compose: deployment/compose.md

@@ -125,7 +125,11 @@ X-RateLimit-Reset: 1640000000
 
 ## OpenAPI Spec
 
-The OpenAPI specification is available at:
+Interactive API documentation and downloadable specs:
+
+- **[OpenAPI Reference](openapi.md)** - Swagger UI, ReDoc, and downloadable YAML/JSON
+
+When running locally, the spec is also served at:
 ```
 http://localhost:8080/swagger/doc.json
 ```
