@@ -3,8 +3,13 @@
 # This container connects to the host's Podman via socket mount.
 # No Podman installation needed inside - just the CLI for commands.
 
-# Build stage
-FROM golang:1.24-alpine AS builder
+# Build stage - uses native cross-compilation (no QEMU needed)
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder
+
+# Target platform (set by docker buildx)
+ARG TARGETPLATFORM
+ARG TARGETOS
+ARG TARGETARCH
 
 # Version info (injected at build time)
 ARG VERSION=dev
@@ -23,8 +28,8 @@ RUN go mod download
 # Copy source
 COPY . .
 
-# Build static binary with version injection
-RUN CGO_ENABLED=0 GOOS=linux go build \
+# Build static binary with native cross-compilation (fast!)
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -ldflags="-w -s \
     -X stromboli/internal/version.Version=${VERSION} \
     -X stromboli/internal/version.Commit=${COMMIT} \
