@@ -127,11 +127,30 @@ npx @stoplight/spectral-cli lint swagger.yaml
 
 ## API Versioning
 
-The current API version is **v1.0**.
+Each Stromboli release has its own OpenAPI spec matching that version.
 
-| Version | Status | Spec |
-|---------|--------|------|
-| v1.0 | Current | [swagger.yaml](../swagger/swagger.yaml) |
+### Versioned URLs
+
+| Version | Spec URL |
+|---------|----------|
+| **Latest** | `https://tomblancdev.github.io/stromboli/latest/swagger/swagger.yaml` |
+| **0.2.0** | `https://tomblancdev.github.io/stromboli/0.2.0/swagger/swagger.yaml` |
+
+!!! tip "Version Selector"
+    Use the version selector in the top navigation to switch between documentation versions.
+    The OpenAPI spec always matches the selected version.
+
+### Direct Links
+
+```bash
+# Latest version (always up-to-date)
+https://tomblancdev.github.io/stromboli/latest/swagger/swagger.yaml
+https://tomblancdev.github.io/stromboli/latest/swagger/swagger.json
+
+# Specific version (pinned)
+https://tomblancdev.github.io/stromboli/0.2.0/swagger/swagger.yaml
+https://tomblancdev.github.io/stromboli/0.2.0/swagger/swagger.json
+```
 
 !!! note "Breaking Changes"
     Breaking changes will be announced in the [Changelog](../changelog.md) and will increment the major version number.
@@ -143,3 +162,5 @@ When running Stromboli locally, the spec is also available at:
 ```
 http://localhost:8080/swagger/doc.json
 ```
+
+This always returns the spec for your running Stromboli version.
