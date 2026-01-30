@@ -2,9 +2,73 @@
 
 Learn how to run Claude agents with Stromboli.
 
-## Basic Request
+## How It Works
 
-The simplest way to run an agent:
+Stromboli runs Claude Code inside isolated containers:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Stromboli Server                                           │
+│                                                             │
+│  1. Receives API request                                    │
+│  2. Creates Podman container                                │
+│  3. Mounts Claude CLI into container                        │
+│  4. Runs Claude with your prompt                            │
+│  5. Returns output                                          │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Agent Container                                            │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Base Image (debian, python, node, etc.)                    │
+│       +                                                     │
+│  Claude CLI (mounted from CLI image)                        │
+│       +                                                     │
+│  Your workspace (mounted read/write)                        │
+│       +                                                     │
+│  Credentials (mounted read-only)                            │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Image Architecture
+
+Stromboli uses two types of images:
+
+### 1. CLI Image (Claude CLI source)
+
+Contains the Claude CLI binary. This is mounted into agent containers.
+
+```yaml
+# Configuration
+agent:
+  cli_image: "ghcr.io/tomblancdev/stromboli-agent"
+  cli_image_tag: "latest"
+  auto_pull_cli: true  # Pull automatically if missing
+```
+
+**On startup**, Stromboli:
+
+1. Checks if CLI image exists locally
+2. If missing and `auto_pull_cli: true` → pulls from registry
+3. If missing and `auto_pull_cli: false` → logs warning
+
+### 2. Base Image (agent environment)
+
+The container where Claude actually runs. Can be customized per request.
+
+```yaml
+# Default base image
+agent:
+  image: "ghcr.io/tomblancdev/stromboli-agent"
+  image_tag: "latest"
+```
+
+## Basic Usage
+
+### Simple Request
 
 ```bash
 curl -X POST http://localhost:8080/run \
@@ -14,7 +78,7 @@ curl -X POST http://localhost:8080/run \
   }'
 ```
 
-## With a Workspace
+### With a Workspace
 
 Mount a directory for the agent to work with:
 
@@ -75,13 +139,12 @@ curl -X POST http://localhost:8080/run \
     "podman": {
       "memory": "2g",
       "cpus": "2",
-      "timeout": "30m",
-      "image": "python:3.12"
+      "timeout": "30m"
     }
   }'
 ```
 
-### Container Options
+### Available Options
 
 | Option | Type | Description |
 |--------|------|-------------|
@@ -91,6 +154,85 @@ curl -X POST http://localhost:8080/run \
 | `image` | string | Custom container image |
 | `volumes` | []string | Additional volume mounts |
 | `secrets_env` | map | Secrets as env vars |
+
+## Dynamic Images
+
+Use different container images based on your needs:
+
+```bash
+# Python environment
+curl -X POST http://localhost:8080/run \
+  -d '{
+    "prompt": "Run Python analysis",
+    "podman": {"image": "python:3.12"}
+  }'
+
+# Go environment
+curl -X POST http://localhost:8080/run \
+  -d '{
+    "prompt": "Build and test",
+    "podman": {"image": "golang:1.22"}
+  }'
+
+# Node.js environment
+curl -X POST http://localhost:8080/run \
+  -d '{
+    "prompt": "Run npm tests",
+    "podman": {"image": "node:20"}
+  }'
+```
+
+### How Dynamic Images Work
+
+```
+┌───────────────────────────────────────────────────────────┐
+│  Request: {"podman": {"image": "python:3.12"}}            │
+└─────────────────────────┬─────────────────────────────────┘
+                          │
+                          ▼
+┌───────────────────────────────────────────────────────────┐
+│  Stromboli creates container:                             │
+│                                                           │
+│  podman run python:3.12                                   │
+│    --mount type=image,src=stromboli-agent,dst=/opt/claude │
+│    --volume /workspace:/workspace                         │
+│    ...                                                    │
+│    /opt/claude/bin/claude "your prompt"                   │
+└───────────────────────────────────────────────────────────┘
+```
+
+The Claude CLI is **mounted from the CLI image** into any base container, so it works with any glibc-based image.
+
+!!! warning "Image Compatibility"
+    Alpine Linux and musl-based images are **not supported**. Use glibc-based images:
+
+    - ✅ `python:3.12` (Debian-based)
+    - ✅ `node:20` (Debian-based)
+    - ✅ `golang:1.22` (Debian-based)
+    - ✅ `ubuntu:22.04`
+    - ✅ `debian:bookworm`
+    - ❌ `python:3.12-alpine`
+    - ❌ `node:20-alpine`
+
+### Configure Allowed Images
+
+For security, configure which images are allowed:
+
+```yaml
+agent:
+  allowed_image_patterns:
+    - "python:*"
+    - "node:*"
+    - "golang:*"
+    - "ubuntu:*"
+    - "debian:*"
+```
+
+Or via environment variable:
+
+```bash
+STROMBOLI_AGENT_ALLOWED_IMAGE_PATTERNS="python:*,node:*,golang:*"
+```
 
 ## Async Execution
 
@@ -157,25 +299,22 @@ Webhook payload:
 }
 ```
 
-## Custom Images
+## Secrets Injection
 
-Use different container images (must be in allowlist):
+Inject Podman secrets as environment variables:
 
 ```bash
-# Python environment
 curl -X POST http://localhost:8080/run \
+  -H "Content-Type: application/json" \
   -d '{
-    "prompt": "Run Python analysis",
-    "podman": {"image": "python:3.12"}
-  }'
-
-# Go environment
-curl -X POST http://localhost:8080/run \
-  -d '{
-    "prompt": "Build and test",
-    "podman": {"image": "golang:1.22"}
+    "prompt": "Deploy to production",
+    "podman": {
+      "secrets_env": {
+        "AWS_ACCESS_KEY_ID": "aws-key-secret",
+        "AWS_SECRET_ACCESS_KEY": "aws-secret-secret"
+      }
+    }
   }'
 ```
 
-!!! note "Image Allowlist"
-    Configure `STROMBOLI_AGENT_ALLOWED_IMAGE_PATTERNS` to allow custom images.
+See [Secrets Guide](secrets.md) for more details.
