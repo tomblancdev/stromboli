@@ -108,9 +108,12 @@ nav:
     - Configuration: getting-started/configuration.md
   - User Guide:
     - Running Agents: guide/running-agents.md
+    - Examples & Use Cases: guide/examples.md
     - Sessions: guide/sessions.md
     - Secrets: guide/secrets.md
     - Workspaces: guide/workspaces.md
+    - Security: guide/security.md
+    - Troubleshooting: guide/troubleshooting.md
   - API Reference:
     - Overview: api/overview.md
     - Endpoints: api/endpoints.md
