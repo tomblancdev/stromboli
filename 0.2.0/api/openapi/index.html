@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://tomblancdev.github.io/stromboli/0.2.0/api/overview/">
+        <link rel="canonical" href="https://tomblancdev.github.io/stromboli/0.2.0/api/openapi/">
       
       
-        <link rel="prev" href="../../guide/troubleshooting/">
+        <link rel="prev" href="../authentication/">
       
       
-        <link rel="next" href="../endpoints/">
+        <link rel="next" href="../../deployment/docker/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Overview - Stromboli</title>
+        <title>OpenAPI Spec - Stromboli</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#api-overview" class="md-skip">
+        <a href="#openapi-specification" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Overview
+              OpenAPI Spec
             
           </span>
         </div>
@@ -291,7 +291,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+        <a href="../overview/" class="md-tabs__link">
           
   
   
@@ -896,37 +896,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Overview
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../overview/" class="md-nav__link">
         
   
   
@@ -942,175 +915,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#base-url" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Base URL
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#authentication" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Authentication
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#endpoints-summary" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Endpoints Summary
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Endpoints Summary">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#system" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        System
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#execution" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Execution
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#jobs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Jobs
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#sessions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Sessions
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#authentication_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Authentication
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#request-format" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Request Format
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#response-format" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Response Format
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#http-status-codes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        HTTP Status Codes
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#rate-limiting" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Rate Limiting
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#openapi-spec" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        OpenAPI Spec
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1176,10 +980,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../openapi/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Spec
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1195,6 +1026,126 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#swagger-ui-interactive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Swagger UI (Interactive)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#redoc-documentation-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ReDoc (Documentation View)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#download-specifications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Download Specifications
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Download Specifications">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#usage-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-versioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API Versioning
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API Versioning">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#versioned-urls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Versioned URLs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#direct-links" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Direct Links
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#live-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Live Server
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1551,10 +1502,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#base-url" class="md-nav__link">
+  <a href="#swagger-ui-interactive" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Base URL
+        Swagger UI (Interactive)
       
     </span>
   </a>
@@ -1562,10 +1513,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#authentication" class="md-nav__link">
+  <a href="#redoc-documentation-view" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Authentication
+        ReDoc (Documentation View)
       
     </span>
   </a>
@@ -1573,66 +1524,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#endpoints-summary" class="md-nav__link">
+  <a href="#download-specifications" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Endpoints Summary
+        Download Specifications
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Endpoints Summary">
+    <nav class="md-nav" aria-label="Download Specifications">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#system" class="md-nav__link">
+  <a href="#usage-examples" class="md-nav__link">
     <span class="md-ellipsis">
       
-        System
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#execution" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Execution
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#jobs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Jobs
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#sessions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Sessions
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#authentication_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Authentication
+        Usage Examples
       
     </span>
   </a>
@@ -1645,54 +1552,49 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#request-format" class="md-nav__link">
+  <a href="#api-versioning" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Request Format
+        API Versioning
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API Versioning">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#versioned-urls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Versioned URLs
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#response-format" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#direct-links" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Response Format
+        Direct Links
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#http-status-codes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        HTTP Status Codes
-      
-    </span>
-  </a>
+        
+      </ul>
+    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#rate-limiting" class="md-nav__link">
+  <a href="#live-server" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Rate Limiting
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#openapi-spec" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        OpenAPI Spec
+        Live Server
       
     </span>
   </a>
@@ -1716,7 +1618,7 @@
 
 
   
-    <a href="https://github.com/tomblancdev/stromboli/edit/main/docs/api/overview.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/tomblancdev/stromboli/edit/main/docs/api/openapi.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -1724,246 +1626,175 @@
   
 
 
-<h1 id="api-overview">API Overview<a class="headerlink" href="#api-overview" title="Permanent link">&para;</a></h1>
-<p>Stromboli exposes a REST API for managing Claude agents.</p>
-<h2 id="base-url">Base URL<a class="headerlink" href="#base-url" title="Permanent link">&para;</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>http://localhost:8080
+<h1 id="openapi-specification">OpenAPI Specification<a class="headerlink" href="#openapi-specification" title="Permanent link">&para;</a></h1>
+<p>Interactive API documentation and downloadable specifications.</p>
+<h2 id="swagger-ui-interactive">Swagger UI (Interactive)<a class="headerlink" href="#swagger-ui-interactive" title="Permanent link">&para;</a></h2>
+<p>Try out the API directly from your browser:</p>
+<div id="swagger-ui"></div>
+
+<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+<p><link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" /></p>
+<script>
+  window.onload = function() {
+    SwaggerUIBundle({
+      url: "../swagger/swagger.yaml",
+      dom_id: '#swagger-ui',
+      presets: [
+        SwaggerUIBundle.presets.apis,
+        SwaggerUIBundle.SwaggerUIStandalonePreset
+      ],
+      layout: "BaseLayout",
+      deepLinking: true,
+      showExtensions: true,
+      showCommonExtensions: true,
+      defaultModelsExpandDepth: 1,
+      defaultModelExpandDepth: 1,
+      docExpansion: "list",
+      filter: true,
+      tryItOutEnabled: false
+    });
+  };
+</script>
+
+<style>
+  #swagger-ui {
+    border: 1px solid var(--md-default-fg-color--lightest);
+    border-radius: 4px;
+    margin: 1em 0;
+  }
+  .swagger-ui .topbar { display: none; }
+  .swagger-ui .info { margin: 20px 0; }
+  .swagger-ui .scheme-container { display: none; }
+</style>
+
+<hr />
+<h2 id="redoc-documentation-view">ReDoc (Documentation View)<a class="headerlink" href="#redoc-documentation-view" title="Permanent link">&para;</a></h2>
+<p>Clean, readable API documentation:</p>
+<div id="redoc-container"></div>
+
+<script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
+<script>
+  Redoc.init('../swagger/swagger.yaml', {
+    scrollYOffset: 60,
+    hideDownloadButton: false,
+    expandResponses: "200,201",
+    pathInMiddlePanel: true,
+    theme: {
+      colors: {
+        primary: { main: '#673ab7' }
+      },
+      typography: {
+        fontSize: '15px',
+        fontFamily: 'inherit'
+      },
+      sidebar: {
+        backgroundColor: 'transparent'
+      }
+    }
+  }, document.getElementById('redoc-container'));
+</script>
+
+<style>
+  #redoc-container {
+    margin: 1em 0;
+  }
+</style>
+
+<hr />
+<h2 id="download-specifications">Download Specifications<a class="headerlink" href="#download-specifications" title="Permanent link">&para;</a></h2>
+<p>Download the raw OpenAPI specification files:</p>
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th>Download</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>YAML</strong></td>
+<td><a href="../../swagger/swagger.yaml">swagger.yaml</a></td>
+<td>Human-readable format</td>
+</tr>
+<tr>
+<td><strong>JSON</strong></td>
+<td><a href="../../swagger/swagger.json">swagger.json</a></td>
+<td>Machine-readable format</td>
+</tr>
+</tbody>
+</table>
+<h3 id="usage-examples">Usage Examples<a class="headerlink" href="#usage-examples" title="Permanent link">&para;</a></h3>
+<p><strong>Import into Postman:</strong>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Download and import</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>curl<span class="w"> </span>-O<span class="w"> </span>https://tomblancdev.github.io/stromboli/swagger/swagger.yaml
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Then import in Postman: File &gt; Import &gt; Upload Files</span>
+</span></code></pre></div></p>
+<p><strong>Generate client SDK:</strong>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Using openapi-generator</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>openapi-generator<span class="w"> </span>generate<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>-i<span class="w"> </span>https://tomblancdev.github.io/stromboli/swagger/swagger.yaml<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span>-g<span class="w"> </span>python<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span>-o<span class="w"> </span>./stromboli-client
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Using swagger-codegen</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>swagger-codegen<span class="w"> </span>generate<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span>-i<span class="w"> </span>https://tomblancdev.github.io/stromboli/swagger/swagger.yaml<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">  </span>-l<span class="w"> </span>javascript<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span>-o<span class="w"> </span>./stromboli-js-client
+</span></code></pre></div></p>
+<p><strong>Validate the spec:</strong>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Using swagger-cli</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>npx<span class="w"> </span>@apidevtools/swagger-cli<span class="w"> </span>validate<span class="w"> </span>swagger.yaml
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Using spectral</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>npx<span class="w"> </span>@stoplight/spectral-cli<span class="w"> </span>lint<span class="w"> </span>swagger.yaml
+</span></code></pre></div></p>
+<hr />
+<h2 id="api-versioning">API Versioning<a class="headerlink" href="#api-versioning" title="Permanent link">&para;</a></h2>
+<p>Each Stromboli release has its own OpenAPI spec matching that version.</p>
+<h3 id="versioned-urls">Versioned URLs<a class="headerlink" href="#versioned-urls" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Version</th>
+<th>Spec URL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Latest</strong></td>
+<td><code>https://tomblancdev.github.io/stromboli/latest/swagger/swagger.yaml</code></td>
+</tr>
+<tr>
+<td><strong>0.2.0</strong></td>
+<td><code>https://tomblancdev.github.io/stromboli/0.2.0/swagger/swagger.yaml</code></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition tip">
+<p class="admonition-title">Version Selector</p>
+<p>Use the version selector in the top navigation to switch between documentation versions.
+The OpenAPI spec always matches the selected version.</p>
+</div>
+<h3 id="direct-links">Direct Links<a class="headerlink" href="#direct-links" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Latest version (always up-to-date)</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>https://tomblancdev.github.io/stromboli/latest/swagger/swagger.yaml
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>https://tomblancdev.github.io/stromboli/latest/swagger/swagger.json
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># Specific version (pinned)</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>https://tomblancdev.github.io/stromboli/0.2.0/swagger/swagger.yaml
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>https://tomblancdev.github.io/stromboli/0.2.0/swagger/swagger.json
 </span></code></pre></div>
-<h2 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Permanent link">&para;</a></h2>
-<p>Authentication is optional. When enabled, use JWT tokens:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer &lt;token&gt;&quot;</span><span class="w"> </span>http://localhost:8080/run
+<div class="admonition note">
+<p class="admonition-title">Breaking Changes</p>
+<p>Breaking changes will be announced in the <a href="../../changelog/">Changelog</a> and will increment the major version number.</p>
+</div>
+<h2 id="live-server">Live Server<a class="headerlink" href="#live-server" title="Permanent link">&para;</a></h2>
+<p>When running Stromboli locally, the spec is also available at:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>http://localhost:8080/swagger/doc.json
 </span></code></pre></div>
-<p>See <a href="../authentication/">Authentication</a> for details.</p>
-<h2 id="endpoints-summary">Endpoints Summary<a class="headerlink" href="#endpoints-summary" title="Permanent link">&para;</a></h2>
-<h3 id="system">System<a class="headerlink" href="#system" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Method</th>
-<th>Endpoint</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>GET</td>
-<td><code>/health</code></td>
-<td>Health check with component status</td>
-</tr>
-<tr>
-<td>GET</td>
-<td><code>/metrics</code></td>
-<td>Prometheus metrics</td>
-</tr>
-<tr>
-<td>GET</td>
-<td><code>/claude/status</code></td>
-<td>Claude credentials status</td>
-</tr>
-<tr>
-<td>GET</td>
-<td><code>/secrets</code></td>
-<td>List available Podman secrets</td>
-</tr>
-</tbody>
-</table>
-<h3 id="execution">Execution<a class="headerlink" href="#execution" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Method</th>
-<th>Endpoint</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>POST</td>
-<td><code>/run</code></td>
-<td>Run Claude synchronously</td>
-</tr>
-<tr>
-<td>GET</td>
-<td><code>/run/stream</code></td>
-<td>Run with streaming output</td>
-</tr>
-<tr>
-<td>POST</td>
-<td><code>/run/async</code></td>
-<td>Run asynchronously</td>
-</tr>
-</tbody>
-</table>
-<h3 id="jobs">Jobs<a class="headerlink" href="#jobs" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Method</th>
-<th>Endpoint</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>GET</td>
-<td><code>/jobs</code></td>
-<td>List all jobs</td>
-</tr>
-<tr>
-<td>GET</td>
-<td><code>/jobs/:id</code></td>
-<td>Get job status</td>
-</tr>
-<tr>
-<td>DELETE</td>
-<td><code>/jobs/:id</code></td>
-<td>Cancel a job</td>
-</tr>
-</tbody>
-</table>
-<h3 id="sessions">Sessions<a class="headerlink" href="#sessions" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Method</th>
-<th>Endpoint</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>GET</td>
-<td><code>/sessions</code></td>
-<td>List all sessions</td>
-</tr>
-<tr>
-<td>DELETE</td>
-<td><code>/sessions/:id</code></td>
-<td>Delete a session</td>
-</tr>
-<tr>
-<td>GET</td>
-<td><code>/sessions/:id/messages</code></td>
-<td>Get session messages</td>
-</tr>
-</tbody>
-</table>
-<h3 id="authentication_1">Authentication<a class="headerlink" href="#authentication_1" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Method</th>
-<th>Endpoint</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>POST</td>
-<td><code>/auth/token</code></td>
-<td>Generate JWT tokens</td>
-</tr>
-<tr>
-<td>POST</td>
-<td><code>/auth/refresh</code></td>
-<td>Refresh access token</td>
-</tr>
-<tr>
-<td>POST</td>
-<td><code>/auth/validate</code></td>
-<td>Validate a token</td>
-</tr>
-<tr>
-<td>POST</td>
-<td><code>/auth/logout</code></td>
-<td>Invalidate a token</td>
-</tr>
-</tbody>
-</table>
-<h2 id="request-format">Request Format<a class="headerlink" href="#request-format" title="Permanent link">&para;</a></h2>
-<p>All POST endpoints accept JSON:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8080/run<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="s1">    &quot;prompt&quot;: &quot;Hello&quot;,</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="s1">    &quot;workspace&quot;: &quot;/path/to/project&quot;,</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="s1">    &quot;claude&quot;: { ... },</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="s1">    &quot;podman&quot;: { ... }</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="s1">  }&#39;</span>
-</span></code></pre></div>
-<h2 id="response-format">Response Format<a class="headerlink" href="#response-format" title="Permanent link">&para;</a></h2>
-<p>Successful responses:
-<div class="language-json highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;run-abc123&quot;</span><span class="p">,</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;completed&quot;</span><span class="p">,</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">&quot;output&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">&quot;session_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="p">}</span>
-</span></code></pre></div></p>
-<p>Error responses:
-<div class="language-json highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">&quot;error&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Error message&quot;</span><span class="p">,</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;error&quot;</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="p">}</span>
-</span></code></pre></div></p>
-<h2 id="http-status-codes">HTTP Status Codes<a class="headerlink" href="#http-status-codes" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Code</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>200</td>
-<td>Success</td>
-</tr>
-<tr>
-<td>400</td>
-<td>Bad request (invalid input)</td>
-</tr>
-<tr>
-<td>401</td>
-<td>Unauthorized (auth required)</td>
-</tr>
-<tr>
-<td>404</td>
-<td>Not found</td>
-</tr>
-<tr>
-<td>429</td>
-<td>Rate limited</td>
-</tr>
-<tr>
-<td>500</td>
-<td>Internal server error</td>
-</tr>
-<tr>
-<td>503</td>
-<td>Service unavailable (Claude not configured)</td>
-</tr>
-</tbody>
-</table>
-<h2 id="rate-limiting">Rate Limiting<a class="headerlink" href="#rate-limiting" title="Permanent link">&para;</a></h2>
-<p>When enabled, rate limits are applied per IP:</p>
-<ul>
-<li>Default: 10 requests/second</li>
-<li>Burst: 20 requests</li>
-</ul>
-<p>Rate limit headers:
-<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>X-RateLimit-Limit: 10
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>X-RateLimit-Remaining: 9
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>X-RateLimit-Reset: 1640000000
-</span></code></pre></div></p>
-<h2 id="openapi-spec">OpenAPI Spec<a class="headerlink" href="#openapi-spec" title="Permanent link">&para;</a></h2>
-<p>Interactive API documentation and downloadable specs:</p>
-<ul>
-<li><strong><a href="../openapi/">OpenAPI Reference</a></strong> - Swagger UI, ReDoc, and downloadable YAML/JSON</li>
-</ul>
-<p>When running locally, the spec is also served at:
-<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>http://localhost:8080/swagger/doc.json
-</span></code></pre></div></p>
+<p>This always returns the spec for your running Stromboli version.</p>
 
 
 
