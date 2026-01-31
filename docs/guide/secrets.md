@@ -84,8 +84,9 @@ curl -X POST http://localhost:8080/run \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "Review the open PRs on this repo using gh CLI",
-    "workspace": "/home/user/myproject",
+    "workdir": "/workspace",
     "podman": {
+      "volumes": ["/home/user/myproject:/workspace"],
       "secrets_env": {
         "GH_TOKEN": "github-token",
         "GITLAB_TOKEN": "gitlab-token"
@@ -221,8 +222,9 @@ curl -X POST http://localhost:8080/run \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "List open PRs and summarize the changes in PR #42",
-    "workspace": "/home/user/myrepo",
+    "workdir": "/workspace",
     "podman": {
+      "volumes": ["/home/user/myrepo:/workspace"],
       "secrets_env": {
         "GH_TOKEN": "github-token"
       }
@@ -243,8 +245,9 @@ curl -X POST http://localhost:8080/run \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "Analyze the latest PR, generate a summary, and post it to #dev-updates",
-    "workspace": "/home/user/myrepo",
+    "workdir": "/workspace",
     "podman": {
+      "volumes": ["/home/user/myrepo:/workspace"],
       "secrets_env": {
         "GH_TOKEN": "github-token",
         "SLACK_BOT_TOKEN": "slack-token",

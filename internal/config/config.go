@@ -35,12 +35,16 @@ type AgentConfig struct {
 	Image                string           // Container image name (default)
 	ImageTag             string           // Container image tag
 	AllowedImagePatterns []string         // Allowed image patterns (e.g., "python:*", "golang:*")
+	AllowedVolumes       []string         // Allowed host paths for volume mounts
+	AllowAllVolumes      bool             // DANGEROUS: Allow all volume mounts when allowlist is empty (dev only!)
+	WorkdirAutoCreate    bool             // Auto-create workdir if it doesn't exist
 	MountClaudeCLI       bool             // Mount claude-cli volume into containers
 	CLIImage             string           // Claude CLI image for mounting (e.g., ghcr.io/tomblancdev/stromboli-agent)
 	CLIImageTag          string           // Claude CLI image tag
 	AutoPullCLI          bool             // Auto-pull CLI image on startup if missing
 	CredentialsFile      string           // Path to Claude credentials file (~/.claude/.credentials.json)
-	SessionsDir          string           // Directory for session data
+	SessionsDir          string           // Directory for session data (internal container path)
+	SessionsHostDir      string           // Host path for sessions (for nested container mounts, defaults to SessionsDir)
 	TokenCache           TokenCacheConfig // Token cache configuration
 }
 
@@ -160,12 +164,16 @@ func setupViper(v *viper.Viper) {
 	v.SetDefault("agent.image", defaultAgentImage)
 	v.SetDefault("agent.image_tag", defaultAgentImageTag)
 	v.SetDefault("agent.allowed_image_patterns", []string{})
+	v.SetDefault("agent.allowed_volumes", []string{})
+	v.SetDefault("agent.allow_all_volumes", false) // SECURE DEFAULT: deny all when no allowlist
+	v.SetDefault("agent.workdir_auto_create", true)
 	v.SetDefault("agent.mount_claude_cli", false)
 	v.SetDefault("agent.cli_image", defaultCLIImage)
 	v.SetDefault("agent.cli_image_tag", defaultCLIImageTag)
 	v.SetDefault("agent.auto_pull_cli", true)
 	v.SetDefault("agent.credentials_file", defaultCredentialsFile)
 	v.SetDefault("agent.sessions_dir", defaultSessionsDir)
+	v.SetDefault("agent.sessions_host_dir", "") // Empty means same as sessions_dir
 	v.SetDefault("agent.token_cache.enabled", true)
 	v.SetDefault("agent.token_cache.ttl", defaultTokenCacheTTL.String())
 	v.SetDefault("resources.memory", defaultMemory)
@@ -197,12 +205,16 @@ func setupViper(v *viper.Viper) {
 	_ = v.BindEnv("agent.image", "STROMBOLI_AGENT_IMAGE")
 	_ = v.BindEnv("agent.image_tag", "STROMBOLI_AGENT_IMAGE_TAG")
 	_ = v.BindEnv("agent.allowed_image_patterns", "STROMBOLI_AGENT_ALLOWED_IMAGE_PATTERNS")
+	_ = v.BindEnv("agent.allowed_volumes", "STROMBOLI_AGENT_ALLOWED_VOLUMES")
+	_ = v.BindEnv("agent.allow_all_volumes", "STROMBOLI_AGENT_ALLOW_ALL_VOLUMES")
+	_ = v.BindEnv("agent.workdir_auto_create", "STROMBOLI_AGENT_WORKDIR_AUTO_CREATE")
 	_ = v.BindEnv("agent.mount_claude_cli", "STROMBOLI_AGENT_MOUNT_CLAUDE_CLI")
 	_ = v.BindEnv("agent.cli_image", "STROMBOLI_AGENT_CLI_IMAGE")
 	_ = v.BindEnv("agent.cli_image_tag", "STROMBOLI_AGENT_CLI_IMAGE_TAG")
 	_ = v.BindEnv("agent.auto_pull_cli", "STROMBOLI_AGENT_AUTO_PULL_CLI")
 	_ = v.BindEnv("agent.credentials_file", "STROMBOLI_AGENT_CREDENTIALS_FILE")
 	_ = v.BindEnv("agent.sessions_dir", "STROMBOLI_AGENT_SESSIONS_DIR")
+	_ = v.BindEnv("agent.sessions_host_dir", "STROMBOLI_AGENT_SESSIONS_HOST_DIR")
 	_ = v.BindEnv("agent.token_cache.enabled", "STROMBOLI_TOKEN_CACHE_ENABLED")
 	_ = v.BindEnv("agent.token_cache.ttl", "STROMBOLI_TOKEN_CACHE_TTL")
 	_ = v.BindEnv("resources.memory", "STROMBOLI_DEFAULT_MEMORY")
@@ -240,12 +252,16 @@ func parseConfig(v *viper.Viper) (*Config, error) {
 			Image:                v.GetString("agent.image"),
 			ImageTag:             v.GetString("agent.image_tag"),
 			AllowedImagePatterns: getStringSliceOrSplit(v, "agent.allowed_image_patterns"),
+			AllowedVolumes:       getStringSliceOrSplit(v, "agent.allowed_volumes"),
+			AllowAllVolumes:      v.GetBool("agent.allow_all_volumes"),
+			WorkdirAutoCreate:    v.GetBool("agent.workdir_auto_create"),
 			MountClaudeCLI:       v.GetBool("agent.mount_claude_cli"),
 			CLIImage:             v.GetString("agent.cli_image"),
 			CLIImageTag:          v.GetString("agent.cli_image_tag"),
 			AutoPullCLI:          v.GetBool("agent.auto_pull_cli"),
 			CredentialsFile:      v.GetString("agent.credentials_file"),
 			SessionsDir:          v.GetString("agent.sessions_dir"),
+			SessionsHostDir:      getSessionsHostDir(v),
 			TokenCache: TokenCacheConfig{
 				Enabled: v.GetBool("agent.token_cache.enabled"),
 				TTL:     cacheTTL,
@@ -364,6 +380,15 @@ func parseDuration(s string) (time.Duration, error) {
 		return 0, nil
 	}
 	return time.ParseDuration(s)
+}
+
+// getSessionsHostDir returns the sessions host dir, falling back to sessions_dir if not set
+func getSessionsHostDir(v *viper.Viper) string {
+	hostDir := v.GetString("agent.sessions_host_dir")
+	if hostDir != "" {
+		return hostDir
+	}
+	return v.GetString("agent.sessions_dir")
 }
 
 // Validate checks that the configuration is valid

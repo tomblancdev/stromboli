@@ -71,7 +71,7 @@ curl -X POST http://localhost:8080/run \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "Hello",
-    "workspace": "/path/to/project",
+    "workdir": "/workspace",
     "claude": { ... },
     "podman": { ... }
   }'

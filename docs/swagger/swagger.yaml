@@ -122,9 +122,11 @@ definitions:
         description: Webhook URL to notify when job completes (async only)
         example: https://example.com/webhook
         type: string
-      workspace:
-        description: Workspace to mount (host path -> /workspace in container)
-        example: /home/user/project
+      workdir:
+        description: |-
+          Working directory inside the container where Claude will spawn
+          Use podman.volumes to mount host paths into the container
+        example: /workspace
         type: string
     required:
     - prompt
@@ -921,9 +923,9 @@ paths:
         name: prompt
         required: true
         type: string
-      - description: Workspace path to mount
+      - description: Working directory inside container
         in: query
-        name: workspace
+        name: workdir
         type: string
       - description: Session ID for conversation continuation
         in: query

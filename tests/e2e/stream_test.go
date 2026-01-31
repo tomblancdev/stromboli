@@ -17,7 +17,7 @@ func TestStreamEndpoint(t *testing.T) {
 	env := setupE2EEnv(t)
 
 	t.Run("missing prompt returns 400", func(t *testing.T) {
-		resp := makeRequest(t, "GET", env.BaseURL+"/run/stream?workspace=/tmp", nil, nil)
+		resp := makeRequest(t, "GET", env.BaseURL+"/run/stream?workdir=/tmp", nil, nil)
 		defer resp.Body.Close()
 
 		assertStatusCode(t, resp, http.StatusBadRequest)

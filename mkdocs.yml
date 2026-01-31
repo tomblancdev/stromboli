@@ -114,7 +114,7 @@ nav:
     - Examples & Use Cases: guide/examples.md
     - Sessions: guide/sessions.md
     - Secrets: guide/secrets.md
-    - Workspaces: guide/workspaces.md
+    - Working Directory: guide/workspaces.md
     - Security: guide/security.md
     - Troubleshooting: guide/troubleshooting.md
   - API Reference:

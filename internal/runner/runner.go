@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -38,7 +40,7 @@ type Runner interface {
 // Request contains the parameters for running Claude
 type Request struct {
 	Prompt    string
-	Workspace string
+	Workdir string
 	Claude    types.ClaudeOptions
 	Podman    types.PodmanOptions
 }
@@ -64,44 +66,59 @@ type ImageConfig struct {
 	MountClaudeCLI  bool     // Mount claude-cli volume into containers
 }
 
+// VolumeConfig contains volume-related configuration
+type VolumeConfig struct {
+	AllowedVolumes    []string // Allowed host paths for volume mounts
+	AllowAllVolumes   bool     // DANGEROUS: Allow all volumes when allowlist empty (dev only!)
+	WorkdirAutoCreate bool     // Auto-create workdir if it doesn't exist
+}
+
 // PodmanRunner runs Claude using Podman containers
 type PodmanRunner struct {
-	image              string
-	secretsMgr         *secrets.Manager
-	sessionMgr         *session.Manager
-	workspaceValidator *workspace.Validator
-	imageValidator     *ImageValidator
-	mountClaudeCLI     bool
-	defaults           ResourceDefaults
-	executor           Executor
+	image             string
+	secretsMgr        *secrets.Manager
+	sessionMgr        *session.Manager
+	sessionsHostDir   string // Host path for sessions (for nested container mounts)
+	volumeValidator   *workspace.Validator
+	imageValidator    *ImageValidator
+	mountClaudeCLI    bool
+	workdirAutoCreate bool
+	defaults          ResourceDefaults
+	executor          Executor
 }
 
 // NewPodmanRunner creates a new Podman-based runner with no default resource limits
 // It ensures the Podman secret exists for secure token handling
-func NewPodmanRunner(image, secretsFile, sessionsDir string, allowedWorkspaces []string) (*PodmanRunner, error) {
-	return NewPodmanRunnerWithDefaults(image, secretsFile, sessionsDir, allowedWorkspaces, ResourceDefaults{})
+func NewPodmanRunner(image, secretsFile, sessionsDir string, allowedVolumes []string) (*PodmanRunner, error) {
+	return NewPodmanRunnerWithDefaults(image, secretsFile, sessionsDir, allowedVolumes, ResourceDefaults{})
 }
 
 // NewPodmanRunnerWithExecutor creates a new Podman-based runner with a custom executor
 // This is primarily useful for testing
-func NewPodmanRunnerWithExecutor(image, secretsFile, sessionsDir string, allowedWorkspaces []string, executor Executor) (*PodmanRunner, error) {
-	return NewPodmanRunnerWithDefaultsAndExecutor(image, secretsFile, sessionsDir, allowedWorkspaces, ResourceDefaults{}, executor)
+func NewPodmanRunnerWithExecutor(image, secretsFile, sessionsDir string, allowedVolumes []string, executor Executor) (*PodmanRunner, error) {
+	return NewPodmanRunnerWithDefaultsAndExecutor(image, secretsFile, sessionsDir, allowedVolumes, ResourceDefaults{}, executor)
 }
 
 // NewPodmanRunnerWithDefaults creates a new Podman-based runner with default resource limits
 // It ensures the Podman secret exists for secure token handling
-func NewPodmanRunnerWithDefaults(image, secretsFile, sessionsDir string, allowedWorkspaces []string, defaults ResourceDefaults) (*PodmanRunner, error) {
-	return NewPodmanRunnerWithDefaultsAndExecutor(image, secretsFile, sessionsDir, allowedWorkspaces, defaults, NewShellExecutor())
+func NewPodmanRunnerWithDefaults(image, secretsFile, sessionsDir string, allowedVolumes []string, defaults ResourceDefaults) (*PodmanRunner, error) {
+	return NewPodmanRunnerWithDefaultsAndExecutor(image, secretsFile, sessionsDir, allowedVolumes, defaults, NewShellExecutor())
 }
 
 // NewPodmanRunnerWithDefaultsAndExecutor creates a new Podman-based runner with default resource limits and custom executor
 // This is the most flexible constructor, primarily useful for testing
-func NewPodmanRunnerWithDefaultsAndExecutor(image, credentialsFile, sessionsDir string, allowedWorkspaces []string, defaults ResourceDefaults, executor Executor) (*PodmanRunner, error) {
-	return NewPodmanRunnerFull(image, credentialsFile, sessionsDir, allowedWorkspaces, defaults, ImageConfig{}, executor)
+func NewPodmanRunnerWithDefaultsAndExecutor(image, credentialsFile, sessionsDir string, allowedVolumes []string, defaults ResourceDefaults, executor Executor) (*PodmanRunner, error) {
+	volumeConfig := VolumeConfig{
+		AllowedVolumes:    allowedVolumes,
+		WorkdirAutoCreate: true, // Default to true for backward compatibility
+	}
+	return NewPodmanRunnerFull(image, credentialsFile, sessionsDir, sessionsDir, defaults, ImageConfig{}, volumeConfig, executor)
 }
 
 // NewPodmanRunnerFull creates a new Podman-based runner with all configuration options
-func NewPodmanRunnerFull(image, credentialsFile, sessionsDir string, allowedWorkspaces []string, defaults ResourceDefaults, imageConfig ImageConfig, executor Executor) (*PodmanRunner, error) {
+// sessionsDir is the internal path where sessions are created (inside this container)
+// sessionsHostDir is the host path for mounting sessions into agent containers
+func NewPodmanRunnerFull(image, credentialsFile, sessionsDir, sessionsHostDir string, defaults ResourceDefaults, imageConfig ImageConfig, volumeConfig VolumeConfig, executor Executor) (*PodmanRunner, error) {
 	// Create secrets manager and ensure credentials exist + Podman secret is created
 	secretsMgr := secrets.NewManagerWithPath(credentialsFile)
 	if err := secretsMgr.EnsureExists(context.Background(), ""); err != nil {
@@ -117,14 +134,16 @@ func NewPodmanRunnerFull(image, credentialsFile, sessionsDir string, allowedWork
 	}
 
 	return &PodmanRunner{
-		image:              image,
-		secretsMgr:         secretsMgr,
-		sessionMgr:         session.NewManager(sessionsDir),
-		workspaceValidator: workspace.NewValidator(allowedWorkspaces),
-		imageValidator:     imageValidator,
-		mountClaudeCLI:     imageConfig.MountClaudeCLI,
-		defaults:           defaults,
-		executor:           executor,
+		image:             image,
+		secretsMgr:        secretsMgr,
+		sessionMgr:        session.NewManager(sessionsDir),
+		sessionsHostDir:   sessionsHostDir,
+		volumeValidator:   workspace.NewValidatorWithAllowAll(volumeConfig.AllowedVolumes, volumeConfig.AllowAllVolumes),
+		imageValidator:    imageValidator,
+		mountClaudeCLI:    imageConfig.MountClaudeCLI,
+		workdirAutoCreate: volumeConfig.WorkdirAutoCreate,
+		defaults:          defaults,
+		executor:          executor,
 	}, nil
 }
 
@@ -136,7 +155,7 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	// Add request attributes to span
 	tracing.AddSpanAttributes(ctx,
 		"runner.prompt_length", len(req.Prompt),
-		"runner.workspace", req.Workspace,
+		"runner.workdir", req.Workdir,
 		"runner.model", req.Claude.Model,
 		"runner.session_id", req.Claude.SessionID,
 	)
@@ -170,11 +189,13 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	}
 	containerImage := r.imageValidator.Resolve(req.Podman.Image)
 
-	// Create or get session directory
-	sessionID, absSessionPath, err := r.sessionMgr.Create(req.Claude.SessionID)
+	// Create or get session directory (creates on internal path)
+	sessionID, _, err := r.sessionMgr.Create(req.Claude.SessionID)
 	if err != nil {
 		return nil, err
 	}
+	// Get the host path for mounting into agent container
+	hostSessionPath := r.getHostSessionPath(sessionID)
 
 	// Build Claude command with all options
 	claudeBuilder := claude.NewCommandBuilder().WithPrompt(req.Prompt)
@@ -216,45 +237,16 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	// HOME env points here so Claude writes to host-owned directory
 	// Sessions are isolated from each other
 	// Data persists until explicitly destroyed
-	podmanBuilder.WithVolume(absSessionPath, "/home/user")
+	// NOTE: We use hostSessionPath because Podman runs on host, not inside this container
+	podmanBuilder.WithVolume(hostSessionPath, "/home/user")
 
 	// Mount credentials via Podman secret (more secure than volume mount)
 	// Secret is mounted at ~/.claude/.credentials.json so Claude finds it automatically
 	podmanBuilder.WithSecretTarget(r.secretsMgr.SecretName(), "/home/user/.claude/.credentials.json")
 
-	// Mount workspace for container access
-	if req.Workspace != "" {
-		validatedPath, err := r.workspaceValidator.Validate(req.Workspace)
-		if err != nil {
-			return nil, fmt.Errorf("workspace validation failed: %w", err)
-		}
-		podmanBuilder.
-			WithVolume(validatedPath, "/workspace").
-			WithWorkdir("/workspace")
-	}
-
-	// Add additional volumes from request
-	for _, vol := range req.Podman.Volumes {
-		podmanBuilder.WithVolumeRaw(vol)
-	}
-
-	// Validate and mount secrets as environment variables
-	if err := ValidateSecretsEnv(req.Podman.SecretsEnv); err != nil {
-		return nil, fmt.Errorf("secrets validation failed: %w", err)
-	}
-	for envVar, secretName := range req.Podman.SecretsEnv {
-		podmanBuilder.WithSecretEnv(secretName, envVar)
-	}
-
-	// Apply resource limits
-	if req.Podman.Memory != "" {
-		podmanBuilder.WithMemory(req.Podman.Memory)
-	}
-	if req.Podman.CPUs != "" {
-		podmanBuilder.WithCPUs(req.Podman.CPUs)
-	}
-	if req.Podman.CPUShares > 0 {
-		podmanBuilder.WithCPUShares(req.Podman.CPUShares)
+	// Apply request configuration (workdir, volumes, secrets, resource limits)
+	if err := r.applyRequestConfig(req, podmanBuilder); err != nil {
+		return nil, err
 	}
 
 	// When mounting Claude CLI image, prepend "claude" to command
@@ -262,7 +254,10 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	if r.mountClaudeCLI {
 		claudeCmd = append([]string{"claude"}, claudeCmd...)
 	}
-	podmanBuilder.WithCommand(claudeCmd)
+
+	// Wrap command to create workdir if it doesn't exist
+	finalCmd := wrapCommandWithWorkdirSetup(req.Workdir, claudeCmd, r.workdirAutoCreate)
+	podmanBuilder.WithCommand(finalCmd)
 	fullCmd := podmanBuilder.Build()
 
 	// Track active container
@@ -325,7 +320,7 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	// Add request attributes to span
 	tracing.AddSpanAttributes(ctx,
 		"runner.prompt_length", len(req.Prompt),
-		"runner.workspace", req.Workspace,
+		"runner.workdir", req.Workdir,
 		"runner.model", req.Claude.Model,
 		"runner.session_id", req.Claude.SessionID,
 		"runner.streaming", true,
@@ -360,11 +355,13 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	}
 	containerImage := r.imageValidator.Resolve(req.Podman.Image)
 
-	// Create or get session directory
-	sessionID, absSessionPath, err := r.sessionMgr.Create(req.Claude.SessionID)
+	// Create or get session directory (creates on internal path)
+	sessionID, _, err := r.sessionMgr.Create(req.Claude.SessionID)
 	if err != nil {
 		return nil, err
 	}
+	// Get the host path for mounting into agent container
+	hostSessionPath := r.getHostSessionPath(sessionID)
 
 	// Build Claude command with all options
 	claudeBuilder := claude.NewCommandBuilder().WithPrompt(req.Prompt)
@@ -399,44 +396,15 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	}
 
 	// Mount session-specific directory as user's home
-	podmanBuilder.WithVolume(absSessionPath, "/home/user")
+	// NOTE: We use hostSessionPath because Podman runs on host, not inside this container
+	podmanBuilder.WithVolume(hostSessionPath, "/home/user")
 
 	// Mount credentials via Podman secret (more secure than volume mount)
 	podmanBuilder.WithSecretTarget(r.secretsMgr.SecretName(), "/home/user/.claude/.credentials.json")
 
-	// Mount workspace for container access
-	if req.Workspace != "" {
-		validatedPath, err := r.workspaceValidator.Validate(req.Workspace)
-		if err != nil {
-			return nil, fmt.Errorf("workspace validation failed: %w", err)
-		}
-		podmanBuilder.
-			WithVolume(validatedPath, "/workspace").
-			WithWorkdir("/workspace")
-	}
-
-	// Add additional volumes from request
-	for _, vol := range req.Podman.Volumes {
-		podmanBuilder.WithVolumeRaw(vol)
-	}
-
-	// Validate and mount secrets as environment variables
-	if err := ValidateSecretsEnv(req.Podman.SecretsEnv); err != nil {
-		return nil, fmt.Errorf("secrets validation failed: %w", err)
-	}
-	for envVar, secretName := range req.Podman.SecretsEnv {
-		podmanBuilder.WithSecretEnv(secretName, envVar)
-	}
-
-	// Apply resource limits
-	if req.Podman.Memory != "" {
-		podmanBuilder.WithMemory(req.Podman.Memory)
-	}
-	if req.Podman.CPUs != "" {
-		podmanBuilder.WithCPUs(req.Podman.CPUs)
-	}
-	if req.Podman.CPUShares > 0 {
-		podmanBuilder.WithCPUShares(req.Podman.CPUShares)
+	// Apply request configuration (workdir, volumes, secrets, resource limits)
+	if err := r.applyRequestConfig(req, podmanBuilder); err != nil {
+		return nil, err
 	}
 
 	// When mounting Claude CLI image, prepend "claude" to command
@@ -444,7 +412,10 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	if r.mountClaudeCLI {
 		claudeCmd = append([]string{"claude"}, claudeCmd...)
 	}
-	podmanBuilder.WithCommand(claudeCmd)
+
+	// Wrap command to create workdir if it doesn't exist
+	finalCmd := wrapCommandWithWorkdirSetup(req.Workdir, claudeCmd, r.workdirAutoCreate)
+	podmanBuilder.WithCommand(finalCmd)
 	fullCmd := podmanBuilder.Build()
 
 	// Track active container
@@ -553,6 +524,56 @@ func (r *PodmanRunner) DestroySession(sessionID string) error {
 // ListSessions returns all existing session IDs
 func (r *PodmanRunner) ListSessions() ([]string, error) {
 	return r.sessionMgr.List()
+}
+
+// getHostSessionPath returns the host path for a session directory
+// This is used when mounting sessions into agent containers
+func (r *PodmanRunner) getHostSessionPath(sessionID string) string {
+	return filepath.Join(r.sessionsHostDir, sessionID)
+}
+
+// applyRequestConfig validates and applies workdir, volumes, secrets, and resource limits
+// to the podman builder. This consolidates the common configuration logic used by both
+// Run() and RunStream().
+func (r *PodmanRunner) applyRequestConfig(req Request, podmanBuilder *podman.CommandBuilder) error {
+	// Validate workdir for shell safety
+	if err := validateWorkdir(req.Workdir); err != nil {
+		return fmt.Errorf("workdir validation failed: %w", err)
+	}
+
+	// Validate and add volumes (host:container[:options] format)
+	if err := r.validateVolumes(req.Podman.Volumes); err != nil {
+		return fmt.Errorf("volume validation failed: %w", err)
+	}
+	for _, vol := range req.Podman.Volumes {
+		podmanBuilder.WithVolumeRaw(vol)
+	}
+
+	// Set working directory inside container
+	if req.Workdir != "" {
+		podmanBuilder.WithWorkdir(req.Workdir)
+	}
+
+	// Validate and mount secrets as environment variables
+	if err := ValidateSecretsEnv(req.Podman.SecretsEnv); err != nil {
+		return fmt.Errorf("secrets validation failed: %w", err)
+	}
+	for envVar, secretName := range req.Podman.SecretsEnv {
+		podmanBuilder.WithSecretEnv(secretName, envVar)
+	}
+
+	// Apply resource limits
+	if req.Podman.Memory != "" {
+		podmanBuilder.WithMemory(req.Podman.Memory)
+	}
+	if req.Podman.CPUs != "" {
+		podmanBuilder.WithCPUs(req.Podman.CPUs)
+	}
+	if req.Podman.CPUShares > 0 {
+		podmanBuilder.WithCPUShares(req.Podman.CPUShares)
+	}
+
+	return nil
 }
 
 // RunAsync executes Claude in a goroutine and calls onComplete when done
@@ -737,4 +758,244 @@ func (r *PodmanRunner) applyDefaults(opts types.PodmanOptions) types.PodmanOptio
 		opts.Timeout = r.defaults.Timeout
 	}
 	return opts
+}
+
+// validateVolumes validates volume mount strings against multiple security checks:
+// 1. Volume format (host:container[:options])
+// 2. Host path against allowlist
+// 3. Container path against blocklist
+// 4. Mount options against allowlist
+func (r *PodmanRunner) validateVolumes(volumes []string) error {
+	for _, vol := range volumes {
+		hostPath, containerPath, options, err := parseVolumeComponents(vol)
+		if err != nil {
+			return fmt.Errorf("invalid volume format %q: %w", vol, err)
+		}
+
+		// Validate host path against allowlist
+		if _, err := r.volumeValidator.Validate(hostPath); err != nil {
+			return fmt.Errorf("volume host path not allowed: %w", err)
+		}
+
+		// Validate container path against blocklist
+		if err := validateContainerPath(containerPath); err != nil {
+			return fmt.Errorf("volume container path invalid: %w", err)
+		}
+
+		// Validate mount options
+		if err := validateMountOptions(options); err != nil {
+			return fmt.Errorf("volume mount options invalid: %w", err)
+		}
+	}
+	return nil
+}
+
+// wrapCommandWithWorkdirSetup wraps the command to create the workdir if it doesn't exist
+func wrapCommandWithWorkdirSetup(workdir string, cmd []string, autoCreate bool) []string {
+	if workdir == "" || !autoCreate {
+		return cmd
+	}
+
+	// Escape each argument for shell
+	var escapedArgs []string
+	for _, arg := range cmd {
+		// Escape single quotes by replacing ' with '\''
+		escaped := strings.ReplaceAll(arg, "'", "'\\''")
+		escapedArgs = append(escapedArgs, "'"+escaped+"'")
+	}
+
+	// Escape the workdir for shell
+	escapedWorkdir := strings.ReplaceAll(workdir, "'", "'\\''")
+
+	// Build the wrapped command:
+	// mkdir -p '/workdir' && exec original_command
+	shellCmd := fmt.Sprintf("mkdir -p '%s' && exec %s", escapedWorkdir, strings.Join(escapedArgs, " "))
+
+	return []string{"sh", "-c", shellCmd}
+}
+
+// Security validation constants
+const (
+	// MaxWorkdirLength is the maximum length of workdir path
+	// Based on PATH_MAX (4096) on Linux systems
+	MaxWorkdirLength = 4096
+
+	// MaxVolumePathLength is the maximum length of volume paths
+	// Based on PATH_MAX (4096) on Linux systems
+	MaxVolumePathLength = 4096
+)
+
+// blockedContainerPaths are sensitive container paths that cannot be mounted to
+// Using a map for O(1) lookup performance
+var blockedContainerPaths = map[string]bool{
+	// User credential directories
+	"/home/user/.claude":          true, // Claude credentials and config
+	"/home/user/.ssh":             true, // SSH keys
+	"/home/user/.gnupg":           true, // GPG keys
+	"/home/user/.aws":             true, // AWS credentials
+	"/home/user/.docker":          true, // Docker credentials
+	"/home/user/.kube":            true, // Kubernetes credentials
+	"/home/user/.config":          true, // Application configs (often contain secrets)
+	"/home/user/.local":           true, // Local data (often contains secrets)
+	"/home/user/.netrc":           true, // Network credentials
+	"/home/user/.git-credentials": true, // Git credentials
+	"/home/user/.password-store":  true, // Pass password manager
+	// Shell config (injection risk)
+	"/home/user/.bashrc":       true,
+	"/home/user/.bash_profile": true,
+	"/home/user/.profile":      true,
+	"/home/user/.zshrc":        true,
+	// System paths
+	"/etc":           true, // System config
+	"/root":          true, // Root home
+	"/bin":           true, // System binaries
+	"/sbin":          true, // System binaries
+	"/usr/bin":       true, // User binaries
+	"/usr/sbin":      true, // User binaries
+	"/usr/local/bin": true, // Local binaries
+	"/lib":           true, // System libraries
+	"/lib64":         true, // System libraries
+	"/var/run":       true, // Runtime data
+	"/run":           true, // Runtime data
+	"/proc":          true, // Process info
+	"/sys":           true, // System info
+	"/dev":           true, // Devices
+}
+
+// allowedMountOptions are the only mount options allowed in volume specifications
+var allowedMountOptions = map[string]bool{
+	"ro":       true, // Read-only
+	"rw":       true, // Read-write (default)
+	"z":        true, // SELinux shared label
+	"Z":        true, // SELinux private label
+	"noexec":   true, // Prevent execution (security-enhancing)
+	"nosuid":   true, // Prevent setuid (security-enhancing)
+	"nodev":    true, // Prevent device files (security-enhancing)
+	"rslave":   true, // Recursive slave propagation
+	"rprivate": true, // Recursive private propagation
+	"rshared":  true, // Recursive shared propagation
+	"slave":    true, // Slave propagation
+	"private":  true, // Private propagation
+	"shared":   true, // Shared propagation
+	"nocopy":   true, // Don't copy data from container
+	"copy":     true, // Copy data from container
+	"U":        true, // Chown to container user
+}
+
+// validWorkdirPattern only allows safe characters in workdir paths
+var validWorkdirPattern = regexp.MustCompile(`^[a-zA-Z0-9/_.\-]+$`)
+
+// validateWorkdir validates the workdir path for safety
+func validateWorkdir(workdir string) error {
+	if workdir == "" {
+		return nil // Empty workdir is valid
+	}
+
+	// Check length
+	if len(workdir) > MaxWorkdirLength {
+		return fmt.Errorf("workdir path too long (max %d characters)", MaxWorkdirLength)
+	}
+
+	// Must be absolute path
+	if !strings.HasPrefix(workdir, "/") {
+		return fmt.Errorf("workdir must be an absolute path starting with /")
+	}
+
+	// Check for safe characters only
+	if !validWorkdirPattern.MatchString(workdir) {
+		return fmt.Errorf("workdir contains invalid characters (only alphanumeric, /, _, ., - allowed)")
+	}
+
+	// Check for path traversal attempts
+	if strings.Contains(workdir, "..") {
+		return fmt.Errorf("workdir cannot contain path traversal (..) sequences")
+	}
+
+	return nil
+}
+
+// validateContainerPath checks if a container path is allowed
+func validateContainerPath(containerPath string) error {
+	if containerPath == "" {
+		return fmt.Errorf("container path cannot be empty")
+	}
+
+	// Check length
+	if len(containerPath) > MaxVolumePathLength {
+		return fmt.Errorf("container path too long (max %d characters)", MaxVolumePathLength)
+	}
+
+	// Must be absolute
+	if !strings.HasPrefix(containerPath, "/") {
+		return fmt.Errorf("container path must be absolute")
+	}
+
+	// Clean the path for consistent comparison
+	cleanPath := strings.TrimSuffix(containerPath, "/")
+
+	// Check against blocked paths using O(1) map lookup
+	// We check the path and all its parent directories
+	pathToCheck := cleanPath
+	for pathToCheck != "" && pathToCheck != "/" {
+		if blockedContainerPaths[pathToCheck] {
+			return fmt.Errorf("container path %q is blocked for security reasons", containerPath)
+		}
+		// Move to parent directory
+		pathToCheck = filepath.Dir(pathToCheck)
+	}
+
+	return nil
+}
+
+// validateMountOptions validates volume mount options
+func validateMountOptions(options string) error {
+	if options == "" {
+		return nil // No options is valid
+	}
+
+	// Split options by comma
+	for _, opt := range strings.Split(options, ",") {
+		opt = strings.TrimSpace(opt)
+		if opt == "" {
+			continue
+		}
+
+		if !allowedMountOptions[opt] {
+			return fmt.Errorf("mount option %q is not allowed", opt)
+		}
+	}
+
+	return nil
+}
+
+// parseVolumeComponents parses a volume string into host path, container path, and options
+func parseVolumeComponents(volume string) (hostPath, containerPath, options string, err error) {
+	parts := strings.Split(volume, ":")
+
+	// Handle Windows paths (e.g., C:\path:container)
+	if len(parts) >= 2 && len(parts[0]) == 1 && strings.ToUpper(parts[0]) >= "A" && strings.ToUpper(parts[0]) <= "Z" {
+		// Windows path like C:\foo:/container
+		if len(parts) < 3 {
+			return "", "", "", fmt.Errorf("invalid volume format, expected host:container")
+		}
+		hostPath = parts[0] + ":" + parts[1]
+		containerPath = parts[2]
+		if len(parts) >= 4 {
+			options = parts[3]
+		}
+		return hostPath, containerPath, options, nil
+	}
+
+	// Unix paths
+	if len(parts) < 2 {
+		return "", "", "", fmt.Errorf("invalid volume format, expected host:container[:options]")
+	}
+
+	hostPath = parts[0]
+	containerPath = parts[1]
+	if len(parts) >= 3 {
+		options = parts[2]
+	}
+
+	return hostPath, containerPath, options, nil
 }

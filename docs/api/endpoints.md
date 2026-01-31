@@ -11,7 +11,7 @@ Run Claude synchronously.
 ```json
 {
   "prompt": "Your prompt here",
-  "workspace": "/path/to/workspace",
+  "workdir": "/workspace",
   "webhook_url": "https://...",
   "claude": {
     "session_id": "uuid",

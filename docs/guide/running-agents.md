@@ -78,7 +78,7 @@ curl -X POST http://localhost:8080/run \
   }'
 ```
 
-### With a Workspace
+### With a Project Directory
 
 Mount a directory for the agent to work with:
 
@@ -87,11 +87,15 @@ curl -X POST http://localhost:8080/run \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "Analyze the code in this project",
-    "workspace": "/home/user/myproject"
+    "workdir": "/workspace",
+    "podman": {
+      "volumes": ["/home/user/myproject:/workspace"]
+    }
   }'
 ```
 
-The workspace is mounted at `/workspace` inside the container.
+- `workdir`: Sets the working directory inside the container
+- `volumes`: Mounts host paths into the container (`host:container` format)
 
 ## Claude Options
 
@@ -102,7 +106,10 @@ curl -X POST http://localhost:8080/run \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "Review this code",
-    "workspace": "/home/user/myproject",
+    "workdir": "/workspace",
+    "podman": {
+      "volumes": ["/home/user/myproject:/workspace"]
+    },
     "claude": {
       "model": "sonnet",
       "system_prompt": "You are a senior Go developer",
@@ -135,8 +142,9 @@ curl -X POST http://localhost:8080/run \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "Run heavy analysis",
-    "workspace": "/home/user/myproject",
+    "workdir": "/workspace",
     "podman": {
+      "volumes": ["/home/user/myproject:/workspace"],
       "memory": "2g",
       "cpus": "2",
       "timeout": "30m"
@@ -152,7 +160,7 @@ curl -X POST http://localhost:8080/run \
 | `cpus` | string | CPU limit (e.g., `0.5`, `2`) |
 | `timeout` | string | Max runtime (e.g., `5m`, `1h`) |
 | `image` | string | Custom container image |
-| `volumes` | []string | Additional volume mounts |
+| `volumes` | []string | Volume mounts (`host:container[:options]`) |
 | `secrets_env` | map | Secrets as env vars |
 
 ## Dynamic Images
@@ -244,7 +252,10 @@ curl -X POST http://localhost:8080/run/async \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "Refactor the entire codebase",
-    "workspace": "/home/user/myproject"
+    "workdir": "/workspace",
+    "podman": {
+      "volumes": ["/home/user/myproject:/workspace"]
+    }
   }'
 ```
 
@@ -266,8 +277,11 @@ curl http://localhost:8080/jobs/job-abc123
 Get real-time output via Server-Sent Events:
 
 ```bash
-curl -N "http://localhost:8080/run/stream?prompt=Hello&workspace=/home/user/project"
+curl -N "http://localhost:8080/run/stream?prompt=Hello&workdir=/workspace"
 ```
+
+!!! note "Streaming with Volumes"
+    For streaming with mounted directories, use the POST endpoint instead.
 
 Output:
 ```

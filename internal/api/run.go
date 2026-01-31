@@ -26,8 +26,9 @@ type RunRequest struct {
 	// Required: the prompt to send to Claude
 	Prompt string `json:"prompt" binding:"required" example:"Analyze this code and suggest improvements"`
 
-	// Workspace to mount (host path -> /workspace in container)
-	Workspace string `json:"workspace,omitempty" example:"/home/user/project"`
+	// Working directory inside the container where Claude will spawn
+	// Use podman.volumes to mount host paths into the container
+	Workdir string `json:"workdir,omitempty" example:"/workspace"`
 
 	// Webhook URL to notify when job completes (async only)
 	WebhookURL string `json:"webhook_url,omitempty" example:"https://example.com/webhook"`

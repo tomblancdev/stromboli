@@ -16,10 +16,23 @@ func TestValidate_EmptyPath(t *testing.T) {
 	assert.Equal(t, "", result)
 }
 
-func TestValidate_NoAllowlist(t *testing.T) {
+func TestValidate_NoAllowlist_DefaultDeny(t *testing.T) {
+	// SECURITY: With no allowlist and no explicit allow-all, all paths should be DENIED
 	v := NewValidator([]string{})
 
-	// Any path should be allowed when no allowlist is configured
+	_, err := v.Validate("/some/random/path")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no volume allowlist configured")
+
+	_, err = v.Validate("/etc/passwd")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no volume allowlist configured")
+}
+
+func TestValidate_AllowAllVolumes(t *testing.T) {
+	// When allowAllVolumes is explicitly enabled, any path is allowed
+	v := NewValidatorWithAllowAll([]string{}, true)
+
 	result, err := v.Validate("/some/random/path")
 	assert.NoError(t, err)
 	assert.Equal(t, "/some/random/path", result)
@@ -27,6 +40,22 @@ func TestValidate_NoAllowlist(t *testing.T) {
 	result, err = v.Validate("/etc/passwd")
 	assert.NoError(t, err)
 	assert.Equal(t, "/etc/passwd", result)
+}
+
+func TestValidate_AllowAllVolumesWithAllowlist(t *testing.T) {
+	// When allowlist is provided, allowAllVolumes flag is ignored
+	tmpDir := t.TempDir()
+	v := NewValidatorWithAllowAll([]string{tmpDir}, true)
+
+	// Path in allowlist should work
+	result, err := v.Validate(tmpDir)
+	assert.NoError(t, err)
+	assert.Equal(t, tmpDir, result)
+
+	// Path not in allowlist should fail (allowlist takes precedence)
+	_, err = v.Validate("/etc/passwd")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not in allowed directories")
 }
 
 func TestValidate_PathInAllowlist(t *testing.T) {
@@ -181,4 +210,59 @@ func TestNewValidator(t *testing.T) {
 	v := NewValidator([]string{"/path1", "/path2"})
 	assert.NotNil(t, v)
 	assert.Equal(t, []string{"/path1", "/path2"}, v.allowedPaths)
+}
+
+func TestValidate_SymlinkBypassPrevention(t *testing.T) {
+	// Create allowed directory and a directory outside it
+	allowedDir := t.TempDir()
+	outsideDir := t.TempDir()
+
+	// Create a file in the outside directory
+	outsideFile := filepath.Join(outsideDir, "secret.txt")
+	err := os.WriteFile(outsideFile, []byte("secret"), 0600)
+	require.NoError(t, err)
+
+	// Create a symlink in the allowed directory pointing outside
+	symlinkPath := filepath.Join(allowedDir, "escape")
+	err = os.Symlink(outsideDir, symlinkPath)
+	require.NoError(t, err)
+
+	v := NewValidatorWithAllowAll([]string{allowedDir}, false)
+
+	// Attempt to access outside file via symlink should be BLOCKED
+	escapePath := filepath.Join(symlinkPath, "secret.txt")
+	_, err = v.Validate(escapePath)
+	assert.Error(t, err, "symlink traversal should be blocked")
+	assert.Contains(t, err.Error(), "not in allowed directories")
+}
+
+func TestValidate_SymlinkInAllowedDir(t *testing.T) {
+	// Create allowed directory and subdirectory
+	allowedDir := t.TempDir()
+	subDir := filepath.Join(allowedDir, "subdir")
+	err := os.MkdirAll(subDir, 0755)
+	require.NoError(t, err)
+
+	// Create a symlink within the allowed directory pointing to subdir
+	symlinkPath := filepath.Join(allowedDir, "link-to-subdir")
+	err = os.Symlink(subDir, symlinkPath)
+	require.NoError(t, err)
+
+	v := NewValidatorWithAllowAll([]string{allowedDir}, false)
+
+	// This should work because the resolved path is still under allowedDir
+	result, err := v.Validate(symlinkPath)
+	assert.NoError(t, err)
+	assert.Equal(t, subDir, result) // Returns resolved path
+}
+
+func TestAllowsAll(t *testing.T) {
+	v1 := NewValidator([]string{})
+	assert.False(t, v1.AllowsAll(), "default should not allow all")
+
+	v2 := NewValidatorWithAllowAll([]string{}, true)
+	assert.True(t, v2.AllowsAll(), "explicit allow-all should allow all")
+
+	v3 := NewValidatorWithAllowAll([]string{"/allowed"}, true)
+	assert.False(t, v3.AllowsAll(), "with allowlist, should not report allows-all")
 }

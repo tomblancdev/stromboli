@@ -26,7 +26,45 @@ All environment variables use the `STROMBOLI_` prefix.
 | `STROMBOLI_AGENT_IMAGE` | `ghcr.io/tomblancdev/stromboli-agent` | Default base container image |
 | `STROMBOLI_AGENT_IMAGE_TAG` | `latest` | Default base image tag |
 | `STROMBOLI_AGENT_CREDENTIALS_FILE` | `~/.claude/.credentials.json` | Path to Claude credentials |
-| `STROMBOLI_AGENT_SESSIONS_DIR` | `.stromboli/sessions` | Session storage directory |
+| `STROMBOLI_AGENT_SESSIONS_DIR` | `.stromboli/sessions` | Session storage directory (internal path) |
+| `STROMBOLI_AGENT_SESSIONS_HOST_DIR` | (same as SESSIONS_DIR) | Host path for sessions (for containerized deployment) |
+| `STROMBOLI_AGENT_ALLOWED_VOLUMES` | (empty) | Comma-separated allowed volume host paths |
+| `STROMBOLI_AGENT_WORKDIR_AUTO_CREATE` | `true` | Auto-create workdir if it doesn't exist |
+
+### Volume Security
+
+Control which host directories can be mounted via `volumes`:
+
+```bash
+# Only allow mounting from these directories (REQUIRED for production)
+STROMBOLI_AGENT_ALLOWED_VOLUMES="/home/user/projects,/data/workspaces"
+```
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `STROMBOLI_AGENT_ALLOWED_VOLUMES` | (empty) | Comma-separated allowed volume host paths |
+| `STROMBOLI_AGENT_ALLOW_ALL_VOLUMES` | `false` | ⚠️ DANGEROUS: Allow all paths when allowlist empty |
+
+!!! danger "Secure Default"
+    When `allowed_volumes` is empty (default), **all volume mounts are DENIED**.
+    This is a secure default for production.
+
+    Only set `STROMBOLI_AGENT_ALLOW_ALL_VOLUMES=true` for local development!
+
+**Security Features:**
+
+- **Symlink Resolution**: Paths are resolved before validation to prevent bypass
+- **Container Path Blocklist**: Sensitive container paths (`/etc`, `~/.claude`, etc.) are blocked
+- **Mount Options Validation**: Only safe options (`ro`, `rw`, `z`, `Z`, etc.) allowed
+
+### Workdir Auto-Creation
+
+By default, Stromboli auto-creates the `workdir` inside the container if it doesn't exist:
+
+```bash
+# Disable workdir auto-creation (container will fail if path doesn't exist)
+STROMBOLI_AGENT_WORKDIR_AUTO_CREATE=false
+```
 
 ### Claude CLI Image Settings
 
@@ -143,6 +181,7 @@ agent:
   # Credentials and sessions
   credentials_file: "~/.claude/.credentials.json"
   sessions_dir: ".stromboli/sessions"
+  sessions_host_dir: ""  # Set for containerized deployment (defaults to sessions_dir)
 
   # Dynamic images (glob patterns)
   allowed_image_patterns:
@@ -230,6 +269,9 @@ export STROMBOLI_RESOURCES_TIMEOUT=1h
 # Allowed images
 export STROMBOLI_AGENT_ALLOWED_IMAGE_PATTERNS="python:*,node:*,golang:*,ubuntu:*,debian:*"
 
+# Volume security (REQUIRED in production!)
+export STROMBOLI_AGENT_ALLOWED_VOLUMES="/data/projects,/home/user/workspaces"
+
 stromboli
 ```
 
@@ -244,22 +286,38 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      # Podman socket
+      # Podman socket (required for container orchestration)
       - ${XDG_RUNTIME_DIR:-/run/user/${UID:-1000}}/podman/podman.sock:/run/podman/podman.sock
-      # Claude credentials
+      # Claude credentials (read-only)
       - ${HOME}/.claude:/home/stromboli/.claude:ro
-      # Session persistence
-      - stromboli-sessions:/app/sessions
+      # Session persistence (bind mount for nested container access)
+      - ${HOME}/.stromboli/sessions:/app/sessions
     environment:
+      # Podman socket location for podman-remote
+      CONTAINER_HOST: "unix:///run/podman/podman.sock"
+
       STROMBOLI_SERVER_ADDRESS: ":8080"
       STROMBOLI_AGENT_IMAGE: "ghcr.io/tomblancdev/stromboli-agent"
       STROMBOLI_AGENT_MOUNT_CLAUDE_CLI: "true"
       STROMBOLI_AGENT_AUTO_PULL_CLI: "true"
-    userns_mode: keep-id  # For rootless Podman
+      STROMBOLI_AGENT_CREDENTIALS_FILE: "/home/stromboli/.claude/.credentials.json"
 
-volumes:
-  stromboli-sessions:
+      # Session paths for nested container mounts
+      STROMBOLI_AGENT_SESSIONS_DIR: "/app/sessions"
+      STROMBOLI_AGENT_SESSIONS_HOST_DIR: "${HOME}/.stromboli/sessions"
+
+      # Volume security (add sessions path to allowlist)
+      STROMBOLI_AGENT_ALLOWED_VOLUMES: "/home/user/projects,${HOME}/.stromboli/sessions"
+    userns_mode: keep-id  # For rootless Podman
 ```
+
+!!! note "Containerized Deployment"
+    When running Stromboli in a container, you need **two session paths**:
+
+    - `SESSIONS_DIR`: Path inside the Stromboli container (`/app/sessions`)
+    - `SESSIONS_HOST_DIR`: Path on the host machine (for mounting into agent containers)
+
+    Both must point to the same data via bind mount.
 
 ## Startup Behavior
 

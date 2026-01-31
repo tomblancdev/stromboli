@@ -41,7 +41,7 @@ func TestBuildRunnerRequest(t *testing.T) {
 	t.Run("builds runner request with all fields", func(t *testing.T) {
 		apiReq := RunRequest{
 			Prompt:    "test prompt",
-			Workspace: "/test/workspace",
+			Workdir: "/test/workspace",
 			Claude: types.ClaudeOptions{
 				SessionID: "sess-123",
 				Model:     "claude-opus-4",
@@ -55,7 +55,7 @@ func TestBuildRunnerRequest(t *testing.T) {
 		runnerReq := buildRunnerRequest(apiReq)
 
 		assert.Equal(t, "test prompt", runnerReq.Prompt)
-		assert.Equal(t, "/test/workspace", runnerReq.Workspace)
+		assert.Equal(t, "/test/workspace", runnerReq.Workdir)
 		assert.Equal(t, "sess-123", runnerReq.Claude.SessionID)
 		assert.Equal(t, "claude-opus-4", runnerReq.Claude.Model)
 		assert.Equal(t, "2", runnerReq.Podman.CPUs)
@@ -70,7 +70,7 @@ func TestBuildRunnerRequest(t *testing.T) {
 		runnerReq := buildRunnerRequest(apiReq)
 
 		assert.Equal(t, "minimal test", runnerReq.Prompt)
-		assert.Empty(t, runnerReq.Workspace)
+		assert.Empty(t, runnerReq.Workdir)
 		assert.Empty(t, runnerReq.Claude.SessionID)
 	})
 }
