@@ -1,8 +1,10 @@
 name: Agent Image
 
 on:
-  # Trigger when Dockerfile changes
+  # Trigger on release tags (build agent with version tag)
   push:
+    tags:
+      - 'v*'
     branches: [main]
     paths:
       - 'deployments/docker/Dockerfile.claude-cli'
@@ -59,10 +61,18 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "claude_version=${{ inputs.claude_version }}" >> $GITHUB_OUTPUT
             echo "tag=${{ inputs.tag }}" >> $GITHUB_OUTPUT
+            echo "is_release=false" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            # Release tag - use version tag
+            VERSION=${GITHUB_REF#refs/tags/}
+            echo "claude_version=latest" >> $GITHUB_OUTPUT
+            echo "tag=$VERSION" >> $GITHUB_OUTPUT
+            echo "is_release=true" >> $GITHUB_OUTPUT
           else
-            # Scheduled run - use latest
+            # Scheduled/push run - use latest
             echo "claude_version=latest" >> $GITHUB_OUTPUT
             echo "tag=latest" >> $GITHUB_OUTPUT
+            echo "is_release=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Build and push
@@ -74,6 +84,7 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           build-args: |
             CLAUDE_CODE_VERSION=${{ steps.vars.outputs.claude_version }}
           cache-from: type=gha
@@ -83,7 +94,9 @@ jobs:
         run: |
           echo "## 🤖 Agent Image Published" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Image:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Claude CLI:** \`${{ steps.vars.outputs.claude_version }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
