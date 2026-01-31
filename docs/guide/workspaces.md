@@ -261,7 +261,11 @@ The workdir is `/app` but files are mounted at `/workspace`. Fix:
 
 ## Security: Volume Allowlist
 
-By default, Stromboli allows mounting any host path. In production, configure an allowlist:
+!!! danger "Secure Default"
+    By default, when `allowed_volumes` is empty, **all volume mounts are DENIED**.
+    This is a secure default for production.
+
+Configure which host directories can be mounted:
 
 ```bash
 export STROMBOLI_AGENT_ALLOWED_VOLUMES="/home/user/projects,/data/workspaces"
@@ -277,16 +281,33 @@ agent:
 
 **Rules:**
 
-- If allowlist is empty → all paths allowed (default)
+- If allowlist is empty → **all paths DENIED** (secure default)
 - If allowlist is configured → only those paths (and subdirectories) are allowed
 - Path traversal (`../`) is blocked
+- Symlinks are resolved before validation (prevents bypass)
 
 ```bash
 # If /home/user/projects is allowed:
 /home/user/projects           # ✅ Allowed
 /home/user/projects/foo       # ✅ Allowed (subdirectory)
 /home/user/other              # ❌ Denied
+/etc                          # ❌ Denied (not in allowlist)
 ```
+
+### Development Mode
+
+For local development only, you can allow all paths:
+
+```bash
+# ⚠️ DANGEROUS - Only for local development!
+STROMBOLI_AGENT_ALLOW_ALL_VOLUMES=true
+```
+
+### Additional Security Features
+
+- **Container Path Blocklist**: Sensitive paths inside containers are blocked (`/etc`, `~/.claude`, `~/.ssh`, etc.)
+- **Mount Options Validation**: Only safe options allowed (`ro`, `rw`, `z`, `Z`, `noexec`, `nosuid`, `nodev`)
+- **Symlink Resolution**: Host paths are resolved to prevent symlink-based traversal attacks
 
 ## Workdir Auto-Creation
 

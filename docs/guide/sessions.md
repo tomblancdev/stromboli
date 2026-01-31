@@ -166,8 +166,10 @@ Sessions are stored in the directory configured by `STROMBOLI_AGENT_SESSIONS_DIR
 sessions/
 ├── 550e8400-e29b-41d4-a716-446655440000/
 │   ├── .claude/
-│   │   └── sessions/
-│   └── ...
+│   │   ├── projects/
+│   │   ├── debug/
+│   │   └── todos/
+│   └── .claude.json
 └── 6ba7b810-9dad-11d1-80b4-00c04fd430c8/
     └── ...
 ```
@@ -178,3 +180,54 @@ sessions/
     # Delete sessions older than 7 days
     find ./sessions -type d -mtime +7 -exec rm -rf {} \;
     ```
+
+## Containerized Deployment
+
+When running Stromboli in a container, session directories need special handling because:
+
+1. Stromboli creates session directories inside its container
+2. Agent containers need to mount these directories from the **host**
+
+### Two-Path Configuration
+
+```bash
+# Path inside Stromboli container (where sessions are created)
+STROMBOLI_AGENT_SESSIONS_DIR="/app/sessions"
+
+# Path on the host (for mounting into agent containers)
+STROMBOLI_AGENT_SESSIONS_HOST_DIR="/home/user/.stromboli/sessions"
+```
+
+### Docker Compose Setup
+
+```yaml
+services:
+  stromboli:
+    volumes:
+      # Mount host path at the internal path
+      - /home/user/.stromboli/sessions:/app/sessions
+    environment:
+      STROMBOLI_AGENT_SESSIONS_DIR: "/app/sessions"
+      STROMBOLI_AGENT_SESSIONS_HOST_DIR: "/home/user/.stromboli/sessions"
+      # Include sessions in allowed volumes
+      STROMBOLI_AGENT_ALLOWED_VOLUMES: "/home/user/projects,/home/user/.stromboli/sessions"
+```
+
+```mermaid
+graph TB
+    subgraph Host
+        HS["/home/user/.stromboli/sessions"]
+    end
+    subgraph Stromboli Container
+        SC["/app/sessions"]
+    end
+    subgraph Agent Container
+        AC["/home/user"]
+    end
+    HS -->|"bind mount"| SC
+    HS -->|"volume mount"| AC
+```
+
+!!! warning "Both Paths Required"
+    If `SESSIONS_HOST_DIR` is not set, it defaults to `SESSIONS_DIR`.
+    This only works when running Stromboli directly on the host (not in a container).

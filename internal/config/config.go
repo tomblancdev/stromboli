@@ -43,7 +43,8 @@ type AgentConfig struct {
 	CLIImageTag          string           // Claude CLI image tag
 	AutoPullCLI          bool             // Auto-pull CLI image on startup if missing
 	CredentialsFile      string           // Path to Claude credentials file (~/.claude/.credentials.json)
-	SessionsDir          string           // Directory for session data
+	SessionsDir          string           // Directory for session data (internal container path)
+	SessionsHostDir      string           // Host path for sessions (for nested container mounts, defaults to SessionsDir)
 	TokenCache           TokenCacheConfig // Token cache configuration
 }
 
@@ -172,6 +173,7 @@ func setupViper(v *viper.Viper) {
 	v.SetDefault("agent.auto_pull_cli", true)
 	v.SetDefault("agent.credentials_file", defaultCredentialsFile)
 	v.SetDefault("agent.sessions_dir", defaultSessionsDir)
+	v.SetDefault("agent.sessions_host_dir", "") // Empty means same as sessions_dir
 	v.SetDefault("agent.token_cache.enabled", true)
 	v.SetDefault("agent.token_cache.ttl", defaultTokenCacheTTL.String())
 	v.SetDefault("resources.memory", defaultMemory)
@@ -212,6 +214,7 @@ func setupViper(v *viper.Viper) {
 	_ = v.BindEnv("agent.auto_pull_cli", "STROMBOLI_AGENT_AUTO_PULL_CLI")
 	_ = v.BindEnv("agent.credentials_file", "STROMBOLI_AGENT_CREDENTIALS_FILE")
 	_ = v.BindEnv("agent.sessions_dir", "STROMBOLI_AGENT_SESSIONS_DIR")
+	_ = v.BindEnv("agent.sessions_host_dir", "STROMBOLI_AGENT_SESSIONS_HOST_DIR")
 	_ = v.BindEnv("agent.token_cache.enabled", "STROMBOLI_TOKEN_CACHE_ENABLED")
 	_ = v.BindEnv("agent.token_cache.ttl", "STROMBOLI_TOKEN_CACHE_TTL")
 	_ = v.BindEnv("resources.memory", "STROMBOLI_DEFAULT_MEMORY")
@@ -258,6 +261,7 @@ func parseConfig(v *viper.Viper) (*Config, error) {
 			AutoPullCLI:          v.GetBool("agent.auto_pull_cli"),
 			CredentialsFile:      v.GetString("agent.credentials_file"),
 			SessionsDir:          v.GetString("agent.sessions_dir"),
+			SessionsHostDir:      getSessionsHostDir(v),
 			TokenCache: TokenCacheConfig{
 				Enabled: v.GetBool("agent.token_cache.enabled"),
 				TTL:     cacheTTL,
@@ -376,6 +380,15 @@ func parseDuration(s string) (time.Duration, error) {
 		return 0, nil
 	}
 	return time.ParseDuration(s)
+}
+
+// getSessionsHostDir returns the sessions host dir, falling back to sessions_dir if not set
+func getSessionsHostDir(v *viper.Viper) string {
+	hostDir := v.GetString("agent.sessions_host_dir")
+	if hostDir != "" {
+		return hostDir
+	}
+	return v.GetString("agent.sessions_dir")
 }
 
 // Validate checks that the configuration is valid

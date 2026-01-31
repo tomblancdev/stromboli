@@ -21,10 +21,24 @@ All notable changes to Stromboli will be documented here.
     }
     ```
 
+- **BREAKING: Default-deny volume security**: When `allowed_volumes` is empty, all volume mounts are now **DENIED** by default (was: allow all). Set `STROMBOLI_AGENT_ALLOW_ALL_VOLUMES=true` for development.
+
+- **Agent entrypoint simplified**: Removed `claude` from entrypoint command. The runner now always prepends `claude` when `MOUNT_CLAUDE_CLI=true`.
+
 ### Added
 
 - **Workdir auto-creation**: If `workdir` doesn't exist in the container, it's automatically created (configurable via `STROMBOLI_AGENT_WORKDIR_AUTO_CREATE`)
 - **Volume validation**: Volume host paths are validated against `allowed_volumes` allowlist (`STROMBOLI_AGENT_ALLOWED_VOLUMES`)
+- **Sessions host path**: New `STROMBOLI_AGENT_SESSIONS_HOST_DIR` config for containerized deployments where Stromboli runs inside a container
+- **Symlink bypass prevention**: Host paths are resolved via `filepath.EvalSymlinks()` before validation
+- **Container path blocklist**: Sensitive container paths are blocked (`/etc`, `~/.claude`, `~/.ssh`, `~/.aws`, etc.)
+- **Mount options validation**: Only safe mount options allowed (`ro`, `rw`, `z`, `Z`, `noexec`, `nosuid`, `nodev`, etc.)
+- **Workdir character validation**: Workdir paths validated for shell-safe characters only
+
+### Security
+
+- Defense-in-depth volume validation with multiple security layers
+- Explicit error messages for security rejections (e.g., "Alpine/musl-based images not supported")
 
 ---
 

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -77,6 +78,7 @@ type PodmanRunner struct {
 	image             string
 	secretsMgr        *secrets.Manager
 	sessionMgr        *session.Manager
+	sessionsHostDir   string // Host path for sessions (for nested container mounts)
 	volumeValidator   *workspace.Validator
 	imageValidator    *ImageValidator
 	mountClaudeCLI    bool
@@ -110,11 +112,13 @@ func NewPodmanRunnerWithDefaultsAndExecutor(image, credentialsFile, sessionsDir 
 		AllowedVolumes:    allowedVolumes,
 		WorkdirAutoCreate: true, // Default to true for backward compatibility
 	}
-	return NewPodmanRunnerFull(image, credentialsFile, sessionsDir, defaults, ImageConfig{}, volumeConfig, executor)
+	return NewPodmanRunnerFull(image, credentialsFile, sessionsDir, sessionsDir, defaults, ImageConfig{}, volumeConfig, executor)
 }
 
 // NewPodmanRunnerFull creates a new Podman-based runner with all configuration options
-func NewPodmanRunnerFull(image, credentialsFile, sessionsDir string, defaults ResourceDefaults, imageConfig ImageConfig, volumeConfig VolumeConfig, executor Executor) (*PodmanRunner, error) {
+// sessionsDir is the internal path where sessions are created (inside this container)
+// sessionsHostDir is the host path for mounting sessions into agent containers
+func NewPodmanRunnerFull(image, credentialsFile, sessionsDir, sessionsHostDir string, defaults ResourceDefaults, imageConfig ImageConfig, volumeConfig VolumeConfig, executor Executor) (*PodmanRunner, error) {
 	// Create secrets manager and ensure credentials exist + Podman secret is created
 	secretsMgr := secrets.NewManagerWithPath(credentialsFile)
 	if err := secretsMgr.EnsureExists(context.Background(), ""); err != nil {
@@ -133,6 +137,7 @@ func NewPodmanRunnerFull(image, credentialsFile, sessionsDir string, defaults Re
 		image:             image,
 		secretsMgr:        secretsMgr,
 		sessionMgr:        session.NewManager(sessionsDir),
+		sessionsHostDir:   sessionsHostDir,
 		volumeValidator:   workspace.NewValidatorWithAllowAll(volumeConfig.AllowedVolumes, volumeConfig.AllowAllVolumes),
 		imageValidator:    imageValidator,
 		mountClaudeCLI:    imageConfig.MountClaudeCLI,
@@ -184,11 +189,13 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	}
 	containerImage := r.imageValidator.Resolve(req.Podman.Image)
 
-	// Create or get session directory
-	sessionID, absSessionPath, err := r.sessionMgr.Create(req.Claude.SessionID)
+	// Create or get session directory (creates on internal path)
+	sessionID, _, err := r.sessionMgr.Create(req.Claude.SessionID)
 	if err != nil {
 		return nil, err
 	}
+	// Get the host path for mounting into agent container
+	hostSessionPath := r.getHostSessionPath(sessionID)
 
 	// Build Claude command with all options
 	claudeBuilder := claude.NewCommandBuilder().WithPrompt(req.Prompt)
@@ -230,7 +237,8 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	// HOME env points here so Claude writes to host-owned directory
 	// Sessions are isolated from each other
 	// Data persists until explicitly destroyed
-	podmanBuilder.WithVolume(absSessionPath, "/home/user")
+	// NOTE: We use hostSessionPath because Podman runs on host, not inside this container
+	podmanBuilder.WithVolume(hostSessionPath, "/home/user")
 
 	// Mount credentials via Podman secret (more secure than volume mount)
 	// Secret is mounted at ~/.claude/.credentials.json so Claude finds it automatically
@@ -379,11 +387,13 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	}
 	containerImage := r.imageValidator.Resolve(req.Podman.Image)
 
-	// Create or get session directory
-	sessionID, absSessionPath, err := r.sessionMgr.Create(req.Claude.SessionID)
+	// Create or get session directory (creates on internal path)
+	sessionID, _, err := r.sessionMgr.Create(req.Claude.SessionID)
 	if err != nil {
 		return nil, err
 	}
+	// Get the host path for mounting into agent container
+	hostSessionPath := r.getHostSessionPath(sessionID)
 
 	// Build Claude command with all options
 	claudeBuilder := claude.NewCommandBuilder().WithPrompt(req.Prompt)
@@ -418,7 +428,8 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	}
 
 	// Mount session-specific directory as user's home
-	podmanBuilder.WithVolume(absSessionPath, "/home/user")
+	// NOTE: We use hostSessionPath because Podman runs on host, not inside this container
+	podmanBuilder.WithVolume(hostSessionPath, "/home/user")
 
 	// Mount credentials via Podman secret (more secure than volume mount)
 	podmanBuilder.WithSecretTarget(r.secretsMgr.SecretName(), "/home/user/.claude/.credentials.json")
@@ -577,6 +588,12 @@ func (r *PodmanRunner) DestroySession(sessionID string) error {
 // ListSessions returns all existing session IDs
 func (r *PodmanRunner) ListSessions() ([]string, error) {
 	return r.sessionMgr.List()
+}
+
+// getHostSessionPath returns the host path for a session directory
+// This is used when mounting sessions into agent containers
+func (r *PodmanRunner) getHostSessionPath(sessionID string) string {
+	return filepath.Join(r.sessionsHostDir, sessionID)
 }
 
 // RunAsync executes Claude in a goroutine and calls onComplete when done

@@ -11,5 +11,5 @@ HOME_DIR="${HOME:-/home/claude}"
 # Create required Claude directories if they don't exist
 mkdir -p "$HOME_DIR/.claude" 2>/dev/null || true
 
-# Execute claude with all arguments
-exec claude "$@"
+# Execute the command passed (claude is prepended by runner when needed)
+exec "$@"

@@ -141,6 +141,7 @@ func main() {
 		fullImage,
 		cfg.Agent.CredentialsFile,
 		cfg.Agent.SessionsDir,
+		cfg.Agent.SessionsHostDir,
 		resourceDefaults,
 		imageConfig,
 		volumeConfig,

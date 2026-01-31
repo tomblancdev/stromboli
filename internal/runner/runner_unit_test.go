@@ -1075,7 +1075,7 @@ func TestPodmanRunner_Run_WorkdirAutoCreateDisabled(t *testing.T) {
 		WorkdirAutoCreate: false,
 	}
 
-	runner, err := NewPodmanRunnerFull("test-image", secretsFile, sessionsDir, ResourceDefaults{}, ImageConfig{}, volumeConfig, mock)
+	runner, err := NewPodmanRunnerFull("test-image", secretsFile, sessionsDir, sessionsDir, ResourceDefaults{}, ImageConfig{}, volumeConfig, mock)
 	require.NoError(t, err)
 
 	// Run with workdir but auto-create disabled
