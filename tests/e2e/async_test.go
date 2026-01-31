@@ -18,7 +18,7 @@ func TestAsyncEndpoint(t *testing.T) {
 
 	t.Run("missing prompt returns 400", func(t *testing.T) {
 		payload := map[string]interface{}{
-			"workspace": "/tmp",
+			"workdir": "/tmp",
 		}
 
 		resp := makeRequest(t, "POST", env.BaseURL+"/run/async", payload, nil)
