@@ -244,41 +244,9 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	// Secret is mounted at ~/.claude/.credentials.json so Claude finds it automatically
 	podmanBuilder.WithSecretTarget(r.secretsMgr.SecretName(), "/home/user/.claude/.credentials.json")
 
-	// Validate workdir for shell safety
-	if err := validateWorkdir(req.Workdir); err != nil {
-		return nil, fmt.Errorf("workdir validation failed: %w", err)
-	}
-
-	// Validate and add volumes (host:container[:options] format)
-	if err := r.validateVolumes(req.Podman.Volumes); err != nil {
-		return nil, fmt.Errorf("volume validation failed: %w", err)
-	}
-	for _, vol := range req.Podman.Volumes {
-		podmanBuilder.WithVolumeRaw(vol)
-	}
-
-	// Set working directory inside container
-	if req.Workdir != "" {
-		podmanBuilder.WithWorkdir(req.Workdir)
-	}
-
-	// Validate and mount secrets as environment variables
-	if err := ValidateSecretsEnv(req.Podman.SecretsEnv); err != nil {
-		return nil, fmt.Errorf("secrets validation failed: %w", err)
-	}
-	for envVar, secretName := range req.Podman.SecretsEnv {
-		podmanBuilder.WithSecretEnv(secretName, envVar)
-	}
-
-	// Apply resource limits
-	if req.Podman.Memory != "" {
-		podmanBuilder.WithMemory(req.Podman.Memory)
-	}
-	if req.Podman.CPUs != "" {
-		podmanBuilder.WithCPUs(req.Podman.CPUs)
-	}
-	if req.Podman.CPUShares > 0 {
-		podmanBuilder.WithCPUShares(req.Podman.CPUShares)
+	// Apply request configuration (workdir, volumes, secrets, resource limits)
+	if err := r.applyRequestConfig(req, podmanBuilder); err != nil {
+		return nil, err
 	}
 
 	// When mounting Claude CLI image, prepend "claude" to command
@@ -434,41 +402,9 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	// Mount credentials via Podman secret (more secure than volume mount)
 	podmanBuilder.WithSecretTarget(r.secretsMgr.SecretName(), "/home/user/.claude/.credentials.json")
 
-	// Validate workdir for shell safety
-	if err := validateWorkdir(req.Workdir); err != nil {
-		return nil, fmt.Errorf("workdir validation failed: %w", err)
-	}
-
-	// Validate and add volumes (host:container[:options] format)
-	if err := r.validateVolumes(req.Podman.Volumes); err != nil {
-		return nil, fmt.Errorf("volume validation failed: %w", err)
-	}
-	for _, vol := range req.Podman.Volumes {
-		podmanBuilder.WithVolumeRaw(vol)
-	}
-
-	// Set working directory inside container
-	if req.Workdir != "" {
-		podmanBuilder.WithWorkdir(req.Workdir)
-	}
-
-	// Validate and mount secrets as environment variables
-	if err := ValidateSecretsEnv(req.Podman.SecretsEnv); err != nil {
-		return nil, fmt.Errorf("secrets validation failed: %w", err)
-	}
-	for envVar, secretName := range req.Podman.SecretsEnv {
-		podmanBuilder.WithSecretEnv(secretName, envVar)
-	}
-
-	// Apply resource limits
-	if req.Podman.Memory != "" {
-		podmanBuilder.WithMemory(req.Podman.Memory)
-	}
-	if req.Podman.CPUs != "" {
-		podmanBuilder.WithCPUs(req.Podman.CPUs)
-	}
-	if req.Podman.CPUShares > 0 {
-		podmanBuilder.WithCPUShares(req.Podman.CPUShares)
+	// Apply request configuration (workdir, volumes, secrets, resource limits)
+	if err := r.applyRequestConfig(req, podmanBuilder); err != nil {
+		return nil, err
 	}
 
 	// When mounting Claude CLI image, prepend "claude" to command
@@ -594,6 +530,50 @@ func (r *PodmanRunner) ListSessions() ([]string, error) {
 // This is used when mounting sessions into agent containers
 func (r *PodmanRunner) getHostSessionPath(sessionID string) string {
 	return filepath.Join(r.sessionsHostDir, sessionID)
+}
+
+// applyRequestConfig validates and applies workdir, volumes, secrets, and resource limits
+// to the podman builder. This consolidates the common configuration logic used by both
+// Run() and RunStream().
+func (r *PodmanRunner) applyRequestConfig(req Request, podmanBuilder *podman.CommandBuilder) error {
+	// Validate workdir for shell safety
+	if err := validateWorkdir(req.Workdir); err != nil {
+		return fmt.Errorf("workdir validation failed: %w", err)
+	}
+
+	// Validate and add volumes (host:container[:options] format)
+	if err := r.validateVolumes(req.Podman.Volumes); err != nil {
+		return fmt.Errorf("volume validation failed: %w", err)
+	}
+	for _, vol := range req.Podman.Volumes {
+		podmanBuilder.WithVolumeRaw(vol)
+	}
+
+	// Set working directory inside container
+	if req.Workdir != "" {
+		podmanBuilder.WithWorkdir(req.Workdir)
+	}
+
+	// Validate and mount secrets as environment variables
+	if err := ValidateSecretsEnv(req.Podman.SecretsEnv); err != nil {
+		return fmt.Errorf("secrets validation failed: %w", err)
+	}
+	for envVar, secretName := range req.Podman.SecretsEnv {
+		podmanBuilder.WithSecretEnv(secretName, envVar)
+	}
+
+	// Apply resource limits
+	if req.Podman.Memory != "" {
+		podmanBuilder.WithMemory(req.Podman.Memory)
+	}
+	if req.Podman.CPUs != "" {
+		podmanBuilder.WithCPUs(req.Podman.CPUs)
+	}
+	if req.Podman.CPUShares > 0 {
+		podmanBuilder.WithCPUShares(req.Podman.CPUShares)
+	}
+
+	return nil
 }
 
 // RunAsync executes Claude in a goroutine and calls onComplete when done
