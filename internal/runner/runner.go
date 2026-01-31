@@ -790,14 +790,6 @@ func (r *PodmanRunner) validateVolumes(volumes []string) error {
 	return nil
 }
 
-// parseVolumeHostPath extracts the host path from a volume mount string
-// Supports formats: host:container, host:container:options
-// Deprecated: Use parseVolumeComponents instead for full validation
-func parseVolumeHostPath(volume string) (string, error) {
-	hostPath, _, _, err := parseVolumeComponents(volume)
-	return hostPath, err
-}
-
 // wrapCommandWithWorkdirSetup wraps the command to create the workdir if it doesn't exist
 func wrapCommandWithWorkdirSetup(workdir string, cmd []string, autoCreate bool) []string {
 	if workdir == "" || !autoCreate {
@@ -825,44 +817,49 @@ func wrapCommandWithWorkdirSetup(workdir string, cmd []string, autoCreate bool) 
 // Security validation constants
 const (
 	// MaxWorkdirLength is the maximum length of workdir path
+	// Based on PATH_MAX (4096) on Linux systems
 	MaxWorkdirLength = 4096
 
 	// MaxVolumePathLength is the maximum length of volume paths
+	// Based on PATH_MAX (4096) on Linux systems
 	MaxVolumePathLength = 4096
 )
 
 // blockedContainerPaths are sensitive container paths that cannot be mounted to
-var blockedContainerPaths = []string{
+// Using a map for O(1) lookup performance
+var blockedContainerPaths = map[string]bool{
 	// User credential directories
-	"/home/user/.claude",       // Claude credentials and config
-	"/home/user/.ssh",          // SSH keys
-	"/home/user/.gnupg",        // GPG keys
-	"/home/user/.aws",          // AWS credentials
-	"/home/user/.docker",       // Docker credentials
-	"/home/user/.kube",         // Kubernetes credentials
-	"/home/user/.config",       // Application configs (often contain secrets)
-	"/home/user/.netrc",        // Network credentials
-	"/home/user/.git-credentials", // Git credentials
+	"/home/user/.claude":          true, // Claude credentials and config
+	"/home/user/.ssh":             true, // SSH keys
+	"/home/user/.gnupg":           true, // GPG keys
+	"/home/user/.aws":             true, // AWS credentials
+	"/home/user/.docker":          true, // Docker credentials
+	"/home/user/.kube":            true, // Kubernetes credentials
+	"/home/user/.config":          true, // Application configs (often contain secrets)
+	"/home/user/.local":           true, // Local data (often contains secrets)
+	"/home/user/.netrc":           true, // Network credentials
+	"/home/user/.git-credentials": true, // Git credentials
+	"/home/user/.password-store":  true, // Pass password manager
 	// Shell config (injection risk)
-	"/home/user/.bashrc",
-	"/home/user/.bash_profile",
-	"/home/user/.profile",
-	"/home/user/.zshrc",
+	"/home/user/.bashrc":       true,
+	"/home/user/.bash_profile": true,
+	"/home/user/.profile":      true,
+	"/home/user/.zshrc":        true,
 	// System paths
-	"/etc",                     // System config
-	"/root",                    // Root home
-	"/bin",                     // System binaries
-	"/sbin",                    // System binaries
-	"/usr/bin",                 // User binaries
-	"/usr/sbin",                // User binaries
-	"/usr/local/bin",           // Local binaries
-	"/lib",                     // System libraries
-	"/lib64",                   // System libraries
-	"/var/run",                 // Runtime data
-	"/run",                     // Runtime data
-	"/proc",                    // Process info
-	"/sys",                     // System info
-	"/dev",                     // Devices
+	"/etc":           true, // System config
+	"/root":          true, // Root home
+	"/bin":           true, // System binaries
+	"/sbin":          true, // System binaries
+	"/usr/bin":       true, // User binaries
+	"/usr/sbin":      true, // User binaries
+	"/usr/local/bin": true, // Local binaries
+	"/lib":           true, // System libraries
+	"/lib64":         true, // System libraries
+	"/var/run":       true, // Runtime data
+	"/run":           true, // Runtime data
+	"/proc":          true, // Process info
+	"/sys":           true, // System info
+	"/dev":           true, // Devices
 }
 
 // allowedMountOptions are the only mount options allowed in volume specifications
@@ -936,12 +933,15 @@ func validateContainerPath(containerPath string) error {
 	// Clean the path for consistent comparison
 	cleanPath := strings.TrimSuffix(containerPath, "/")
 
-	// Check against blocked paths
-	for _, blocked := range blockedContainerPaths {
-		// Exact match or is a subdirectory
-		if cleanPath == blocked || strings.HasPrefix(cleanPath, blocked+"/") {
+	// Check against blocked paths using O(1) map lookup
+	// We check the path and all its parent directories
+	pathToCheck := cleanPath
+	for pathToCheck != "" && pathToCheck != "/" {
+		if blockedContainerPaths[pathToCheck] {
 			return fmt.Errorf("container path %q is blocked for security reasons", containerPath)
 		}
+		// Move to parent directory
+		pathToCheck = filepath.Dir(pathToCheck)
 	}
 
 	return nil
