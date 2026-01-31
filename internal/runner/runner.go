@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -66,7 +67,8 @@ type ImageConfig struct {
 
 // VolumeConfig contains volume-related configuration
 type VolumeConfig struct {
-	AllowedVolumes    []string // Allowed host paths for volume mounts (empty = allow all)
+	AllowedVolumes    []string // Allowed host paths for volume mounts
+	AllowAllVolumes   bool     // DANGEROUS: Allow all volumes when allowlist empty (dev only!)
 	WorkdirAutoCreate bool     // Auto-create workdir if it doesn't exist
 }
 
@@ -131,7 +133,7 @@ func NewPodmanRunnerFull(image, credentialsFile, sessionsDir string, defaults Re
 		image:             image,
 		secretsMgr:        secretsMgr,
 		sessionMgr:        session.NewManager(sessionsDir),
-		volumeValidator:   workspace.NewValidator(volumeConfig.AllowedVolumes),
+		volumeValidator:   workspace.NewValidatorWithAllowAll(volumeConfig.AllowedVolumes, volumeConfig.AllowAllVolumes),
 		imageValidator:    imageValidator,
 		mountClaudeCLI:    imageConfig.MountClaudeCLI,
 		workdirAutoCreate: volumeConfig.WorkdirAutoCreate,
@@ -148,7 +150,7 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	// Add request attributes to span
 	tracing.AddSpanAttributes(ctx,
 		"runner.prompt_length", len(req.Prompt),
-		"runner.workspace", req.Workdir,
+		"runner.workdir", req.Workdir,
 		"runner.model", req.Claude.Model,
 		"runner.session_id", req.Claude.SessionID,
 	)
@@ -233,6 +235,11 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	// Mount credentials via Podman secret (more secure than volume mount)
 	// Secret is mounted at ~/.claude/.credentials.json so Claude finds it automatically
 	podmanBuilder.WithSecretTarget(r.secretsMgr.SecretName(), "/home/user/.claude/.credentials.json")
+
+	// Validate workdir for shell safety
+	if err := validateWorkdir(req.Workdir); err != nil {
+		return nil, fmt.Errorf("workdir validation failed: %w", err)
+	}
 
 	// Validate and add volumes (host:container[:options] format)
 	if err := r.validateVolumes(req.Podman.Volumes); err != nil {
@@ -337,7 +344,7 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	// Add request attributes to span
 	tracing.AddSpanAttributes(ctx,
 		"runner.prompt_length", len(req.Prompt),
-		"runner.workspace", req.Workdir,
+		"runner.workdir", req.Workdir,
 		"runner.model", req.Claude.Model,
 		"runner.session_id", req.Claude.SessionID,
 		"runner.streaming", true,
@@ -415,6 +422,11 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 
 	// Mount credentials via Podman secret (more secure than volume mount)
 	podmanBuilder.WithSecretTarget(r.secretsMgr.SecretName(), "/home/user/.claude/.credentials.json")
+
+	// Validate workdir for shell safety
+	if err := validateWorkdir(req.Workdir); err != nil {
+		return nil, fmt.Errorf("workdir validation failed: %w", err)
+	}
 
 	// Validate and add volumes (host:container[:options] format)
 	if err := r.validateVolumes(req.Podman.Volumes); err != nil {
@@ -751,11 +763,14 @@ func (r *PodmanRunner) applyDefaults(opts types.PodmanOptions) types.PodmanOptio
 	return opts
 }
 
-// validateVolumes validates volume mount strings against the volume allowlist
-// Volume format: host_path:container_path[:options]
+// validateVolumes validates volume mount strings against multiple security checks:
+// 1. Volume format (host:container[:options])
+// 2. Host path against allowlist
+// 3. Container path against blocklist
+// 4. Mount options against allowlist
 func (r *PodmanRunner) validateVolumes(volumes []string) error {
 	for _, vol := range volumes {
-		hostPath, err := parseVolumeHostPath(vol)
+		hostPath, containerPath, options, err := parseVolumeComponents(vol)
 		if err != nil {
 			return fmt.Errorf("invalid volume format %q: %w", vol, err)
 		}
@@ -764,30 +779,26 @@ func (r *PodmanRunner) validateVolumes(volumes []string) error {
 		if _, err := r.volumeValidator.Validate(hostPath); err != nil {
 			return fmt.Errorf("volume host path not allowed: %w", err)
 		}
+
+		// Validate container path against blocklist
+		if err := validateContainerPath(containerPath); err != nil {
+			return fmt.Errorf("volume container path invalid: %w", err)
+		}
+
+		// Validate mount options
+		if err := validateMountOptions(options); err != nil {
+			return fmt.Errorf("volume mount options invalid: %w", err)
+		}
 	}
 	return nil
 }
 
 // parseVolumeHostPath extracts the host path from a volume mount string
 // Supports formats: host:container, host:container:options
+// Deprecated: Use parseVolumeComponents instead for full validation
 func parseVolumeHostPath(volume string) (string, error) {
-	parts := strings.Split(volume, ":")
-
-	// Handle Windows paths (e.g., C:\path:container)
-	if len(parts) >= 2 && len(parts[0]) == 1 && strings.ToUpper(parts[0]) >= "A" && strings.ToUpper(parts[0]) <= "Z" {
-		// Windows path like C:\foo:/container
-		if len(parts) < 3 {
-			return "", fmt.Errorf("invalid volume format, expected host:container")
-		}
-		return parts[0] + ":" + parts[1], nil
-	}
-
-	// Unix paths
-	if len(parts) < 2 {
-		return "", fmt.Errorf("invalid volume format, expected host:container[:options]")
-	}
-
-	return parts[0], nil
+	hostPath, _, _, err := parseVolumeComponents(volume)
+	return hostPath, err
 }
 
 // wrapCommandWithWorkdirSetup wraps the command to create the workdir if it doesn't exist
@@ -812,4 +823,182 @@ func wrapCommandWithWorkdirSetup(workdir string, cmd []string, autoCreate bool) 
 	shellCmd := fmt.Sprintf("mkdir -p '%s' && exec %s", escapedWorkdir, strings.Join(escapedArgs, " "))
 
 	return []string{"sh", "-c", shellCmd}
+}
+
+// Security validation constants
+const (
+	// MaxWorkdirLength is the maximum length of workdir path
+	MaxWorkdirLength = 4096
+
+	// MaxVolumePathLength is the maximum length of volume paths
+	MaxVolumePathLength = 4096
+)
+
+// blockedContainerPaths are sensitive container paths that cannot be mounted to
+var blockedContainerPaths = []string{
+	// User credential directories
+	"/home/user/.claude",       // Claude credentials and config
+	"/home/user/.ssh",          // SSH keys
+	"/home/user/.gnupg",        // GPG keys
+	"/home/user/.aws",          // AWS credentials
+	"/home/user/.docker",       // Docker credentials
+	"/home/user/.kube",         // Kubernetes credentials
+	"/home/user/.config",       // Application configs (often contain secrets)
+	"/home/user/.netrc",        // Network credentials
+	"/home/user/.git-credentials", // Git credentials
+	// Shell config (injection risk)
+	"/home/user/.bashrc",
+	"/home/user/.bash_profile",
+	"/home/user/.profile",
+	"/home/user/.zshrc",
+	// System paths
+	"/etc",                     // System config
+	"/root",                    // Root home
+	"/bin",                     // System binaries
+	"/sbin",                    // System binaries
+	"/usr/bin",                 // User binaries
+	"/usr/sbin",                // User binaries
+	"/usr/local/bin",           // Local binaries
+	"/lib",                     // System libraries
+	"/lib64",                   // System libraries
+	"/var/run",                 // Runtime data
+	"/run",                     // Runtime data
+	"/proc",                    // Process info
+	"/sys",                     // System info
+	"/dev",                     // Devices
+}
+
+// allowedMountOptions are the only mount options allowed in volume specifications
+var allowedMountOptions = map[string]bool{
+	"ro":       true, // Read-only
+	"rw":       true, // Read-write (default)
+	"z":        true, // SELinux shared label
+	"Z":        true, // SELinux private label
+	"noexec":   true, // Prevent execution (security-enhancing)
+	"nosuid":   true, // Prevent setuid (security-enhancing)
+	"nodev":    true, // Prevent device files (security-enhancing)
+	"rslave":   true, // Recursive slave propagation
+	"rprivate": true, // Recursive private propagation
+	"rshared":  true, // Recursive shared propagation
+	"slave":    true, // Slave propagation
+	"private":  true, // Private propagation
+	"shared":   true, // Shared propagation
+	"nocopy":   true, // Don't copy data from container
+	"copy":     true, // Copy data from container
+	"U":        true, // Chown to container user
+}
+
+// validWorkdirPattern only allows safe characters in workdir paths
+var validWorkdirPattern = regexp.MustCompile(`^[a-zA-Z0-9/_.\-]+$`)
+
+// validateWorkdir validates the workdir path for safety
+func validateWorkdir(workdir string) error {
+	if workdir == "" {
+		return nil // Empty workdir is valid
+	}
+
+	// Check length
+	if len(workdir) > MaxWorkdirLength {
+		return fmt.Errorf("workdir path too long (max %d characters)", MaxWorkdirLength)
+	}
+
+	// Must be absolute path
+	if !strings.HasPrefix(workdir, "/") {
+		return fmt.Errorf("workdir must be an absolute path starting with /")
+	}
+
+	// Check for safe characters only
+	if !validWorkdirPattern.MatchString(workdir) {
+		return fmt.Errorf("workdir contains invalid characters (only alphanumeric, /, _, ., - allowed)")
+	}
+
+	// Check for path traversal attempts
+	if strings.Contains(workdir, "..") {
+		return fmt.Errorf("workdir cannot contain path traversal (..) sequences")
+	}
+
+	return nil
+}
+
+// validateContainerPath checks if a container path is allowed
+func validateContainerPath(containerPath string) error {
+	if containerPath == "" {
+		return fmt.Errorf("container path cannot be empty")
+	}
+
+	// Check length
+	if len(containerPath) > MaxVolumePathLength {
+		return fmt.Errorf("container path too long (max %d characters)", MaxVolumePathLength)
+	}
+
+	// Must be absolute
+	if !strings.HasPrefix(containerPath, "/") {
+		return fmt.Errorf("container path must be absolute")
+	}
+
+	// Clean the path for consistent comparison
+	cleanPath := strings.TrimSuffix(containerPath, "/")
+
+	// Check against blocked paths
+	for _, blocked := range blockedContainerPaths {
+		// Exact match or is a subdirectory
+		if cleanPath == blocked || strings.HasPrefix(cleanPath, blocked+"/") {
+			return fmt.Errorf("container path %q is blocked for security reasons", containerPath)
+		}
+	}
+
+	return nil
+}
+
+// validateMountOptions validates volume mount options
+func validateMountOptions(options string) error {
+	if options == "" {
+		return nil // No options is valid
+	}
+
+	// Split options by comma
+	for _, opt := range strings.Split(options, ",") {
+		opt = strings.TrimSpace(opt)
+		if opt == "" {
+			continue
+		}
+
+		if !allowedMountOptions[opt] {
+			return fmt.Errorf("mount option %q is not allowed", opt)
+		}
+	}
+
+	return nil
+}
+
+// parseVolumeComponents parses a volume string into host path, container path, and options
+func parseVolumeComponents(volume string) (hostPath, containerPath, options string, err error) {
+	parts := strings.Split(volume, ":")
+
+	// Handle Windows paths (e.g., C:\path:container)
+	if len(parts) >= 2 && len(parts[0]) == 1 && strings.ToUpper(parts[0]) >= "A" && strings.ToUpper(parts[0]) <= "Z" {
+		// Windows path like C:\foo:/container
+		if len(parts) < 3 {
+			return "", "", "", fmt.Errorf("invalid volume format, expected host:container")
+		}
+		hostPath = parts[0] + ":" + parts[1]
+		containerPath = parts[2]
+		if len(parts) >= 4 {
+			options = parts[3]
+		}
+		return hostPath, containerPath, options, nil
+	}
+
+	// Unix paths
+	if len(parts) < 2 {
+		return "", "", "", fmt.Errorf("invalid volume format, expected host:container[:options]")
+	}
+
+	hostPath = parts[0]
+	containerPath = parts[1]
+	if len(parts) >= 3 {
+		options = parts[2]
+	}
+
+	return hostPath, containerPath, options, nil
 }

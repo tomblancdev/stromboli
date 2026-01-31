@@ -133,6 +133,7 @@ func main() {
 
 	volumeConfig := runner.VolumeConfig{
 		AllowedVolumes:    cfg.Agent.AllowedVolumes,
+		AllowAllVolumes:   cfg.Agent.AllowAllVolumes,
 		WorkdirAutoCreate: cfg.Agent.WorkdirAutoCreate,
 	}
 
@@ -164,6 +165,10 @@ func main() {
 	if len(cfg.Agent.AllowedVolumes) > 0 {
 		slog.Info("Volume allowlist configured",
 			"allowed_volumes", cfg.Agent.AllowedVolumes)
+	} else if cfg.Agent.AllowAllVolumes {
+		slog.Warn("⚠️  SECURITY WARNING: allow_all_volumes is enabled - all host paths can be mounted!")
+	} else {
+		slog.Info("Volume mounts disabled (no allowlist configured)")
 	}
 
 	slog.Info("Workdir auto-creation", "enabled", cfg.Agent.WorkdirAutoCreate)

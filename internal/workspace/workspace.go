@@ -8,13 +8,27 @@ import (
 
 // Validator validates workspace paths against an allowlist
 type Validator struct {
-	allowedPaths []string
+	allowedPaths    []string
+	allowAllVolumes bool // Explicit opt-in to allow all paths (dangerous!)
 }
 
 // NewValidator creates a workspace validator with allowed paths
-// If allowedPaths is empty, all paths are allowed (backward compatible)
+// SECURITY: When allowedPaths is empty and allowAllVolumes is false (default),
+// all volume mounts are DENIED. This is the secure default.
 func NewValidator(allowedPaths []string) *Validator {
-	return &Validator{allowedPaths: allowedPaths}
+	return &Validator{
+		allowedPaths:    allowedPaths,
+		allowAllVolumes: false,
+	}
+}
+
+// NewValidatorWithAllowAll creates a validator that allows all paths when allowlist is empty
+// WARNING: This is dangerous and should only be used in development!
+func NewValidatorWithAllowAll(allowedPaths []string, allowAll bool) *Validator {
+	return &Validator{
+		allowedPaths:    allowedPaths,
+		allowAllVolumes: allowAll,
+	}
 }
 
 // Validate checks if the workspace path is allowed
@@ -33,12 +47,27 @@ func (v *Validator) Validate(path string) (string, error) {
 	// Clean the path to prevent traversal
 	absPath = filepath.Clean(absPath)
 
-	// If no allowlist, all paths are allowed
+	// Resolve symlinks to prevent symlink-based traversal attacks
+	resolvedPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		// If symlink resolution fails (path doesn't exist yet), use the cleaned path
+		// but verify it doesn't contain suspicious patterns
+		if !filepath.IsAbs(absPath) {
+			return "", fmt.Errorf("path must be absolute after resolution")
+		}
+		resolvedPath = absPath
+	}
+	resolvedPath = filepath.Clean(resolvedPath)
+
+	// SECURITY: If no allowlist configured, check allowAllVolumes flag
 	if len(v.allowedPaths) == 0 {
-		return absPath, nil
+		if v.allowAllVolumes {
+			return resolvedPath, nil
+		}
+		return "", fmt.Errorf("no volume allowlist configured; set allowed_volumes or enable allow_all_volumes for development")
 	}
 
-	// Check if path is under any allowed path
+	// Check if resolved path is under any allowed path
 	for _, allowed := range v.allowedPaths {
 		allowedAbs, err := filepath.Abs(allowed)
 		if err != nil {
@@ -46,9 +75,16 @@ func (v *Validator) Validate(path string) (string, error) {
 		}
 		allowedAbs = filepath.Clean(allowedAbs)
 
-		// Check if absPath is under allowedAbs
-		if absPath == allowedAbs || strings.HasPrefix(absPath, allowedAbs+string(filepath.Separator)) {
-			return absPath, nil
+		// Also resolve symlinks in allowed paths for consistent comparison
+		allowedResolved, err := filepath.EvalSymlinks(allowedAbs)
+		if err != nil {
+			allowedResolved = allowedAbs
+		}
+		allowedResolved = filepath.Clean(allowedResolved)
+
+		// Check if resolvedPath is under allowedResolved
+		if resolvedPath == allowedResolved || strings.HasPrefix(resolvedPath, allowedResolved+string(filepath.Separator)) {
+			return resolvedPath, nil
 		}
 	}
 
@@ -58,4 +94,9 @@ func (v *Validator) Validate(path string) (string, error) {
 // IsConfigured returns true if allowlist is configured
 func (v *Validator) IsConfigured() bool {
 	return len(v.allowedPaths) > 0
+}
+
+// AllowsAll returns true if the validator allows all paths (dangerous mode)
+func (v *Validator) AllowsAll() bool {
+	return v.allowAllVolumes && len(v.allowedPaths) == 0
 }

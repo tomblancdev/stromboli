@@ -140,12 +140,82 @@ Stromboli validates all prompts:
 - **Character validation**: UTF-8 encoding required
 - **Rate limiting**: Prevents prompt flooding
 
-### Workspace Security
+### Volume Security
 
-Volume mounts give agents access to host directories:
+Volume mounts give agents access to host directories. Stromboli implements multiple layers of protection:
+
+#### Default Deny Policy
+
+By default, **all volume mounts are denied** when no allowlist is configured:
+
+```yaml
+# Production: explicitly configure allowed paths
+agent:
+  allowed_volumes:
+    - "/data/projects"
+    - "/home/user/code"
+```
+
+```yaml
+# Development ONLY: allow all paths (DANGEROUS!)
+agent:
+  allowed_volumes: []
+  allow_all_volumes: true  # ⚠️ Never use in production
+```
+
+!!! danger "Production Security"
+    In production, always configure `allowed_volumes`. The `allow_all_volumes` option
+    should ONLY be used for local development and testing.
+
+#### Symlink Protection
+
+Stromboli resolves symlinks before validation to prevent bypass attacks:
 
 ```bash
-# Mount host directory into container
+# This is blocked even if /allowed is in the allowlist
+ln -s /etc /allowed/escape
+# Volume: /allowed/escape:/data  → Blocked: resolves to /etc
+```
+
+#### Container Path Blocklist
+
+Certain sensitive container paths are blocked to prevent credential theft or code injection:
+
+| Blocked Paths | Reason |
+|--------------|--------|
+| `/home/user/.claude` | Claude credentials |
+| `/home/user/.ssh` | SSH keys |
+| `/home/user/.bashrc`, `.profile` | Shell injection |
+| `/etc` | System configuration |
+| `/root` | Root home |
+| `/proc`, `/sys`, `/dev` | System internals |
+
+#### Mount Options Validation
+
+Only safe mount options are allowed:
+
+| Allowed | Description |
+|---------|-------------|
+| `ro` | Read-only |
+| `rw` | Read-write (default) |
+| `z`, `Z` | SELinux labels |
+| `nocopy`, `copy` | Data copy behavior |
+| `shared`, `private`, etc. | Mount propagation |
+
+Dangerous options like `exec` and `suid` are blocked.
+
+#### Working Directory Validation
+
+The `workdir` parameter (container working directory) is validated:
+
+- Must be an absolute path starting with `/`
+- Only safe characters allowed: `a-zA-Z0-9/_.-`
+- No path traversal sequences (`..`)
+- Maximum length enforced
+
+**Example secure configuration:**
+
+```bash
 curl -X POST http://localhost:8080/run \
   -d '{
     "prompt": "Analyze code",
@@ -160,7 +230,7 @@ curl -X POST http://localhost:8080/run \
 
 - Use read-only mounts (`:ro`) when analysis-only access is needed
 - Mount specific directories, not entire home or root
-- Avoid mounting sensitive directories (`~/.ssh`, `~/.aws`, `/etc`)
+- Configure `allowed_volumes` to restrict mountable host paths
 - Use separate volumes for input (read-only) and output (write)
 
 ### Image Validation
@@ -408,8 +478,12 @@ Stromboli logs all requests in structured format:
 - [ ] **Set JWT secret** - `STROMBOLI_JWT_SECRET=<random-256-bit>`
 - [ ] **Enable TLS** - Use reverse proxy with HTTPS
 - [ ] **Enable rate limiting** - `STROMBOLI_RATE_LIMIT_ENABLED=true`
-- [ ] **Review volume mounts** - Audit what directories are mounted
+- [ ] **Configure allowed volumes** - `STROMBOLI_AGENT_ALLOWED_VOLUMES=/path1,/path2`
 - [ ] **Use rootless Podman** - Non-root container execution
+
+!!! danger "Volume Security"
+    **NEVER** set `STROMBOLI_AGENT_ALLOW_ALL_VOLUMES=true` in production.
+    This disables volume allowlist validation and allows mounting ANY host path!
 
 ### Recommended
 

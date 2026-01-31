@@ -520,3 +520,578 @@ func TestMockExecutor_RunStream_CustomFunction(t *testing.T) {
 	err = wait()
 	require.NoError(t, err)
 }
+
+// =============================================================================
+// Security Validation Tests
+// =============================================================================
+
+// TestParseVolumeComponents tests volume string parsing
+func TestParseVolumeComponents(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		wantHost      string
+		wantContainer string
+		wantOptions   string
+		wantErr       bool
+	}{
+		{
+			name:          "simple unix volume",
+			input:         "/host/path:/container/path",
+			wantHost:      "/host/path",
+			wantContainer: "/container/path",
+			wantOptions:   "",
+			wantErr:       false,
+		},
+		{
+			name:          "unix volume with options",
+			input:         "/host/path:/container/path:ro",
+			wantHost:      "/host/path",
+			wantContainer: "/container/path",
+			wantOptions:   "ro",
+			wantErr:       false,
+		},
+		{
+			name:          "unix volume with multiple options",
+			input:         "/host:/container:ro,Z",
+			wantHost:      "/host",
+			wantContainer: "/container",
+			wantOptions:   "ro,Z",
+			wantErr:       false,
+		},
+		{
+			name:    "invalid single path",
+			input:   "/just/one/path",
+			wantErr: true,
+		},
+		{
+			name:    "empty string",
+			input:   "",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			host, container, options, err := parseVolumeComponents(tt.input)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantHost, host)
+			assert.Equal(t, tt.wantContainer, container)
+			assert.Equal(t, tt.wantOptions, options)
+		})
+	}
+}
+
+// TestValidateWorkdir tests workdir validation for shell safety
+func TestValidateWorkdir(t *testing.T) {
+	tests := []struct {
+		name    string
+		workdir string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name:    "empty workdir is valid",
+			workdir: "",
+			wantErr: false,
+		},
+		{
+			name:    "simple valid path",
+			workdir: "/workspace",
+			wantErr: false,
+		},
+		{
+			name:    "nested valid path",
+			workdir: "/home/user/projects/myapp",
+			wantErr: false,
+		},
+		{
+			name:    "path with dots and hyphens",
+			workdir: "/my.project-v2/src",
+			wantErr: false,
+		},
+		{
+			name:    "path with underscore",
+			workdir: "/my_project/src_files",
+			wantErr: false,
+		},
+		{
+			name:    "relative path fails",
+			workdir: "relative/path",
+			wantErr: true,
+			errMsg:  "must be an absolute path",
+		},
+		{
+			name:    "path traversal fails",
+			workdir: "/workspace/../etc/passwd",
+			wantErr: true,
+			errMsg:  "cannot contain path traversal",
+		},
+		{
+			name:    "shell metacharacters fail",
+			workdir: "/workspace$(id)",
+			wantErr: true,
+			errMsg:  "invalid characters",
+		},
+		{
+			name:    "backticks fail",
+			workdir: "/workspace`id`",
+			wantErr: true,
+			errMsg:  "invalid characters",
+		},
+		{
+			name:    "semicolon fails",
+			workdir: "/workspace;rm -rf /",
+			wantErr: true,
+			errMsg:  "invalid characters",
+		},
+		{
+			name:    "newline fails",
+			workdir: "/workspace\nrm -rf /",
+			wantErr: true,
+			errMsg:  "invalid characters",
+		},
+		{
+			name:    "spaces fail",
+			workdir: "/path with spaces",
+			wantErr: true,
+			errMsg:  "invalid characters",
+		},
+		{
+			name:    "too long path fails",
+			workdir: "/" + strings.Repeat("a", 5000),
+			wantErr: true,
+			errMsg:  "too long",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateWorkdir(tt.workdir)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
+// TestValidateContainerPath tests container path blocklist validation
+func TestValidateContainerPath(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name:    "valid container path",
+			path:    "/workspace",
+			wantErr: false,
+		},
+		{
+			name:    "valid nested path",
+			path:    "/app/data/files",
+			wantErr: false,
+		},
+		{
+			name:    "blocked: /etc",
+			path:    "/etc",
+			wantErr: true,
+			errMsg:  "blocked for security",
+		},
+		{
+			name:    "blocked: /etc subdirectory",
+			path:    "/etc/passwd",
+			wantErr: true,
+			errMsg:  "blocked for security",
+		},
+		{
+			name:    "blocked: user .claude directory",
+			path:    "/home/user/.claude",
+			wantErr: true,
+			errMsg:  "blocked for security",
+		},
+		{
+			name:    "blocked: user .claude subdirectory",
+			path:    "/home/user/.claude/credentials.json",
+			wantErr: true,
+			errMsg:  "blocked for security",
+		},
+		{
+			name:    "blocked: .ssh directory",
+			path:    "/home/user/.ssh",
+			wantErr: true,
+			errMsg:  "blocked for security",
+		},
+		{
+			name:    "blocked: .aws credentials",
+			path:    "/home/user/.aws",
+			wantErr: true,
+			errMsg:  "blocked for security",
+		},
+		{
+			name:    "blocked: .docker credentials",
+			path:    "/home/user/.docker",
+			wantErr: true,
+			errMsg:  "blocked for security",
+		},
+		{
+			name:    "blocked: .kube credentials",
+			path:    "/home/user/.kube",
+			wantErr: true,
+			errMsg:  "blocked for security",
+		},
+		{
+			name:    "blocked: .config directory",
+			path:    "/home/user/.config",
+			wantErr: true,
+			errMsg:  "blocked for security",
+		},
+		{
+			name:    "blocked: .bashrc",
+			path:    "/home/user/.bashrc",
+			wantErr: true,
+			errMsg:  "blocked for security",
+		},
+		{
+			name:    "blocked: /root",
+			path:    "/root",
+			wantErr: true,
+			errMsg:  "blocked for security",
+		},
+		{
+			name:    "blocked: /proc",
+			path:    "/proc",
+			wantErr: true,
+			errMsg:  "blocked for security",
+		},
+		{
+			name:    "blocked: /dev",
+			path:    "/dev",
+			wantErr: true,
+			errMsg:  "blocked for security",
+		},
+		{
+			name:    "empty path fails",
+			path:    "",
+			wantErr: true,
+			errMsg:  "cannot be empty",
+		},
+		{
+			name:    "relative path fails",
+			path:    "relative",
+			wantErr: true,
+			errMsg:  "must be absolute",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateContainerPath(tt.path)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
+// TestValidateMountOptions tests mount option validation
+func TestValidateMountOptions(t *testing.T) {
+	tests := []struct {
+		name    string
+		options string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name:    "empty options valid",
+			options: "",
+			wantErr: false,
+		},
+		{
+			name:    "ro option valid",
+			options: "ro",
+			wantErr: false,
+		},
+		{
+			name:    "rw option valid",
+			options: "rw",
+			wantErr: false,
+		},
+		{
+			name:    "Z option valid",
+			options: "Z",
+			wantErr: false,
+		},
+		{
+			name:    "z option valid",
+			options: "z",
+			wantErr: false,
+		},
+		{
+			name:    "multiple valid options",
+			options: "ro,Z",
+			wantErr: false,
+		},
+		{
+			name:    "multiple valid options with spaces",
+			options: "ro, Z, nocopy",
+			wantErr: false,
+		},
+		{
+			name:    "noexec option valid (security-enhancing)",
+			options: "noexec",
+			wantErr: false,
+		},
+		{
+			name:    "nosuid option valid (security-enhancing)",
+			options: "nosuid",
+			wantErr: false,
+		},
+		{
+			name:    "nodev option valid (security-enhancing)",
+			options: "nodev",
+			wantErr: false,
+		},
+		{
+			name:    "combined security options valid",
+			options: "ro,noexec,nosuid,nodev",
+			wantErr: false,
+		},
+		{
+			name:    "exec option not allowed",
+			options: "exec",
+			wantErr: true,
+			errMsg:  "not allowed",
+		},
+		{
+			name:    "suid option not allowed",
+			options: "suid",
+			wantErr: true,
+			errMsg:  "not allowed",
+		},
+		{
+			name:    "noexec mixed with invalid",
+			options: "ro,exec",
+			wantErr: true,
+			errMsg:  "not allowed",
+		},
+		{
+			name:    "arbitrary string not allowed",
+			options: "arbitrary",
+			wantErr: true,
+			errMsg:  "not allowed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateMountOptions(tt.options)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
+// TestWrapCommandWithWorkdirSetup tests command wrapping
+func TestWrapCommandWithWorkdirSetup(t *testing.T) {
+	tests := []struct {
+		name       string
+		workdir    string
+		cmd        []string
+		autoCreate bool
+		wantWrap   bool
+	}{
+		{
+			name:       "no wrap when empty workdir",
+			workdir:    "",
+			cmd:        []string{"echo", "hello"},
+			autoCreate: true,
+			wantWrap:   false,
+		},
+		{
+			name:       "no wrap when autoCreate false",
+			workdir:    "/workspace",
+			cmd:        []string{"echo", "hello"},
+			autoCreate: false,
+			wantWrap:   false,
+		},
+		{
+			name:       "wrap when workdir and autoCreate",
+			workdir:    "/workspace",
+			cmd:        []string{"echo", "hello"},
+			autoCreate: true,
+			wantWrap:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := wrapCommandWithWorkdirSetup(tt.workdir, tt.cmd, tt.autoCreate)
+			if tt.wantWrap {
+				assert.Equal(t, "sh", result[0])
+				assert.Equal(t, "-c", result[1])
+				assert.Contains(t, result[2], "mkdir -p")
+			} else {
+				assert.Equal(t, tt.cmd, result)
+			}
+		})
+	}
+}
+
+// TestWrapCommandWithWorkdirSetup_QuoteEscaping tests proper quote escaping
+func TestWrapCommandWithWorkdirSetup_QuoteEscaping(t *testing.T) {
+	// Command with single quotes
+	cmd := []string{"echo", "it's working"}
+	result := wrapCommandWithWorkdirSetup("/workspace", cmd, true)
+
+	// Should properly escape the quote
+	assert.Contains(t, result[2], "'it'\\''s working'")
+}
+
+// TestPodmanRunner_Run_WorkdirValidation tests workdir validation in runner
+func TestPodmanRunner_Run_WorkdirValidation(t *testing.T) {
+	skipIfNoPodman(t)
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	allowedDir := filepath.Join(tmpDir, "allowed")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+	err = os.MkdirAll(allowedDir, 0755)
+	require.NoError(t, err)
+
+	mock := NewMockExecutor()
+	mock.DefaultOutput = []byte("ok")
+
+	runner, err := NewPodmanRunnerWithExecutor("test-image", secretsFile, sessionsDir, []string{allowedDir}, mock)
+	require.NoError(t, err)
+
+	// Invalid workdir with shell metacharacters should fail
+	_, err = runner.Run(context.Background(), Request{
+		Prompt:  "test",
+		Workdir: "/workspace$(id)",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "workdir validation failed")
+}
+
+// TestPodmanRunner_Run_ContainerPathValidation tests container path blocking
+func TestPodmanRunner_Run_ContainerPathValidation(t *testing.T) {
+	skipIfNoPodman(t)
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	allowedDir := filepath.Join(tmpDir, "allowed")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+	err = os.MkdirAll(allowedDir, 0755)
+	require.NoError(t, err)
+
+	mock := NewMockExecutor()
+	mock.DefaultOutput = []byte("ok")
+
+	runner, err := NewPodmanRunnerWithExecutor("test-image", secretsFile, sessionsDir, []string{allowedDir}, mock)
+	require.NoError(t, err)
+
+	// Mounting to blocked container path should fail
+	_, err = runner.Run(context.Background(), Request{
+		Prompt: "test",
+		Podman: types.PodmanOptions{
+			Volumes: []string{allowedDir + ":/etc"},
+		},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "blocked for security")
+}
+
+// TestPodmanRunner_Run_MountOptionsValidation tests mount options validation
+func TestPodmanRunner_Run_MountOptionsValidation(t *testing.T) {
+	skipIfNoPodman(t)
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	allowedDir := filepath.Join(tmpDir, "allowed")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+	err = os.MkdirAll(allowedDir, 0755)
+	require.NoError(t, err)
+
+	mock := NewMockExecutor()
+	mock.DefaultOutput = []byte("ok")
+
+	runner, err := NewPodmanRunnerWithExecutor("test-image", secretsFile, sessionsDir, []string{allowedDir}, mock)
+	require.NoError(t, err)
+
+	// Valid mount options should work
+	_, err = runner.Run(context.Background(), Request{
+		Prompt: "test",
+		Podman: types.PodmanOptions{
+			Volumes: []string{allowedDir + ":/workspace:ro"},
+		},
+	})
+	require.NoError(t, err)
+
+	// Invalid mount options should fail
+	_, err = runner.Run(context.Background(), Request{
+		Prompt: "test",
+		Podman: types.PodmanOptions{
+			Volumes: []string{allowedDir + ":/workspace:exec"},
+		},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not allowed")
+}
+
+// TestPodmanRunner_Run_WorkdirAutoCreateDisabled tests workdir_auto_create=false
+func TestPodmanRunner_Run_WorkdirAutoCreateDisabled(t *testing.T) {
+	skipIfNoPodman(t)
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+
+	mock := NewMockExecutor()
+	mock.DefaultOutput = []byte("ok")
+
+	volumeConfig := VolumeConfig{
+		AllowedVolumes:    []string{},
+		AllowAllVolumes:   true, // Allow all for this test
+		WorkdirAutoCreate: false,
+	}
+
+	runner, err := NewPodmanRunnerFull("test-image", secretsFile, sessionsDir, ResourceDefaults{}, ImageConfig{}, volumeConfig, mock)
+	require.NoError(t, err)
+
+	// Run with workdir but auto-create disabled
+	_, err = runner.Run(context.Background(), Request{
+		Prompt:  "test",
+		Workdir: "/my/workdir",
+	})
+	require.NoError(t, err)
+
+	// Verify command does NOT include mkdir wrapper
+	calls := mock.GetCalls()
+	require.Len(t, calls, 1)
+	cmdStr := strings.Join(calls[0], " ")
+
+	// Should NOT be wrapped with sh -c mkdir
+	assert.NotContains(t, cmdStr, "mkdir -p")
+	// But should still have workdir flag
+	assert.Contains(t, cmdStr, "--workdir=/my/workdir")
+}

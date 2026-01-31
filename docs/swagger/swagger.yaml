@@ -923,9 +923,9 @@ paths:
         name: prompt
         required: true
         type: string
-      - description: Workspace path to mount
+      - description: Working directory inside container
         in: query
-        name: workspace
+        name: workdir
         type: string
       - description: Session ID for conversation continuation
         in: query

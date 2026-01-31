@@ -262,7 +262,7 @@ func TestRun_Success(t *testing.T) {
 	assert.Equal(t, "session-456", response.SessionID)
 }
 
-func TestRun_WithWorkspace(t *testing.T) {
+func TestRun_WithWorkdir(t *testing.T) {
 	var capturedReq runner.Request
 	mockRunner := &runner.MockRunner{
 		RunFunc: func(ctx context.Context, req runner.Request) (*runner.Result, error) {
@@ -273,7 +273,7 @@ func TestRun_WithWorkspace(t *testing.T) {
 
 	server := newTestServer(t, mockRunner, true)
 
-	body := bytes.NewBufferString(`{"prompt": "analyze", "workspace": "/home/user/project"}`)
+	body := bytes.NewBufferString(`{"prompt": "analyze", "workdir": "/workspace"}`)
 	req, err := http.NewRequest(http.MethodPost, "/run", body)
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
@@ -282,7 +282,7 @@ func TestRun_WithWorkspace(t *testing.T) {
 	server.router.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Equal(t, "/home/user/project", capturedReq.Workspace)
+	assert.Equal(t, "/workspace", capturedReq.Workdir)
 }
 
 func TestRun_WithModel(t *testing.T) {

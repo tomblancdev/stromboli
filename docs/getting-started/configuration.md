@@ -35,11 +35,26 @@ All environment variables use the `STROMBOLI_` prefix.
 Control which host directories can be mounted via `volumes`:
 
 ```bash
-# Only allow mounting from these directories
+# Only allow mounting from these directories (REQUIRED for production)
 STROMBOLI_AGENT_ALLOWED_VOLUMES="/home/user/projects,/data/workspaces"
 ```
 
-If empty (default), **all paths are allowed**. In production, set this to restrict what can be mounted.
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `STROMBOLI_AGENT_ALLOWED_VOLUMES` | (empty) | Comma-separated allowed volume host paths |
+| `STROMBOLI_AGENT_ALLOW_ALL_VOLUMES` | `false` | ⚠️ DANGEROUS: Allow all paths when allowlist empty |
+
+!!! danger "Secure Default"
+    When `allowed_volumes` is empty (default), **all volume mounts are DENIED**.
+    This is a secure default for production.
+
+    Only set `STROMBOLI_AGENT_ALLOW_ALL_VOLUMES=true` for local development!
+
+**Security Features:**
+
+- **Symlink Resolution**: Paths are resolved before validation to prevent bypass
+- **Container Path Blocklist**: Sensitive container paths (`/etc`, `~/.claude`, etc.) are blocked
+- **Mount Options Validation**: Only safe options (`ro`, `rw`, `z`, `Z`, etc.) allowed
 
 ### Workdir Auto-Creation
 
@@ -251,6 +266,9 @@ export STROMBOLI_RESOURCES_TIMEOUT=1h
 
 # Allowed images
 export STROMBOLI_AGENT_ALLOWED_IMAGE_PATTERNS="python:*,node:*,golang:*,ubuntu:*,debian:*"
+
+# Volume security (REQUIRED in production!)
+export STROMBOLI_AGENT_ALLOWED_VOLUMES="/data/projects,/home/user/workspaces"
 
 stromboli
 ```

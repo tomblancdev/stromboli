@@ -79,7 +79,7 @@ class StromboliClient:
         payload = {"prompt": prompt}
 
         if workdir:
-            payload["workspace"] = workspace
+            payload["workdir"] = workdir
 
         claude_opts = {"model": model}
         if max_budget_usd:
@@ -110,7 +110,7 @@ class StromboliClient:
         """Start an async Claude agent job."""
         payload = {"prompt": prompt}
         if workdir:
-            payload["workspace"] = workspace
+            payload["workdir"] = workdir
         if webhook_url:
             payload["webhook_url"] = webhook_url
 
@@ -128,7 +128,7 @@ class StromboliClient:
         """Stream agent output via Server-Sent Events."""
         params = {"prompt": prompt}
         if workdir:
-            params["workspace"] = workspace
+            params["workdir"] = workdir
 
         response = self.session.get(
             f"{self.base_url}/run/stream",
@@ -210,14 +210,18 @@ class StromboliClient {
   }
 
   async run(prompt, options = {}) {
-    const { workspace, model = 'sonnet', maxBudget, allowedTools, timeout } = options;
+    const { workdir, model = 'sonnet', maxBudget, allowedTools, timeout, volumes } = options;
 
     const payload = {
       prompt,
       claude: { model },
     };
 
-    if (workspace) payload.workspace = workspace;
+    if (workdir) payload.workdir = workdir;
+    if (volumes) {
+      payload.podman = payload.podman || {};
+      payload.podman.volumes = volumes;
+    }
     if (maxBudget) payload.claude.max_budget_usd = maxBudget;
     if (allowedTools) payload.claude.allowed_tools = allowedTools;
     if (timeout) payload.podman = { timeout };
@@ -231,11 +235,14 @@ class StromboliClient {
   }
 
   async runAsync(prompt, options = {}) {
-    const { workspace, webhookUrl } = options;
+    const { workdir, webhookUrl, volumes } = options;
 
     const payload = { prompt };
-    if (workspace) payload.workspace = workspace;
+    if (workdir) payload.workdir = workdir;
     if (webhookUrl) payload.webhook_url = webhookUrl;
+    if (volumes) {
+      payload.podman = { volumes };
+    }
 
     const response = await this.#fetch('/run/async', {
       method: 'POST',
@@ -251,9 +258,9 @@ class StromboliClient {
   }
 
   async *stream(prompt, options = {}) {
-    const { workspace } = options;
+    const { workdir } = options;
     const params = new URLSearchParams({ prompt });
-    if (workspace) params.set('workspace', workspace);
+    if (workdir) params.set('workdir', workdir);
 
     const response = await this.#fetch(`/run/stream?${params}`);
     const reader = response.body.getReader();
@@ -332,10 +339,10 @@ type Client struct {
 
 // RunRequest represents a run request
 type RunRequest struct {
-	Prompt    string         `json:"prompt"`
-	Workspace string         `json:"workspace,omitempty"`
-	Claude    *ClaudeOptions `json:"claude,omitempty"`
-	Podman    *PodmanOptions `json:"podman,omitempty"`
+	Prompt  string         `json:"prompt"`
+	Workdir string         `json:"workdir,omitempty"`
+	Claude  *ClaudeOptions `json:"claude,omitempty"`
+	Podman  *PodmanOptions `json:"podman,omitempty"`
 }
 
 // ClaudeOptions configures Claude behavior
@@ -347,8 +354,9 @@ type ClaudeOptions struct {
 
 // PodmanOptions configures container settings
 type PodmanOptions struct {
-	Timeout string `json:"timeout,omitempty"`
-	Memory  string `json:"memory,omitempty"`
+	Volumes []string `json:"volumes,omitempty"`
+	Timeout string   `json:"timeout,omitempty"`
+	Memory  string   `json:"memory,omitempty"`
 }
 
 // RunResponse is the response from a run request
@@ -980,7 +988,7 @@ class ConversationManager:
         if session_id:
             payload["session_id"] = session_id
         if workdir:
-            payload["workspace"] = workspace
+            payload["workdir"] = workdir
 
         result = self.client.run(**payload)
 

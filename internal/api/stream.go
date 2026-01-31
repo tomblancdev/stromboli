@@ -25,7 +25,7 @@ type StreamResponse struct {
 // @Accept json
 // @Produce text/event-stream
 // @Param prompt query string true "The prompt to send to Claude"
-// @Param workspace query string false "Workspace path to mount"
+// @Param workdir query string false "Working directory inside container"
 // @Param session_id query string false "Session ID for conversation continuation"
 // @Success 200 {string} string "Event stream of output lines"
 // @Failure 400 {string} string "Invalid request"
@@ -39,7 +39,7 @@ func (s *Server) runStream(c *gin.Context) {
 		return
 	}
 
-	workspace := c.Query("workspace")
+	workdir := c.Query("workdir")
 	sessionID := c.Query("session_id")
 
 	// Check if configured
@@ -64,8 +64,8 @@ func (s *Server) runStream(c *gin.Context) {
 
 	// Build runner request
 	runnerReq := buildRunnerRequest(RunRequest{
-		Prompt:    prompt,
-		Workspace: workspace,
+		Prompt:  prompt,
+		Workdir: workdir,
 		Claude: types.ClaudeOptions{
 			SessionID: sessionID,
 		},

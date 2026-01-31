@@ -444,8 +444,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Workspace path to mount",
-                        "name": "workspace",
+                        "description": "Working directory inside container",
+                        "name": "workdir",
                         "in": "query"
                     },
                     {

@@ -76,7 +76,7 @@ func TestRunStream_Success(t *testing.T) {
 	assert.Contains(t, body, `"session_id":"session-456"`)
 }
 
-func TestRunStream_WithWorkspaceAndSessionID(t *testing.T) {
+func TestRunStream_WithWorkdirAndSessionID(t *testing.T) {
 	var capturedReq runner.Request
 	mockRunner := &runner.MockRunner{
 		RunStreamFunc: func(ctx context.Context, req runner.Request, output chan<- string) (*runner.Result, error) {
@@ -94,7 +94,7 @@ func TestRunStream_WithWorkspaceAndSessionID(t *testing.T) {
 
 	server := newTestServer(t, mockRunner, true)
 
-	req, err := http.NewRequest(http.MethodGet, "/run/stream?prompt=analyze&workspace=/project&session_id=sess-123", nil)
+	req, err := http.NewRequest(http.MethodGet, "/run/stream?prompt=analyze&workdir=/workspace&session_id=sess-123", nil)
 	require.NoError(t, err)
 
 	rec := httptest.NewRecorder()
@@ -102,7 +102,7 @@ func TestRunStream_WithWorkspaceAndSessionID(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Equal(t, "analyze", capturedReq.Prompt)
-	assert.Equal(t, "/project", capturedReq.Workspace)
+	assert.Equal(t, "/workspace", capturedReq.Workdir)
 	assert.Equal(t, "sess-123", capturedReq.Claude.SessionID)
 }
 
