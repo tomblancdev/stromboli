@@ -2,7 +2,7 @@
 
 All notable changes to Stromboli will be documented here.
 
-## [Unreleased]
+## [0.3.0-alpha] - 2026-01-31
 
 ### Changed
 
