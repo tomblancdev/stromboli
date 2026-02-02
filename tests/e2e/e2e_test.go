@@ -18,6 +18,7 @@ import (
 	"stromboli/internal/claude"
 	"stromboli/internal/job"
 	"stromboli/internal/runner"
+	"stromboli/internal/secrets"
 )
 
 // testEnv holds the test environment state
@@ -109,6 +110,9 @@ func setupE2EEnv(t *testing.T) *testEnv {
 		Enabled: false,
 	}
 
+	// Create secrets registry for E2E tests
+	secretsRegistry := secrets.NewRegistry(runner.NewShellExecutor())
+
 	// Create server with test configuration
 	server := api.NewServer(
 		podmanRunner,
@@ -117,9 +121,10 @@ func setupE2EEnv(t *testing.T) *testEnv {
 		rateLimitConfig,
 		jobManager,
 		healthChecker,
-		nil,         // No blacklist needed for E2E tests
-		false,       // Tracing disabled for E2E tests
-		sessionsDir, // Sessions directory for history API
+		nil,             // No blacklist needed for E2E tests
+		false,           // Tracing disabled for E2E tests
+		sessionsDir,     // Sessions directory for history API
+		secretsRegistry, // Secrets registry for managing Podman secrets
 	)
 
 	// Find available port

@@ -246,12 +246,15 @@ func main() {
 		"credentials_file", healthConfig.CredentialsFile,
 		"secret_name", healthConfig.SecretName)
 
+	// Create secrets registry for secret management API
+	secretsRegistry := secrets.NewRegistry(runner.NewShellExecutor())
+
 	// Setup signal handling for graceful shutdown
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	// Create the API server
-	server := api.NewServer(podmanRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, blacklist, cfg.Tracing.Enabled, cfg.Agent.SessionsDir)
+	server := api.NewServer(podmanRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, blacklist, cfg.Tracing.Enabled, cfg.Agent.SessionsDir, secretsRegistry)
 
 	srv := &http.Server{
 		Addr:    cfg.Server.Address,
