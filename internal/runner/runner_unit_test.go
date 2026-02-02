@@ -1095,3 +1095,132 @@ func TestPodmanRunner_Run_WorkdirAutoCreateDisabled(t *testing.T) {
 	// But should still have workdir flag
 	assert.Contains(t, cmdStr, "--workdir=/my/workdir")
 }
+
+// TestPodmanRunner_Run_VolumeAutoCreate tests auto-creation of host directories for volumes
+func TestPodmanRunner_Run_VolumeAutoCreate(t *testing.T) {
+	skipIfNoPodman(t)
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	allowedDir := filepath.Join(tmpDir, "allowed")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+	err = os.MkdirAll(allowedDir, 0755)
+	require.NoError(t, err)
+
+	mock := NewMockExecutor()
+	mock.DefaultOutput = []byte("ok")
+
+	volumeConfig := VolumeConfig{
+		AllowedVolumes:   []string{allowedDir},
+		VolumeAutoCreate: true, // Enable auto-create
+	}
+
+	runner, err := NewPodmanRunnerFull("test-image", secretsFile, sessionsDir, sessionsDir, ResourceDefaults{}, ImageConfig{}, volumeConfig, mock)
+	require.NoError(t, err)
+
+	// Volume path that doesn't exist yet
+	nonExistentPath := filepath.Join(allowedDir, "subdir", "nested")
+
+	// Verify it doesn't exist before
+	_, err = os.Stat(nonExistentPath)
+	require.True(t, os.IsNotExist(err), "path should not exist before test")
+
+	// Run with volume pointing to non-existent path
+	_, err = runner.Run(context.Background(), Request{
+		Prompt: "test",
+		Podman: types.PodmanOptions{
+			Volumes: []string{nonExistentPath + ":/workspace"},
+		},
+	})
+	require.NoError(t, err)
+
+	// Verify the directory was created
+	info, err := os.Stat(nonExistentPath)
+	require.NoError(t, err, "path should exist after run")
+	assert.True(t, info.IsDir(), "created path should be a directory")
+}
+
+// TestPodmanRunner_Run_VolumeAutoCreateDisabled tests that volumes fail when auto-create is disabled
+func TestPodmanRunner_Run_VolumeAutoCreateDisabled(t *testing.T) {
+	skipIfNoPodman(t)
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	allowedDir := filepath.Join(tmpDir, "allowed")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+	err = os.MkdirAll(allowedDir, 0755)
+	require.NoError(t, err)
+
+	mock := NewMockExecutor()
+	mock.DefaultOutput = []byte("ok")
+
+	volumeConfig := VolumeConfig{
+		AllowedVolumes:   []string{allowedDir},
+		VolumeAutoCreate: false, // Disable auto-create
+	}
+
+	runner, err := NewPodmanRunnerFull("test-image", secretsFile, sessionsDir, sessionsDir, ResourceDefaults{}, ImageConfig{}, volumeConfig, mock)
+	require.NoError(t, err)
+
+	// Volume path that doesn't exist
+	nonExistentPath := filepath.Join(allowedDir, "does-not-exist")
+
+	// Run with volume pointing to non-existent path
+	// This should still work (Podman will handle it), but the dir won't be pre-created
+	_, err = runner.Run(context.Background(), Request{
+		Prompt: "test",
+		Podman: types.PodmanOptions{
+			Volumes: []string{nonExistentPath + ":/workspace"},
+		},
+	})
+	require.NoError(t, err)
+
+	// Verify the directory was NOT created by us
+	_, err = os.Stat(nonExistentPath)
+	assert.True(t, os.IsNotExist(err), "path should not exist when auto-create is disabled")
+}
+
+// TestEnsureVolumeHostDirs tests the ensureVolumeHostDirs function
+func TestEnsureVolumeHostDirs(t *testing.T) {
+	skipIfNoPodman(t)
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+
+	mock := NewMockExecutor()
+
+	volumeConfig := VolumeConfig{
+		AllowAllVolumes:  true,
+		VolumeAutoCreate: true,
+	}
+
+	runner, err := NewPodmanRunnerFull("test-image", secretsFile, sessionsDir, sessionsDir, ResourceDefaults{}, ImageConfig{}, volumeConfig, mock)
+	require.NoError(t, err)
+
+	// Test cases
+	testDir1 := filepath.Join(tmpDir, "test1")
+	testDir2 := filepath.Join(tmpDir, "test2", "nested", "deep")
+	existingDir := filepath.Join(tmpDir, "existing")
+	err = os.MkdirAll(existingDir, 0755)
+	require.NoError(t, err)
+
+	volumes := []string{
+		testDir1 + ":/container1",
+		testDir2 + ":/container2:ro",
+		existingDir + ":/container3", // Already exists
+	}
+
+	err = runner.ensureVolumeHostDirs(volumes)
+	require.NoError(t, err)
+
+	// Verify all directories exist
+	for _, vol := range []string{testDir1, testDir2, existingDir} {
+		info, err := os.Stat(vol)
+		require.NoError(t, err, "directory %s should exist", vol)
+		assert.True(t, info.IsDir(), "%s should be a directory", vol)
+	}
+}

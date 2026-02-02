@@ -135,6 +135,7 @@ func main() {
 		AllowedVolumes:    cfg.Agent.AllowedVolumes,
 		AllowAllVolumes:   cfg.Agent.AllowAllVolumes,
 		WorkdirAutoCreate: cfg.Agent.WorkdirAutoCreate,
+		VolumeAutoCreate:  cfg.Agent.VolumeAutoCreate,
 	}
 
 	podmanRunner, err := runner.NewPodmanRunnerFull(
