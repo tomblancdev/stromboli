@@ -13,6 +13,7 @@ import (
 	strerrors "stromboli/internal/errors"
 	"stromboli/internal/job"
 	"stromboli/internal/runner"
+	"stromboli/internal/secrets"
 	"stromboli/internal/version"
 )
 
@@ -28,10 +29,11 @@ type Server struct {
 	blacklist       *auth.TokenBlacklist
 	tracingEnabled  bool
 	historyHandler  *SessionHistoryHandler
+	secretsHandler  *SecretsHandler
 }
 
 // NewServer creates a new API server
-func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Config, rateLimitConfig RateLimitConfig, jobMgr *job.Manager, healthChecker *HealthChecker, blacklist *auth.TokenBlacklist, tracingEnabled bool, sessionsDir string) *Server {
+func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Config, rateLimitConfig RateLimitConfig, jobMgr *job.Manager, healthChecker *HealthChecker, blacklist *auth.TokenBlacklist, tracingEnabled bool, sessionsDir string, secretsRegistry *secrets.Registry) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -59,6 +61,7 @@ func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Con
 		blacklist:       blacklist,
 		tracingEnabled:  tracingEnabled,
 		historyHandler:  NewSessionHistoryHandler(sessionsDir),
+		secretsHandler:  NewSecretsHandler(secretsRegistry),
 	}
 	s.setupRoutes()
 
@@ -108,8 +111,11 @@ func (s *Server) setupRoutes() {
 		protected.GET("/sessions/:id/messages", s.historyHandler.ListMessages)
 		protected.GET("/sessions/:id/messages/:message_id", s.historyHandler.GetMessage)
 
-		// Secrets (list available Podman secrets)
-		protected.GET("/secrets", s.listSecrets)
+		// Secrets management
+		protected.GET("/secrets", s.secretsHandler.List)
+		protected.POST("/secrets", s.secretsHandler.Create)
+		protected.GET("/secrets/:name", s.secretsHandler.Get)
+		protected.DELETE("/secrets/:name", s.secretsHandler.Delete)
 	}
 }
 
@@ -258,31 +264,3 @@ func (s *Server) destroySession(c *gin.Context) {
 	})
 }
 
-// listSecrets returns all available Podman secrets
-// @Summary List secrets
-// @Description Returns all available Podman secrets that can be injected into agents
-// @Tags secrets
-// @Produce json
-// @Success 200 {object} SecretsListResponse
-// @Failure 500 {object} SecretsListResponse
-// @Router /secrets [get]
-func (s *Server) listSecrets(c *gin.Context) {
-	if s.healthChecker == nil {
-		c.JSON(http.StatusInternalServerError, SecretsListResponse{
-			Error: "health checker not configured",
-		})
-		return
-	}
-
-	secrets, err := s.healthChecker.ListSecrets(c.Request.Context())
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, SecretsListResponse{
-			Error: err.Error(),
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, SecretsListResponse{
-		Secrets: secrets,
-	})
-}

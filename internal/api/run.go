@@ -73,6 +73,37 @@ type SessionDestroyResponse struct {
 // SecretsListResponse represents the list of available Podman secrets
 // @Description List of available secrets that can be injected into agents
 type SecretsListResponse struct {
-	Secrets []string `json:"secrets" example:"github-token,gitlab-token"`
-	Error   string   `json:"error,omitempty"`
+	Secrets []SecretInfoResponse `json:"secrets"`
+	Error   string               `json:"error,omitempty"`
+}
+
+// SecretInfoResponse represents metadata about a secret
+// @Description Secret metadata (never contains the actual secret value)
+type SecretInfoResponse struct {
+	ID        string `json:"id" example:"abc123def456"`
+	Name      string `json:"name" example:"github-token"`
+	CreatedAt string `json:"created_at" example:"2024-01-15T10:30:00Z"`
+}
+
+// CreateSecretRequest represents a request to create a new secret
+// @Description Request to create a new Podman secret
+type CreateSecretRequest struct {
+	Name  string `json:"name" binding:"required" example:"github-token"`
+	Value string `json:"value" binding:"required" example:"ghp_xxxxxxxxxxxx"`
+}
+
+// CreateSecretResponse represents the response from creating a secret
+// @Description Result of secret creation
+type CreateSecretResponse struct {
+	Success bool   `json:"success" example:"true"`
+	Name    string `json:"name,omitempty" example:"github-token"`
+	Error   string `json:"error,omitempty"`
+}
+
+// DeleteSecretResponse represents the response from deleting a secret
+// @Description Result of secret deletion
+type DeleteSecretResponse struct {
+	Success bool   `json:"success" example:"true"`
+	Name    string `json:"name,omitempty" example:"github-token"`
+	Error   string `json:"error,omitempty"`
 }
