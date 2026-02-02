@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -22,17 +23,18 @@ func NewSecretsHandler(registry *secrets.Registry) *SecretsHandler {
 
 // List returns all available Podman secrets
 // @Summary List secrets
-// @Description Returns all available Podman secrets that can be injected into agents
+// @Description Returns metadata for all available Podman secrets that can be injected into agents. Secret values are never returned - only IDs, names, and creation times.
 // @Tags secrets
 // @Produce json
-// @Success 200 {object} SecretsListResponse
-// @Failure 500 {object} SecretsListResponse
+// @Success 200 {object} SecretsListResponse "List of secrets (empty array if none exist)"
+// @Failure 500 {object} SecretsListResponse "Internal server error"
 // @Router /secrets [get]
 func (h *SecretsHandler) List(c *gin.Context) {
 	secretsList, err := h.registry.List(c.Request.Context())
 	if err != nil {
+		slog.Error("Failed to list secrets", "error", err)
 		c.JSON(http.StatusInternalServerError, SecretsListResponse{
-			Error: err.Error(),
+			Error: "failed to list secrets",
 		})
 		return
 	}
@@ -54,15 +56,15 @@ func (h *SecretsHandler) List(c *gin.Context) {
 
 // Create creates a new Podman secret
 // @Summary Create secret
-// @Description Creates a new Podman secret that can be injected into agents
+// @Description Creates a new Podman secret that can be injected into agents. Secret names must be alphanumeric (with dashes and underscores), max 253 characters. Values are limited to 1MB.
 // @Tags secrets
 // @Accept json
 // @Produce json
 // @Param request body CreateSecretRequest true "Create secret request"
-// @Success 201 {object} CreateSecretResponse
-// @Failure 400 {object} CreateSecretResponse
-// @Failure 409 {object} CreateSecretResponse "Secret already exists"
-// @Failure 500 {object} CreateSecretResponse
+// @Success 201 {object} CreateSecretResponse "Secret created successfully"
+// @Failure 400 {object} CreateSecretResponse "Invalid request (missing/invalid name or value)"
+// @Failure 409 {object} CreateSecretResponse "Secret with this name already exists"
+// @Failure 500 {object} CreateSecretResponse "Internal server error"
 // @Router /secrets [post]
 func (h *SecretsHandler) Create(c *gin.Context) {
 	var req CreateSecretRequest
@@ -74,28 +76,21 @@ func (h *SecretsHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// Check if secret already exists
-	exists, err := h.registry.Exists(c.Request.Context(), req.Name)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, CreateSecretResponse{
-			Success: false,
-			Error:   err.Error(),
-		})
-		return
-	}
-	if exists {
-		c.JSON(http.StatusConflict, CreateSecretResponse{
-			Success: false,
-			Name:    req.Name,
-			Error:   "secret already exists",
-		})
-		return
-	}
-
+	// Create the secret - let Podman handle existence check atomically
+	// This avoids TOCTOU race conditions
 	if err := h.registry.Create(c.Request.Context(), req.Name, req.Value); err != nil {
+		if errors.Is(err, secrets.ErrSecretAlreadyExists) {
+			c.JSON(http.StatusConflict, CreateSecretResponse{
+				Success: false,
+				Name:    req.Name,
+				Error:   "secret already exists",
+			})
+			return
+		}
+		slog.Error("Failed to create secret", "name", req.Name, "error", err)
 		c.JSON(http.StatusInternalServerError, CreateSecretResponse{
 			Success: false,
-			Error:   err.Error(),
+			Error:   "failed to create secret",
 		})
 		return
 	}
@@ -107,14 +102,14 @@ func (h *SecretsHandler) Create(c *gin.Context) {
 }
 
 // Get returns metadata about a specific secret
-// @Summary Get secret
-// @Description Returns metadata about a specific Podman secret (never returns the value)
+// @Summary Get secret metadata
+// @Description Returns metadata about a specific Podman secret. For security, the actual secret value is never returned - only the ID, name, and creation time.
 // @Tags secrets
 // @Produce json
-// @Param name path string true "Secret name"
-// @Success 200 {object} SecretInfoResponse
-// @Failure 404 {object} CreateSecretResponse "Secret not found"
-// @Failure 500 {object} CreateSecretResponse
+// @Param name path string true "Secret name" example(github-token)
+// @Success 200 {object} SecretInfoResponse "Secret metadata"
+// @Failure 404 {object} ErrorResponse "Secret not found"
+// @Failure 500 {object} ErrorResponse "Internal server error"
 // @Router /secrets/{name} [get]
 func (h *SecretsHandler) Get(c *gin.Context) {
 	name := c.Param("name")
@@ -122,15 +117,14 @@ func (h *SecretsHandler) Get(c *gin.Context) {
 	info, err := h.registry.Inspect(c.Request.Context(), name)
 	if err != nil {
 		if errors.Is(err, secrets.ErrSecretNotFound) {
-			c.JSON(http.StatusNotFound, CreateSecretResponse{
-				Success: false,
-				Error:   "secret not found",
+			c.JSON(http.StatusNotFound, ErrorResponse{
+				Error: "secret not found",
 			})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, CreateSecretResponse{
-			Success: false,
-			Error:   err.Error(),
+		slog.Error("Failed to inspect secret", "name", name, "error", err)
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error: "internal server error",
 		})
 		return
 	}
@@ -144,13 +138,13 @@ func (h *SecretsHandler) Get(c *gin.Context) {
 
 // Delete removes a Podman secret
 // @Summary Delete secret
-// @Description Deletes a Podman secret
+// @Description Permanently deletes a Podman secret. This action cannot be undone. Secrets currently in use by running containers may cause those containers to fail.
 // @Tags secrets
 // @Produce json
-// @Param name path string true "Secret name"
-// @Success 200 {object} DeleteSecretResponse
+// @Param name path string true "Secret name" example(github-token)
+// @Success 200 {object} DeleteSecretResponse "Secret deleted successfully"
 // @Failure 404 {object} DeleteSecretResponse "Secret not found"
-// @Failure 500 {object} DeleteSecretResponse
+// @Failure 500 {object} DeleteSecretResponse "Internal server error"
 // @Router /secrets/{name} [delete]
 func (h *SecretsHandler) Delete(c *gin.Context) {
 	name := c.Param("name")
@@ -164,10 +158,11 @@ func (h *SecretsHandler) Delete(c *gin.Context) {
 			})
 			return
 		}
+		slog.Error("Failed to delete secret", "name", name, "error", err)
 		c.JSON(http.StatusInternalServerError, DeleteSecretResponse{
 			Success: false,
 			Name:    name,
-			Error:   err.Error(),
+			Error:   "failed to delete secret",
 		})
 		return
 	}

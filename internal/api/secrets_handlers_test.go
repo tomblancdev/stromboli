@@ -105,39 +105,15 @@ func TestSecretsHandler_List_Error(t *testing.T) {
 	var response SecretsListResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
-	assert.Contains(t, response.Error, "podman not running")
+	assert.Contains(t, response.Error, "failed to list secrets")
 }
 
 // Note: TestSecretsHandler_Create_Success is skipped as unit test because Create() uses exec.Command
 // directly for stdin support. This should be tested as an integration test with real Podman.
 
-func TestSecretsHandler_Create_AlreadyExists(t *testing.T) {
-	exec := &mockSecretsExecutor{
-		runFunc: func(ctx context.Context, args []string) ([]byte, error) {
-			if args[1] == "secret" && args[2] == "exists" {
-				// Secret exists (no error)
-				return nil, nil
-			}
-			return nil, nil
-		},
-	}
-	registry := secrets.NewRegistry(exec)
-	router := setupSecretsRouter(registry)
-
-	body := `{"name":"existing-secret","value":"value"}`
-	req, _ := http.NewRequest("POST", "/secrets", bytes.NewBufferString(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusConflict, w.Code)
-
-	var response CreateSecretResponse
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	require.NoError(t, err)
-	assert.False(t, response.Success)
-	assert.Contains(t, response.Error, "already exists")
-}
+// Note: TestSecretsHandler_Create_AlreadyExists is an integration test since Create() uses exec.Command
+// directly for stdin support. The "already exists" detection relies on Podman's actual error output.
+// See tests/e2e/ for integration tests that verify this scenario with real Podman.
 
 func TestSecretsHandler_Create_InvalidRequest(t *testing.T) {
 	exec := &mockSecretsExecutor{}
