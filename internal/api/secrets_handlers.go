@@ -87,6 +87,13 @@ func (h *SecretsHandler) Create(c *gin.Context) {
 			})
 			return
 		}
+		if errors.Is(err, secrets.ErrValidation) {
+			c.JSON(http.StatusBadRequest, CreateSecretResponse{
+				Success: false,
+				Error:   err.Error(),
+			})
+			return
+		}
 		slog.Error("Failed to create secret", "name", req.Name, "error", err)
 		c.JSON(http.StatusInternalServerError, CreateSecretResponse{
 			Success: false,
@@ -108,6 +115,7 @@ func (h *SecretsHandler) Create(c *gin.Context) {
 // @Produce json
 // @Param name path string true "Secret name" example(github-token)
 // @Success 200 {object} SecretInfoResponse "Secret metadata"
+// @Failure 400 {object} ErrorResponse "Invalid secret name"
 // @Failure 404 {object} ErrorResponse "Secret not found"
 // @Failure 500 {object} ErrorResponse "Internal server error"
 // @Router /secrets/{name} [get]
@@ -119,6 +127,12 @@ func (h *SecretsHandler) Get(c *gin.Context) {
 		if errors.Is(err, secrets.ErrSecretNotFound) {
 			c.JSON(http.StatusNotFound, ErrorResponse{
 				Error: "secret not found",
+			})
+			return
+		}
+		if errors.Is(err, secrets.ErrValidation) {
+			c.JSON(http.StatusBadRequest, ErrorResponse{
+				Error: err.Error(),
 			})
 			return
 		}
@@ -143,6 +157,7 @@ func (h *SecretsHandler) Get(c *gin.Context) {
 // @Produce json
 // @Param name path string true "Secret name" example(github-token)
 // @Success 200 {object} DeleteSecretResponse "Secret deleted successfully"
+// @Failure 400 {object} DeleteSecretResponse "Invalid secret name"
 // @Failure 404 {object} DeleteSecretResponse "Secret not found"
 // @Failure 500 {object} DeleteSecretResponse "Internal server error"
 // @Router /secrets/{name} [delete]
@@ -155,6 +170,14 @@ func (h *SecretsHandler) Delete(c *gin.Context) {
 				Success: false,
 				Name:    name,
 				Error:   "secret not found",
+			})
+			return
+		}
+		if errors.Is(err, secrets.ErrValidation) {
+			c.JSON(http.StatusBadRequest, DeleteSecretResponse{
+				Success: false,
+				Name:    name,
+				Error:   err.Error(),
 			})
 			return
 		}

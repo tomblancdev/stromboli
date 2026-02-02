@@ -485,3 +485,32 @@ func TestRegistry_Create_ValueBoundaryConditions(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot be empty")
 }
+
+func TestValidationErrors_AreWrappedWithErrValidation(t *testing.T) {
+	exec := &MockExecutor{}
+	r := NewRegistry(exec)
+
+	tests := []struct {
+		name      string
+		operation func() error
+	}{
+		{"empty name in Create", func() error { return r.Create(context.Background(), "", "value") }},
+		{"invalid name in Create", func() error { return r.Create(context.Background(), "invalid/name", "value") }},
+		{"empty value in Create", func() error { return r.Create(context.Background(), "valid", "") }},
+		{"value too large", func() error { return r.Create(context.Background(), "valid", string(make([]byte, MaxSecretValueSize+1))) }},
+		{"empty name in Inspect", func() error { _, err := r.Inspect(context.Background(), ""); return err }},
+		{"invalid name in Inspect", func() error { _, err := r.Inspect(context.Background(), "invalid/name"); return err }},
+		{"empty name in Delete", func() error { return r.Delete(context.Background(), "") }},
+		{"invalid name in Delete", func() error { return r.Delete(context.Background(), "invalid/name") }},
+		{"empty name in Exists", func() error { _, err := r.Exists(context.Background(), ""); return err }},
+		{"invalid name in Exists", func() error { _, err := r.Exists(context.Background(), "invalid/name"); return err }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.operation()
+			require.Error(t, err)
+			assert.ErrorIs(t, err, ErrValidation, "validation errors should wrap ErrValidation")
+		})
+	}
+}

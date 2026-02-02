@@ -255,3 +255,42 @@ func TestSecretsHandler_List_PassesThroughTime(t *testing.T) {
 	// Time is passed through as-is (Podman uses relative times in list format)
 	assert.Equal(t, "10 days ago", response.Secrets[0].CreatedAt)
 }
+
+// TestSecretsHandler_Get_ValidationError verifies 400 is returned for invalid names
+func TestSecretsHandler_Get_ValidationError(t *testing.T) {
+	exec := &mockSecretsExecutor{}
+	registry := secrets.NewRegistry(exec)
+	router := setupSecretsRouter(registry)
+
+	// Test with invalid name containing dot (which is invalid per our regex)
+	req, _ := http.NewRequest("GET", "/secrets/invalid.name", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	var response ErrorResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Contains(t, response.Error, "validation error")
+}
+
+// TestSecretsHandler_Delete_ValidationError verifies 400 is returned for invalid names
+func TestSecretsHandler_Delete_ValidationError(t *testing.T) {
+	exec := &mockSecretsExecutor{}
+	registry := secrets.NewRegistry(exec)
+	router := setupSecretsRouter(registry)
+
+	// Test with invalid name containing dot (which is invalid per our regex)
+	req, _ := http.NewRequest("DELETE", "/secrets/invalid.name", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	var response DeleteSecretResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.False(t, response.Success)
+	assert.Contains(t, response.Error, "validation error")
+}

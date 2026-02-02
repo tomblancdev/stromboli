@@ -23,6 +23,9 @@ var ErrSecretNotFound = errors.New("secret not found")
 // ErrSecretAlreadyExists is returned when trying to create a secret that already exists
 var ErrSecretAlreadyExists = errors.New("secret already exists")
 
+// ErrValidation is returned when input validation fails (invalid name, empty value, etc.)
+var ErrValidation = errors.New("validation error")
+
 // validNameRegex matches valid secret names (alphanumeric, dashes, underscores)
 var validNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
@@ -111,10 +114,10 @@ func (r *Registry) Create(ctx context.Context, name, value string) error {
 		return err
 	}
 	if value == "" {
-		return errors.New("secret value cannot be empty")
+		return fmt.Errorf("%w: secret value cannot be empty", ErrValidation)
 	}
 	if len(value) > MaxSecretValueSize {
-		return fmt.Errorf("secret value exceeds maximum size of %d bytes", MaxSecretValueSize)
+		return fmt.Errorf("%w: secret value exceeds maximum size of %d bytes", ErrValidation, MaxSecretValueSize)
 	}
 
 	ctx, cancel := withTimeout(ctx)
@@ -245,15 +248,16 @@ func (r *Registry) Exists(ctx context.Context, name string) (bool, error) {
 
 // validateName validates a secret name to prevent command injection
 // and ensure compatibility with Podman's naming requirements.
+// Returns an error wrapping ErrValidation if validation fails.
 func validateName(name string) error {
 	if name == "" {
-		return errors.New("secret name cannot be empty")
+		return fmt.Errorf("%w: secret name cannot be empty", ErrValidation)
 	}
 	if len(name) > MaxSecretNameLength {
-		return fmt.Errorf("secret name exceeds maximum length of %d characters", MaxSecretNameLength)
+		return fmt.Errorf("%w: secret name exceeds maximum length of %d characters", ErrValidation, MaxSecretNameLength)
 	}
 	if !validNameRegex.MatchString(name) {
-		return errors.New("secret name contains invalid characters (only alphanumeric, dashes, and underscores allowed)")
+		return fmt.Errorf("%w: secret name contains invalid characters (only alphanumeric, dashes, and underscores allowed)", ErrValidation)
 	}
 	return nil
 }
