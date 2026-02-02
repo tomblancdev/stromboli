@@ -37,7 +37,8 @@ type AgentConfig struct {
 	AllowedImagePatterns []string         // Allowed image patterns (e.g., "python:*", "golang:*")
 	AllowedVolumes       []string         // Allowed host paths for volume mounts
 	AllowAllVolumes      bool             // DANGEROUS: Allow all volume mounts when allowlist is empty (dev only!)
-	WorkdirAutoCreate    bool             // Auto-create workdir if it doesn't exist
+	WorkdirAutoCreate    bool             // Auto-create workdir if it doesn't exist (inside container)
+	VolumeAutoCreate     bool             // Auto-create host directories for volume mounts
 	MountClaudeCLI       bool             // Mount claude-cli volume into containers
 	CLIImage             string           // Claude CLI image for mounting (e.g., ghcr.io/tomblancdev/stromboli-agent)
 	CLIImageTag          string           // Claude CLI image tag
@@ -167,6 +168,7 @@ func setupViper(v *viper.Viper) {
 	v.SetDefault("agent.allowed_volumes", []string{})
 	v.SetDefault("agent.allow_all_volumes", false) // SECURE DEFAULT: deny all when no allowlist
 	v.SetDefault("agent.workdir_auto_create", true)
+	v.SetDefault("agent.volume_auto_create", true)
 	v.SetDefault("agent.mount_claude_cli", false)
 	v.SetDefault("agent.cli_image", defaultCLIImage)
 	v.SetDefault("agent.cli_image_tag", defaultCLIImageTag)
@@ -208,6 +210,7 @@ func setupViper(v *viper.Viper) {
 	_ = v.BindEnv("agent.allowed_volumes", "STROMBOLI_AGENT_ALLOWED_VOLUMES")
 	_ = v.BindEnv("agent.allow_all_volumes", "STROMBOLI_AGENT_ALLOW_ALL_VOLUMES")
 	_ = v.BindEnv("agent.workdir_auto_create", "STROMBOLI_AGENT_WORKDIR_AUTO_CREATE")
+	_ = v.BindEnv("agent.volume_auto_create", "STROMBOLI_AGENT_VOLUME_AUTO_CREATE")
 	_ = v.BindEnv("agent.mount_claude_cli", "STROMBOLI_AGENT_MOUNT_CLAUDE_CLI")
 	_ = v.BindEnv("agent.cli_image", "STROMBOLI_AGENT_CLI_IMAGE")
 	_ = v.BindEnv("agent.cli_image_tag", "STROMBOLI_AGENT_CLI_IMAGE_TAG")
@@ -255,6 +258,7 @@ func parseConfig(v *viper.Viper) (*Config, error) {
 			AllowedVolumes:       getStringSliceOrSplit(v, "agent.allowed_volumes"),
 			AllowAllVolumes:      v.GetBool("agent.allow_all_volumes"),
 			WorkdirAutoCreate:    v.GetBool("agent.workdir_auto_create"),
+			VolumeAutoCreate:     v.GetBool("agent.volume_auto_create"),
 			MountClaudeCLI:       v.GetBool("agent.mount_claude_cli"),
 			CLIImage:             v.GetString("agent.cli_image"),
 			CLIImageTag:          v.GetString("agent.cli_image_tag"),

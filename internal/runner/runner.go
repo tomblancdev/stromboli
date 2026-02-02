@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -70,7 +71,8 @@ type ImageConfig struct {
 type VolumeConfig struct {
 	AllowedVolumes    []string // Allowed host paths for volume mounts
 	AllowAllVolumes   bool     // DANGEROUS: Allow all volumes when allowlist empty (dev only!)
-	WorkdirAutoCreate bool     // Auto-create workdir if it doesn't exist
+	WorkdirAutoCreate bool     // Auto-create workdir if it doesn't exist (inside container)
+	VolumeAutoCreate  bool     // Auto-create host directories for volume mounts
 }
 
 // PodmanRunner runs Claude using Podman containers
@@ -83,6 +85,7 @@ type PodmanRunner struct {
 	imageValidator    *ImageValidator
 	mountClaudeCLI    bool
 	workdirAutoCreate bool
+	volumeAutoCreate  bool // Auto-create host directories for volume mounts
 	defaults          ResourceDefaults
 	executor          Executor
 }
@@ -111,6 +114,7 @@ func NewPodmanRunnerWithDefaultsAndExecutor(image, credentialsFile, sessionsDir 
 	volumeConfig := VolumeConfig{
 		AllowedVolumes:    allowedVolumes,
 		WorkdirAutoCreate: true, // Default to true for backward compatibility
+		VolumeAutoCreate:  true, // Default to true for backward compatibility
 	}
 	return NewPodmanRunnerFull(image, credentialsFile, sessionsDir, sessionsDir, defaults, ImageConfig{}, volumeConfig, executor)
 }
@@ -142,6 +146,7 @@ func NewPodmanRunnerFull(image, credentialsFile, sessionsDir, sessionsHostDir st
 		imageValidator:    imageValidator,
 		mountClaudeCLI:    imageConfig.MountClaudeCLI,
 		workdirAutoCreate: volumeConfig.WorkdirAutoCreate,
+		volumeAutoCreate:  volumeConfig.VolumeAutoCreate,
 		defaults:          defaults,
 		executor:          executor,
 	}, nil
@@ -545,6 +550,14 @@ func (r *PodmanRunner) applyRequestConfig(req Request, podmanBuilder *podman.Com
 	if err := r.validateVolumes(req.Podman.Volumes); err != nil {
 		return fmt.Errorf("volume validation failed: %w", err)
 	}
+
+	// Auto-create host directories for volume mounts if enabled
+	if r.volumeAutoCreate {
+		if err := r.ensureVolumeHostDirs(req.Podman.Volumes); err != nil {
+			return fmt.Errorf("failed to create volume host directories: %w", err)
+		}
+	}
+
 	for _, vol := range req.Podman.Volumes {
 		podmanBuilder.WithVolumeRaw(vol)
 	}
@@ -785,6 +798,29 @@ func (r *PodmanRunner) validateVolumes(volumes []string) error {
 		// Validate mount options
 		if err := validateMountOptions(options); err != nil {
 			return fmt.Errorf("volume mount options invalid: %w", err)
+		}
+	}
+	return nil
+}
+
+// ensureVolumeHostDirs creates host directories for volume mounts if they don't exist
+// This mimics Docker/Podman's default behavior of auto-creating mount points
+func (r *PodmanRunner) ensureVolumeHostDirs(volumes []string) error {
+	for _, vol := range volumes {
+		hostPath, _, _, err := parseVolumeComponents(vol)
+		if err != nil {
+			// Skip invalid volumes - they'll fail validation anyway
+			continue
+		}
+
+		// Check if the path exists
+		if _, err := os.Stat(hostPath); os.IsNotExist(err) {
+			// Create the directory with user-writable permissions
+			// Use 0755 to match typical directory permissions
+			if err := os.MkdirAll(hostPath, 0755); err != nil {
+				return fmt.Errorf("failed to create host directory %q: %w", hostPath, err)
+			}
+			slog.Debug("Auto-created volume host directory", "path", hostPath)
 		}
 	}
 	return nil
