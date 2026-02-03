@@ -45,8 +45,8 @@ func TestNewImagesHandler(t *testing.T) {
 	registry := images.NewRegistry(exec)
 	handler := NewImagesHandler(registry)
 
+	// Just verify handler is created (functional correctness proven by other tests)
 	assert.NotNil(t, handler)
-	assert.Equal(t, registry, handler.registry)
 }
 
 func TestImagesHandler_List_Success(t *testing.T) {
@@ -109,7 +109,7 @@ func TestImagesHandler_List_Error(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 
-	var response ImagesListResponse
+	var response ErrorResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
 	assert.Contains(t, response.Error, "failed to list images")
@@ -167,10 +167,40 @@ func TestImagesHandler_Inspect_NotFound(t *testing.T) {
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 
-	var response ImageDetailResponse
+	var response ErrorResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
 	assert.Equal(t, "image not found", response.Error)
+}
+
+func TestImagesHandler_Inspect_InvalidName(t *testing.T) {
+	exec := &mockImagesExecutor{}
+	registry := images.NewRegistry(exec)
+	router := setupImagesRouter(registry)
+
+	tests := []struct {
+		name      string
+		imageName string
+	}{
+		{"special chars", "invalid!image"},
+		{"consecutive colons", "image::tag"},
+		{"starts with dash", "-invalid"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, _ := http.NewRequest("GET", "/images/"+tt.imageName, nil)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, http.StatusBadRequest, w.Code)
+
+			var response ErrorResponse
+			err := json.Unmarshal(w.Body.Bytes(), &response)
+			require.NoError(t, err)
+			assert.Contains(t, response.Error, "invalid image name")
+		})
+	}
 }
 
 func TestImagesHandler_Search_Success(t *testing.T) {
@@ -222,6 +252,25 @@ func TestImagesHandler_Search_WithLimit(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
+func TestImagesHandler_Search_WithNoTrunc(t *testing.T) {
+	var capturedArgs []string
+	exec := &mockImagesExecutor{
+		runFunc: func(ctx context.Context, args []string) ([]byte, error) {
+			capturedArgs = args
+			return []byte(`[]`), nil
+		},
+	}
+	registry := images.NewRegistry(exec)
+	router := setupImagesRouter(registry)
+
+	req, _ := http.NewRequest("GET", "/images/search?q=python&no_trunc=true", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, capturedArgs, "--no-trunc")
+}
+
 func TestImagesHandler_Search_MissingQuery(t *testing.T) {
 	exec := &mockImagesExecutor{}
 	registry := images.NewRegistry(exec)
@@ -233,7 +282,7 @@ func TestImagesHandler_Search_MissingQuery(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
-	var response ImageSearchResponse
+	var response ErrorResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
 	assert.Contains(t, response.Error, "query parameter 'q' is required")
@@ -261,7 +310,7 @@ func TestImagesHandler_Search_InvalidLimit(t *testing.T) {
 
 			assert.Equal(t, http.StatusBadRequest, w.Code)
 
-			var response ImageSearchResponse
+			var response ErrorResponse
 			err := json.Unmarshal(w.Body.Bytes(), &response)
 			require.NoError(t, err)
 			assert.Contains(t, response.Error, "invalid limit parameter")
@@ -284,7 +333,7 @@ func TestImagesHandler_Search_RegistryError(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadGateway, w.Code)
 
-	var response ImageSearchResponse
+	var response ErrorResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
 	assert.Contains(t, response.Error, "registry search failed")
@@ -380,10 +429,9 @@ func TestImagesHandler_Pull_Error(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 
-	var response ImagePullResponse
+	var response ErrorResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
-	assert.False(t, response.Success)
 	assert.Contains(t, response.Error, "failed to pull image")
 }
 

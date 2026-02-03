@@ -120,11 +120,11 @@ func (s *Server) setupRoutes() {
 		protected.GET("/secrets/:name", s.secretsHandler.Get)
 		protected.DELETE("/secrets/:name", s.secretsHandler.Delete)
 
-		// Image discovery
+		// Image discovery (static routes first, parameterized last)
 		protected.GET("/images", s.imagesHandler.List)
 		protected.GET("/images/search", s.imagesHandler.Search)
-		protected.GET("/images/:name", s.imagesHandler.Inspect)
 		protected.POST("/images/pull", s.imagesHandler.Pull)
+		protected.GET("/images/:name", s.imagesHandler.Inspect)
 	}
 }
 

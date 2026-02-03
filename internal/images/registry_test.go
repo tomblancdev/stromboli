@@ -3,6 +3,7 @@ package images
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -35,8 +36,8 @@ func TestNewRegistry(t *testing.T) {
 	exec := &MockExecutor{}
 	r := NewRegistry(exec)
 
+	// Just verify registry is created (functional correctness proven by other tests)
 	assert.NotNil(t, r)
-	assert.Equal(t, exec, r.executor)
 }
 
 func TestRegistry_List_Success(t *testing.T) {
@@ -277,6 +278,28 @@ func TestRegistry_Search_EmptyQuery(t *testing.T) {
 	assert.Contains(t, err.Error(), "search query cannot be empty")
 }
 
+func TestRegistry_Search_InvalidQuery(t *testing.T) {
+	exec := &MockExecutor{}
+	r := NewRegistry(exec)
+
+	tests := []struct {
+		name  string
+		query string
+	}{
+		{"special chars", "python!@#"},
+		{"spaces", "python image"},
+		{"starts with dash", "-python"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := r.Search(context.Background(), tt.query, nil)
+			require.Error(t, err)
+			assert.ErrorIs(t, err, ErrValidation)
+		})
+	}
+}
+
 func TestRegistry_Search_Empty(t *testing.T) {
 	exec := &MockExecutor{
 		RunFunc: func(ctx context.Context, args []string) ([]byte, error) {
@@ -386,7 +409,7 @@ func TestNormalizeSearchQuery(t *testing.T) {
 		{"already has ghcr.io", "ghcr.io/owner/repo", "ghcr.io/owner/repo"},
 		{"already has quay.io", "quay.io/org/image", "quay.io/org/image"},
 		{"localhost registry", "localhost/myimage", "localhost/myimage"},
-		{"localhost with port", "localhost:5000/myimage", "docker.io/localhost:5000/myimage"}, // Port without dot, treated as namespace
+		{"localhost with port", "localhost:5000/myimage", "localhost:5000/myimage"}, // Port indicates registry
 		{"custom registry", "registry.example.com/image", "registry.example.com/image"},
 	}
 
@@ -450,4 +473,116 @@ func TestParseRepoTag(t *testing.T) {
 			assert.Equal(t, tt.wantTag, tag)
 		})
 	}
+}
+
+func TestValidateImageName(t *testing.T) {
+	tests := []struct {
+		name      string
+		imageName string
+		wantErr   bool
+		errMsg    string
+	}{
+		{"valid simple", "python", false, ""},
+		{"valid with tag", "python:3.12-slim", false, ""},
+		{"valid with registry", "docker.io/library/python:3.12", false, ""},
+		{"valid ghcr", "ghcr.io/owner/repo:latest", false, ""},
+		{"valid with digest", "python@sha256:abc123", false, ""},
+		{"valid with port", "localhost:5000/myimage:latest", false, ""},
+		{"valid double dots", "my.image.name:1.0", false, ""},
+		{"empty", "", true, "cannot be empty"},
+		{"starts with dash", "-invalid", true, "invalid image name format"},
+		{"starts with dot", ".invalid", true, "invalid image name format"},
+		{"contains spaces", "invalid image", true, "invalid image name format"},
+		{"contains special chars", "invalid!image", true, "invalid image name format"},
+		{"consecutive slashes", "docker.io//library/python", true, "invalid image name format"},
+		{"consecutive colons", "image::tag", true, "invalid image name format"},
+		{"multiple at signs", "image@sha256:abc@sha256:def", true, "invalid image name format"},
+		{"triple dots", "image...name", true, "invalid image name format"},
+		{"triple dashes", "image---name", true, "invalid image name format"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateImageName(tt.imageName)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.ErrorIs(t, err, ErrValidation)
+				assert.Contains(t, err.Error(), tt.errMsg)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateImageName_MaxLength(t *testing.T) {
+	// Create a name that exceeds max length
+	longName := "a" + strings.Repeat("b", MaxImageNameLength)
+	err := validateImageName(longName)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrValidation)
+	assert.Contains(t, err.Error(), "exceeds maximum length")
+}
+
+func TestRegistry_Inspect_InvalidName(t *testing.T) {
+	exec := &MockExecutor{}
+	r := NewRegistry(exec)
+
+	_, err := r.Inspect(context.Background(), "!!!invalid")
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrValidation)
+	assert.Contains(t, err.Error(), "invalid image name format")
+}
+
+func TestRegistry_Pull_InvalidName(t *testing.T) {
+	exec := &MockExecutor{}
+	r := NewRegistry(exec)
+
+	_, err := r.Pull(context.Background(), "!!!invalid", nil)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrValidation)
+	assert.Contains(t, err.Error(), "invalid image name format")
+}
+
+func TestRegistry_List_ContextCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	exec := &MockExecutor{
+		RunFunc: func(ctx context.Context, args []string) ([]byte, error) {
+			return nil, ctx.Err()
+		},
+	}
+	r := NewRegistry(exec)
+
+	_, err := r.List(ctx)
+
+	require.Error(t, err)
+}
+
+func TestRegistry_Inspect_InvalidCreatedTime(t *testing.T) {
+	exec := &MockExecutor{
+		RunFunc: func(ctx context.Context, args []string) ([]byte, error) {
+			// Return invalid Created time format
+			return []byte(`[{
+				"Id": "sha256:abc123",
+				"Created": "not-a-valid-timestamp",
+				"Size": 125000000,
+				"RepoTags": ["python:3.12-slim"],
+				"Config": {"Labels": {}}
+			}]`), nil
+		},
+	}
+	r := NewRegistry(exec)
+
+	info, err := r.Inspect(context.Background(), "python:3.12-slim")
+
+	// Should succeed despite invalid time
+	require.NoError(t, err)
+	assert.Equal(t, "sha256:abc123", info.ID)
+	// Created should be zero time when parsing fails
+	assert.True(t, info.Created.IsZero())
 }

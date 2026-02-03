@@ -28,13 +28,13 @@ func NewImagesHandler(registry *images.Registry) *ImagesHandler {
 // @Tags images
 // @Produce json
 // @Success 200 {object} ImagesListResponse "List of images (empty array if none exist)"
-// @Failure 500 {object} ImagesListResponse "Internal server error"
+// @Failure 500 {object} ErrorResponse "Internal server error"
 // @Router /images [get]
 func (h *ImagesHandler) List(c *gin.Context) {
 	imagesList, err := h.registry.List(c.Request.Context())
 	if err != nil {
 		slog.Error("Failed to list images", "error", err)
-		c.JSON(http.StatusInternalServerError, ImagesListResponse{
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error: "failed to list images",
 		})
 		return
@@ -69,9 +69,9 @@ func (h *ImagesHandler) List(c *gin.Context) {
 // @Produce json
 // @Param name path string true "Image name with optional tag" example(python:3.12-slim)
 // @Success 200 {object} ImageDetailResponse "Image details"
-// @Failure 400 {object} ImageDetailResponse "Invalid image name"
-// @Failure 404 {object} ImageDetailResponse "Image not found"
-// @Failure 500 {object} ImageDetailResponse "Internal server error"
+// @Failure 400 {object} ErrorResponse "Invalid image name"
+// @Failure 404 {object} ErrorResponse "Image not found"
+// @Failure 500 {object} ErrorResponse "Internal server error"
 // @Router /images/{name} [get]
 func (h *ImagesHandler) Inspect(c *gin.Context) {
 	name := c.Param("name")
@@ -79,19 +79,19 @@ func (h *ImagesHandler) Inspect(c *gin.Context) {
 	info, err := h.registry.Inspect(c.Request.Context(), name)
 	if err != nil {
 		if errors.Is(err, images.ErrImageNotFound) {
-			c.JSON(http.StatusNotFound, ImageDetailResponse{
+			c.JSON(http.StatusNotFound, ErrorResponse{
 				Error: "image not found",
 			})
 			return
 		}
 		if errors.Is(err, images.ErrValidation) {
-			c.JSON(http.StatusBadRequest, ImageDetailResponse{
+			c.JSON(http.StatusBadRequest, ErrorResponse{
 				Error: err.Error(),
 			})
 			return
 		}
 		slog.Error("Failed to inspect image", "name", name, "error", err)
-		c.JSON(http.StatusInternalServerError, ImageDetailResponse{
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error: "internal server error",
 		})
 		return
@@ -120,50 +120,61 @@ func (h *ImagesHandler) Inspect(c *gin.Context) {
 // @Produce json
 // @Param q query string true "Search query" example(python)
 // @Param limit query int false "Maximum number of results (default 25, max 100)" example(10)
+// @Param no_trunc query bool false "Don't truncate output (show full descriptions)" example(true)
 // @Success 200 {object} ImageSearchResponse "Search results"
-// @Failure 400 {object} ImageSearchResponse "Invalid request (missing query)"
-// @Failure 502 {object} ImageSearchResponse "Registry search failed"
-// @Failure 500 {object} ImageSearchResponse "Internal server error"
+// @Failure 400 {object} ErrorResponse "Invalid request (missing query)"
+// @Failure 502 {object} ErrorResponse "Registry search failed"
+// @Failure 500 {object} ErrorResponse "Internal server error"
 // @Router /images/search [get]
 func (h *ImagesHandler) Search(c *gin.Context) {
 	query := c.Query("q")
 	if query == "" {
-		c.JSON(http.StatusBadRequest, ImageSearchResponse{
+		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error: "query parameter 'q' is required",
 		})
 		return
 	}
 
-	// Parse optional limit parameter
+	// Parse optional parameters
 	var opts *images.SearchOptions
-	if limitStr := c.Query("limit"); limitStr != "" {
-		limit, err := strconv.Atoi(limitStr)
-		if err != nil || limit < 1 {
-			c.JSON(http.StatusBadRequest, ImageSearchResponse{
-				Error: "invalid limit parameter",
-			})
-			return
+	limitStr := c.Query("limit")
+	noTrunc := c.Query("no_trunc") == "true"
+
+	if limitStr != "" || noTrunc {
+		limit := images.DefaultSearchLimit
+		if limitStr != "" {
+			var err error
+			limit, err = strconv.Atoi(limitStr)
+			if err != nil || limit < 1 {
+				c.JSON(http.StatusBadRequest, ErrorResponse{
+					Error: "invalid limit parameter",
+				})
+				return
+			}
 		}
-		opts = &images.SearchOptions{Limit: limit}
+		opts = &images.SearchOptions{
+			Limit:   limit,
+			NoTrunc: noTrunc,
+		}
 	}
 
 	results, err := h.registry.Search(c.Request.Context(), query, opts)
 	if err != nil {
 		if errors.Is(err, images.ErrValidation) {
-			c.JSON(http.StatusBadRequest, ImageSearchResponse{
+			c.JSON(http.StatusBadRequest, ErrorResponse{
 				Error: err.Error(),
 			})
 			return
 		}
 		if errors.Is(err, images.ErrSearchFailed) {
 			slog.Error("Registry search failed", "query", query, "error", err)
-			c.JSON(http.StatusBadGateway, ImageSearchResponse{
+			c.JSON(http.StatusBadGateway, ErrorResponse{
 				Error: "registry search failed",
 			})
 			return
 		}
 		slog.Error("Failed to search images", "query", query, "error", err)
-		c.JSON(http.StatusInternalServerError, ImageSearchResponse{
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error: "internal server error",
 		})
 		return
@@ -195,15 +206,14 @@ func (h *ImagesHandler) Search(c *gin.Context) {
 // @Produce json
 // @Param request body ImagePullRequest true "Pull request"
 // @Success 200 {object} ImagePullResponse "Image pulled successfully"
-// @Failure 400 {object} ImagePullResponse "Invalid request"
-// @Failure 500 {object} ImagePullResponse "Pull failed"
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 500 {object} ErrorResponse "Pull failed"
 // @Router /images/pull [post]
 func (h *ImagesHandler) Pull(c *gin.Context) {
 	var req ImagePullRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, ImagePullResponse{
-			Success: false,
-			Error:   err.Error(),
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
 		})
 		return
 	}
@@ -216,27 +226,21 @@ func (h *ImagesHandler) Pull(c *gin.Context) {
 	imageID, err := h.registry.Pull(c.Request.Context(), req.Image, opts)
 	if err != nil {
 		if errors.Is(err, images.ErrValidation) {
-			c.JSON(http.StatusBadRequest, ImagePullResponse{
-				Success: false,
-				Image:   req.Image,
-				Error:   err.Error(),
+			c.JSON(http.StatusBadRequest, ErrorResponse{
+				Error: err.Error(),
 			})
 			return
 		}
 		if errors.Is(err, images.ErrPullFailed) {
 			slog.Error("Failed to pull image", "image", req.Image, "error", err)
-			c.JSON(http.StatusInternalServerError, ImagePullResponse{
-				Success: false,
-				Image:   req.Image,
-				Error:   "failed to pull image",
+			c.JSON(http.StatusInternalServerError, ErrorResponse{
+				Error: "failed to pull image",
 			})
 			return
 		}
 		slog.Error("Unexpected error pulling image", "image", req.Image, "error", err)
-		c.JSON(http.StatusInternalServerError, ImagePullResponse{
-			Success: false,
-			Image:   req.Image,
-			Error:   "internal server error",
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error: "internal server error",
 		})
 		return
 	}

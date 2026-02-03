@@ -116,7 +116,6 @@ type DeleteSecretResponse struct {
 // @Description List of local container images sorted by compatibility
 type ImagesListResponse struct {
 	Images []ImageInfoResponse `json:"images"`
-	Error  string              `json:"error,omitempty"`
 }
 
 // ImageInfoResponse represents metadata about a container image
@@ -149,14 +148,12 @@ type ImageDetailResponse struct {
 	Tools             []string          `json:"tools,omitempty" example:"python,pip"`
 	HasClaudeCLI      bool              `json:"has_claude_cli" example:"false"`
 	Description       string            `json:"description,omitempty" example:"Python development image"`
-	Error             string            `json:"error,omitempty"`
 }
 
 // ImageSearchResponse represents registry search results
 // @Description Search results from container registries
 type ImageSearchResponse struct {
 	Results []SearchResultResponse `json:"results"`
-	Error   string                 `json:"error,omitempty"`
 }
 
 // SearchResultResponse represents a single search result
@@ -184,5 +181,4 @@ type ImagePullResponse struct {
 	Success bool   `json:"success" example:"true"`
 	ImageID string `json:"image_id,omitempty" example:"sha256:abc123def456"`
 	Image   string `json:"image" example:"python:3.12-slim"`
-	Error   string `json:"error,omitempty"`
 }

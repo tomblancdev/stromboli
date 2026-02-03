@@ -32,6 +32,43 @@ definitions:
         example: ok
         type: string
     type: object
+  internal_api.CreateSecretRequest:
+    description: Request to create a new Podman secret
+    properties:
+      name:
+        example: github-token
+        type: string
+      value:
+        example: ghp_xxxxxxxxxxxx
+        type: string
+    required:
+    - name
+    - value
+    type: object
+  internal_api.CreateSecretResponse:
+    description: Result of secret creation
+    properties:
+      error:
+        type: string
+      name:
+        example: github-token
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  internal_api.DeleteSecretResponse:
+    description: Result of secret deletion
+    properties:
+      error:
+        type: string
+      name:
+        example: github-token
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
   internal_api.ErrorResponse:
     properties:
       error:
@@ -53,6 +90,133 @@ definitions:
       version:
         example: 0.1.4
         type: string
+    type: object
+  internal_api.ImageDetailResponse:
+    description: Detailed container image information including labels
+    properties:
+      compatibility_rank:
+        example: 3
+        type: integer
+      compatible:
+        example: true
+        type: boolean
+      created:
+        example: "2024-01-15T10:30:00Z"
+        type: string
+      description:
+        example: Python development image
+        type: string
+      has_claude_cli:
+        example: false
+        type: boolean
+      id:
+        example: sha256:abc123def456
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      rank_description:
+        example: Standard glibc-based (compatible)
+        type: string
+      repository:
+        example: python
+        type: string
+      size:
+        example: 125000000
+        type: integer
+      tag:
+        example: 3.12-slim
+        type: string
+      tools:
+        example:
+        - python
+        - pip
+        items:
+          type: string
+        type: array
+    type: object
+  internal_api.ImageInfoResponse:
+    description: Container image metadata with compatibility information
+    properties:
+      compatibility_rank:
+        example: 3
+        type: integer
+      compatible:
+        example: true
+        type: boolean
+      created:
+        example: "2024-01-15T10:30:00Z"
+        type: string
+      description:
+        example: Python development image
+        type: string
+      has_claude_cli:
+        example: false
+        type: boolean
+      id:
+        example: sha256:abc123def456
+        type: string
+      repository:
+        example: python
+        type: string
+      size:
+        example: 125000000
+        type: integer
+      tag:
+        example: 3.12-slim
+        type: string
+      tools:
+        example:
+        - python
+        - pip
+        items:
+          type: string
+        type: array
+    type: object
+  internal_api.ImagePullRequest:
+    description: Request to pull a container image from a registry
+    properties:
+      image:
+        example: python:3.12-slim
+        type: string
+      platform:
+        example: linux/amd64
+        type: string
+      quiet:
+        example: true
+        type: boolean
+    required:
+    - image
+    type: object
+  internal_api.ImagePullResponse:
+    description: Result of image pull operation
+    properties:
+      image:
+        example: python:3.12-slim
+        type: string
+      image_id:
+        example: sha256:abc123def456
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  internal_api.ImageSearchResponse:
+    description: Search results from container registries
+    properties:
+      results:
+        items:
+          $ref: '#/definitions/internal_api.SearchResultResponse'
+        type: array
+    type: object
+  internal_api.ImagesListResponse:
+    description: List of local container images sorted by compatibility
+    properties:
+      images:
+        items:
+          $ref: '#/definitions/internal_api.ImageInfoResponse'
+        type: array
     type: object
   internal_api.JobListResponse:
     description: List of async jobs
@@ -155,17 +319,49 @@ definitions:
         example: completed
         type: string
     type: object
+  internal_api.SearchResultResponse:
+    description: Search result from a container registry
+    properties:
+      automated:
+        example: false
+        type: boolean
+      description:
+        example: Python is an interpreted programming language
+        type: string
+      index:
+        example: docker.io
+        type: string
+      name:
+        example: python
+        type: string
+      official:
+        example: true
+        type: boolean
+      stars:
+        example: 8500
+        type: integer
+    type: object
+  internal_api.SecretInfoResponse:
+    description: Secret metadata (never contains the actual secret value)
+    properties:
+      created_at:
+        example: "2024-01-15T10:30:00Z"
+        type: string
+      id:
+        example: abc123def456
+        type: string
+      name:
+        example: github-token
+        type: string
+    type: object
   internal_api.SecretsListResponse:
     description: List of available secrets that can be injected into agents
     properties:
       error:
         type: string
       secrets:
-        example:
-        - github-token
-        - gitlab-token
         items:
-          type: string
+          $ref: '#/definitions/internal_api.SecretInfoResponse'
         type: array
     type: object
   internal_api.SessionDestroyResponse:
@@ -785,6 +981,132 @@ paths:
       summary: Health check
       tags:
       - system
+  /images:
+    get:
+      description: Returns all local container images sorted by compatibility rank.
+        Images with rank 1-2 are verified compatible, rank 3 is standard glibc (compatible),
+        rank 4 is incompatible (Alpine/musl).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of images (empty array if none exist)
+          schema:
+            $ref: '#/definitions/internal_api.ImagesListResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      summary: List images
+      tags:
+      - images
+  /images/{name}:
+    get:
+      description: Returns detailed information about a specific container image including
+        all labels and compatibility information.
+      parameters:
+      - description: Image name with optional tag
+        example: python:3.12-slim
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Image details
+          schema:
+            $ref: '#/definitions/internal_api.ImageDetailResponse'
+        "400":
+          description: Invalid image name
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "404":
+          description: Image not found
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      summary: Inspect image
+      tags:
+      - images
+  /images/pull:
+    post:
+      consumes:
+      - application/json
+      description: Pulls a container image from a registry. This operation may take
+        some time for large images.
+      parameters:
+      - description: Pull request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.ImagePullRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Image pulled successfully
+          schema:
+            $ref: '#/definitions/internal_api.ImagePullResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "500":
+          description: Pull failed
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      summary: Pull image
+      tags:
+      - images
+  /images/search:
+    get:
+      description: Searches container registries for images matching the query. Returns
+        results from Docker Hub and other configured registries.
+      parameters:
+      - description: Search query
+        example: python
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: Maximum number of results (default 25, max 100)
+        example: 10
+        in: query
+        name: limit
+        type: integer
+      - description: Don't truncate output (show full descriptions)
+        example: true
+        in: query
+        name: no_trunc
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Search results
+          schema:
+            $ref: '#/definitions/internal_api.ImageSearchResponse'
+        "400":
+          description: Invalid request (missing query)
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "502":
+          description: Registry search failed
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      summary: Search images
+      tags:
+      - images
   /jobs:
     get:
       description: Returns all async jobs
@@ -951,20 +1273,123 @@ paths:
       - execution
   /secrets:
     get:
-      description: Returns all available Podman secrets that can be injected into
-        agents
+      description: Returns metadata for all available Podman secrets that can be injected
+        into agents. Secret values are never returned - only IDs, names, and creation
+        times.
       produces:
       - application/json
       responses:
         "200":
-          description: OK
+          description: List of secrets (empty array if none exist)
           schema:
             $ref: '#/definitions/internal_api.SecretsListResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             $ref: '#/definitions/internal_api.SecretsListResponse'
       summary: List secrets
+      tags:
+      - secrets
+    post:
+      consumes:
+      - application/json
+      description: Creates a new Podman secret that can be injected into agents. Secret
+        names must be alphanumeric (with dashes and underscores), max 253 characters.
+        Values are limited to 1MB.
+      parameters:
+      - description: Create secret request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.CreateSecretRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Secret created successfully
+          schema:
+            $ref: '#/definitions/internal_api.CreateSecretResponse'
+        "400":
+          description: Invalid request (missing/invalid name or value)
+          schema:
+            $ref: '#/definitions/internal_api.CreateSecretResponse'
+        "409":
+          description: Secret with this name already exists
+          schema:
+            $ref: '#/definitions/internal_api.CreateSecretResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_api.CreateSecretResponse'
+      summary: Create secret
+      tags:
+      - secrets
+  /secrets/{name}:
+    delete:
+      description: Permanently deletes a Podman secret. This action cannot be undone.
+        Secrets currently in use by running containers may cause those containers
+        to fail.
+      parameters:
+      - description: Secret name
+        example: github-token
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Secret deleted successfully
+          schema:
+            $ref: '#/definitions/internal_api.DeleteSecretResponse'
+        "400":
+          description: Invalid secret name
+          schema:
+            $ref: '#/definitions/internal_api.DeleteSecretResponse'
+        "404":
+          description: Secret not found
+          schema:
+            $ref: '#/definitions/internal_api.DeleteSecretResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_api.DeleteSecretResponse'
+      summary: Delete secret
+      tags:
+      - secrets
+    get:
+      description: Returns metadata about a specific Podman secret. For security,
+        the actual secret value is never returned - only the ID, name, and creation
+        time.
+      parameters:
+      - description: Secret name
+        example: github-token
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Secret metadata
+          schema:
+            $ref: '#/definitions/internal_api.SecretInfoResponse'
+        "400":
+          description: Invalid secret name
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "404":
+          description: Secret not found
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      summary: Get secret metadata
       tags:
       - secrets
   /sessions:

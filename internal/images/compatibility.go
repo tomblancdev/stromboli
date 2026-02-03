@@ -6,10 +6,10 @@ import (
 	"strings"
 )
 
-// incompatibleImagePatterns lists images that won't work with Claude CLI image mount.
+// IncompatibleImagePatterns lists images that won't work with Claude CLI image mount.
 // These use musl libc (Alpine) or are too minimal (distroless/scratch).
-// This mirrors the patterns from runner/image.go for consistency.
-var incompatibleImagePatterns = []string{
+// This is the single source of truth - runner/image.go imports this.
+var IncompatibleImagePatterns = []string{
 	"*alpine*",
 	"*-alpine",
 	"alpine:*",
@@ -49,7 +49,7 @@ func ComputeCompatibilityRank(repository, tag string, labels map[string]string) 
 		imageName = repository + ":" + tag
 	}
 
-	if isIncompatible(imageName) {
+	if IsIncompatibleImage(imageName) {
 		return RankIncompatible
 	}
 
@@ -57,18 +57,19 @@ func ComputeCompatibilityRank(repository, tag string, labels map[string]string) 
 	return RankGlibcBased
 }
 
-// isIncompatible checks if an image matches known incompatible patterns
-func isIncompatible(imageName string) bool {
+// IsIncompatibleImage checks if an image matches known incompatible patterns.
+// This is the exported version for use by other packages (e.g., runner).
+func IsIncompatibleImage(imageName string) bool {
 	normalizedImage := strings.ToLower(imageName)
 
-	for _, pattern := range incompatibleImagePatterns {
+	for _, pattern := range IncompatibleImagePatterns {
 		// Try glob match on normalized image name
 		if matched, _ := filepath.Match(pattern, normalizedImage); matched {
 			return true
 		}
 
-		// Also check the tag part separately
-		if strings.Contains(normalizedImage, pattern) {
+		// Only substring match non-glob patterns (Issue #6 fix)
+		if !strings.ContainsAny(pattern, "*?[]") && strings.Contains(normalizedImage, pattern) {
 			return true
 		}
 	}

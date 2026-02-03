@@ -4,10 +4,40 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 )
+
+// validImageNameRegex validates image name format.
+// Allows alphanumeric, dots, underscores, colons, slashes, at-signs, and hyphens.
+// Must start with alphanumeric character.
+// Used for both image names and search queries (search is more lenient because
+// it doesn't apply invalidPatterns check).
+var validImageNameRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._:/@-]*$`)
+
+// invalidPatterns detects problematic patterns in image names.
+// Only applied to image names (Inspect/Pull), not search queries.
+var invalidPatterns = regexp.MustCompile(`(/{2,}|:{2,}|\.{3,}|-{3,}|_{3,}|@.*@)`)
+
+// validateImageName validates an image name for format and length
+func validateImageName(name string) error {
+	if name == "" {
+		return fmt.Errorf("%w: image name cannot be empty", ErrValidation)
+	}
+	if len(name) > MaxImageNameLength {
+		return fmt.Errorf("%w: image name exceeds maximum length of %d characters", ErrValidation, MaxImageNameLength)
+	}
+	if !validImageNameRegex.MatchString(name) {
+		return fmt.Errorf("%w: invalid image name format", ErrValidation)
+	}
+	// Check for problematic patterns (consecutive slashes, colons, multiple @, etc.)
+	if invalidPatterns.MatchString(name) {
+		return fmt.Errorf("%w: invalid image name format", ErrValidation)
+	}
+	return nil
+}
 
 // withTimeout wraps a context with DefaultOperationTimeout if no deadline is set
 func withTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
@@ -40,6 +70,8 @@ func NewRegistry(executor Executor) *Registry {
 
 // List returns all local images, sorted by compatibility rank.
 // Returns an empty slice (never nil) if no images exist.
+//
+// TODO: Consider adding optional caching with TTL for high-traffic scenarios.
 func (r *Registry) List(ctx context.Context) ([]ImageInfo, error) {
 	ctx, cancel := withTimeout(ctx)
 	defer cancel()
@@ -77,7 +109,7 @@ func (r *Registry) List(ctx context.Context) ([]ImageInfo, error) {
 
 		// Compute compatibility rank based on image name (labels require inspect)
 		info.CompatibilityRank = ComputeCompatibilityRank(info.Repository, info.Tag, nil)
-		info.Compatible = info.CompatibilityRank <= RankClaudeCLI
+		info.Compatible = IsCompatible(info.CompatibilityRank)
 
 		images = append(images, info)
 	}
@@ -91,8 +123,8 @@ func (r *Registry) List(ctx context.Context) ([]ImageInfo, error) {
 // Inspect returns detailed information about a specific image.
 // Returns ErrImageNotFound if the image doesn't exist locally.
 func (r *Registry) Inspect(ctx context.Context, name string) (*ImageInfo, error) {
-	if name == "" {
-		return nil, fmt.Errorf("%w: image name cannot be empty", ErrValidation)
+	if err := validateImageName(name); err != nil {
+		return nil, err
 	}
 
 	ctx, cancel := withTimeout(ctx)
@@ -121,8 +153,11 @@ func (r *Registry) Inspect(ctx context.Context, name string) (*ImageInfo, error)
 	// Parse repository and tag from RepoTags
 	repository, tag := parseRepoTag(result.RepoTags, name)
 
-	// Parse created time
-	created, _ := time.Parse(time.RFC3339, result.Created)
+	// Parse created time (default to zero time on error)
+	created, err := time.Parse(time.RFC3339, result.Created)
+	if err != nil {
+		created = time.Time{}
+	}
 
 	info := &ImageInfo{
 		ID:         result.ID,
@@ -155,9 +190,9 @@ func (r *Registry) Inspect(ctx context.Context, name string) (*ImageInfo, error)
 	// Compute compatibility rank with full label info
 	info.CompatibilityRank = ComputeCompatibilityRank(info.Repository, info.Tag, result.Config.Labels)
 
-	// Override Compatible based on rank if not explicitly set
+	// Set Compatible based on rank if not explicitly set via label
 	if !info.Compatible {
-		info.Compatible = info.CompatibilityRank <= RankClaudeCLI
+		info.Compatible = IsCompatible(info.CompatibilityRank)
 	}
 
 	return info, nil
@@ -168,6 +203,12 @@ func (r *Registry) Inspect(ctx context.Context, name string) (*ImageInfo, error)
 func (r *Registry) Search(ctx context.Context, query string, opts *SearchOptions) ([]SearchResult, error) {
 	if query == "" {
 		return nil, fmt.Errorf("%w: search query cannot be empty", ErrValidation)
+	}
+	if len(query) > MaxImageNameLength {
+		return nil, fmt.Errorf("%w: search query too long", ErrValidation)
+	}
+	if !validImageNameRegex.MatchString(query) {
+		return nil, fmt.Errorf("%w: invalid search query format", ErrValidation)
 	}
 
 	ctx, cancel := withTimeout(ctx)
@@ -227,14 +268,21 @@ func (r *Registry) Search(ctx context.Context, query string, opts *SearchOptions
 
 // Pull pulls an image from a registry.
 // Returns the image ID on success.
+// Respects caller's context deadline if set, otherwise uses a 10-minute timeout.
+//
+// TODO: Consider adding streaming progress callback for large image downloads.
+// TODO: Consider adding pull-specific rate limiting to prevent abuse.
 func (r *Registry) Pull(ctx context.Context, name string, opts *PullOptions) (string, error) {
-	if name == "" {
-		return "", fmt.Errorf("%w: image name cannot be empty", ErrValidation)
+	if err := validateImageName(name); err != nil {
+		return "", err
 	}
 
-	// Use a longer timeout for pull operations
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
-	defer cancel()
+	// Use a longer timeout for pull operations, but respect caller's deadline if set
+	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 10*time.Minute)
+		defer cancel()
+	}
 
 	// Build command args
 	args := []string{cmdPodman, cmdPull, name}
@@ -283,10 +331,13 @@ func parseRepoTag(repoTags []string, fallback string) (string, string) {
 // normalizeSearchQuery prepends docker.io/ to queries without a registry prefix.
 // This ensures searches work even when unqualified-search-registries is not configured.
 func normalizeSearchQuery(query string) string {
-	// If query already contains a registry (has / and first segment has a dot or is localhost)
+	// If query already contains a registry (has / and first segment indicates a registry)
 	if strings.Contains(query, "/") {
 		firstSegment := strings.Split(query, "/")[0]
-		if strings.Contains(firstSegment, ".") || firstSegment == "localhost" {
+		// Registry indicators: contains dot, contains colon (port), or is localhost
+		if strings.Contains(firstSegment, ".") ||
+			strings.Contains(firstSegment, ":") ||
+			firstSegment == "localhost" {
 			return query
 		}
 	}

@@ -93,7 +93,7 @@ func TestComputeCompatibilityRank_WithoutLabels(t *testing.T) {
 	}
 }
 
-func TestIsIncompatible(t *testing.T) {
+func TestIsIncompatibleImage(t *testing.T) {
 	tests := []struct {
 		imageName  string
 		wantResult bool
@@ -124,7 +124,7 @@ func TestIsIncompatible(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.imageName, func(t *testing.T) {
-			result := isIncompatible(tt.imageName)
+			result := IsIncompatibleImage(tt.imageName)
 			assert.Equal(t, tt.wantResult, result)
 		})
 	}

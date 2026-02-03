@@ -67,6 +67,9 @@ const (
 	// MaxSearchLimit is the maximum allowed search limit
 	MaxSearchLimit = 100
 
+	// MaxImageNameLength is the maximum allowed length for image names
+	MaxImageNameLength = 255
+
 	// Command constants
 	cmdPodman  = "podman"
 	cmdImages  = "images"
