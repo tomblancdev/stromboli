@@ -114,6 +114,26 @@ type ClaudeOptions struct {
 	DisableSlashCommands bool `json:"disable_slash_commands,omitempty" example:"false"`
 }
 
+// LifecycleHooks configures commands to run at container lifecycle events.
+//
+// IMPORTANT: All hooks should be idempotent (safe to run multiple times)
+// as they may be re-executed in error recovery scenarios or concurrent requests.
+//
+// @Description Commands to run at specific container lifecycle stages
+type LifecycleHooks struct {
+	// OnCreateCommand runs after container creation, before Claude starts (first run only)
+	// Commands are executed sequentially via "podman exec"
+	OnCreateCommand []string `json:"on_create_command,omitempty" example:"pip install -r requirements.txt"`
+
+	// PostCreate runs after OnCreateCommand completes (first run only)
+	// Commands are executed sequentially via "podman exec"
+	PostCreate []string `json:"post_create,omitempty" example:"npm run setup"`
+
+	// PostStart runs after container starts (every run, including continues)
+	// Commands are executed sequentially via "podman exec"
+	PostStart []string `json:"post_start,omitempty" example:"redis-server --daemonize yes"`
+}
+
 // PodmanOptions contains Podman container configuration
 // @Description Podman container mount configuration
 type PodmanOptions struct {
@@ -139,4 +159,7 @@ type PodmanOptions struct {
 
 	// CPU shares (relative weight, default 1024)
 	CPUShares int `json:"cpu_shares,omitempty" example:"512"`
+
+	// Lifecycle hooks for running commands at specific container events
+	Lifecycle LifecycleHooks `json:"lifecycle,omitempty"`
 }
