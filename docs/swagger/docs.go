@@ -228,6 +228,188 @@ const docTemplate = `{
                 }
             }
         },
+        "/images": {
+            "get": {
+                "description": "Returns all local container images sorted by compatibility rank. Images with rank 1-2 are verified compatible, rank 3 is standard glibc (compatible), rank 4 is incompatible (Alpine/musl).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "images"
+                ],
+                "summary": "List images",
+                "responses": {
+                    "200": {
+                        "description": "List of images (empty array if none exist)",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ImagesListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/images/pull": {
+            "post": {
+                "description": "Pulls a container image from a registry. This operation may take some time for large images.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "images"
+                ],
+                "summary": "Pull image",
+                "parameters": [
+                    {
+                        "description": "Pull request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ImagePullRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Image pulled successfully",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ImagePullResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Pull failed",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/images/search": {
+            "get": {
+                "description": "Searches container registries for images matching the query. Returns results from Docker Hub and other configured registries.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "images"
+                ],
+                "summary": "Search images",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "python",
+                        "description": "Search query",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 10,
+                        "description": "Maximum number of results (default 25, max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": true,
+                        "description": "Don't truncate output (show full descriptions)",
+                        "name": "no_trunc",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Search results",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ImageSearchResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request (missing query)",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Registry search failed",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/images/{name}": {
+            "get": {
+                "description": "Returns detailed information about a specific container image including all labels and compatibility information.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "images"
+                ],
+                "summary": "Inspect image",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "python:3.12-slim",
+                        "description": "Image name with optional tag",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Image details",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ImageDetailResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid image name",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Image not found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/jobs": {
             "get": {
                 "description": "Returns all async jobs",
@@ -479,7 +661,7 @@ const docTemplate = `{
         },
         "/secrets": {
             "get": {
-                "description": "Returns all available Podman secrets that can be injected into agents",
+                "description": "Returns metadata for all available Podman secrets that can be injected into agents. Secret values are never returned - only IDs, names, and creation times.",
                 "produces": [
                     "application/json"
                 ],
@@ -489,15 +671,159 @@ const docTemplate = `{
                 "summary": "List secrets",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "List of secrets (empty array if none exist)",
                         "schema": {
                             "$ref": "#/definitions/internal_api.SecretsListResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/internal_api.SecretsListResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Creates a new Podman secret that can be injected into agents. Secret names must be alphanumeric (with dashes and underscores), max 253 characters. Values are limited to 1MB.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "secrets"
+                ],
+                "summary": "Create secret",
+                "parameters": [
+                    {
+                        "description": "Create secret request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.CreateSecretRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Secret created successfully",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.CreateSecretResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request (missing/invalid name or value)",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.CreateSecretResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Secret with this name already exists",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.CreateSecretResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.CreateSecretResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/secrets/{name}": {
+            "get": {
+                "description": "Returns metadata about a specific Podman secret. For security, the actual secret value is never returned - only the ID, name, and creation time.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "secrets"
+                ],
+                "summary": "Get secret metadata",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "github-token",
+                        "description": "Secret name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Secret metadata",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SecretInfoResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid secret name",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Secret not found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Permanently deletes a Podman secret. This action cannot be undone. Secrets currently in use by running containers may cause those containers to fail.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "secrets"
+                ],
+                "summary": "Delete secret",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "github-token",
+                        "description": "Secret name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Secret deleted successfully",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.DeleteSecretResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid secret name",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.DeleteSecretResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Secret not found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.DeleteSecretResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.DeleteSecretResponse"
                         }
                     }
                 }
@@ -729,6 +1055,58 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_api.CreateSecretRequest": {
+            "description": "Request to create a new Podman secret",
+            "type": "object",
+            "required": [
+                "name",
+                "value"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "example": "github-token"
+                },
+                "value": {
+                    "type": "string",
+                    "example": "ghp_xxxxxxxxxxxx"
+                }
+            }
+        },
+        "internal_api.CreateSecretResponse": {
+            "description": "Result of secret creation",
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "github-token"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "internal_api.DeleteSecretResponse": {
+            "description": "Result of secret deletion",
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "github-token"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
         "internal_api.ErrorResponse": {
             "type": "object",
             "properties": {
@@ -758,6 +1136,183 @@ const docTemplate = `{
                 "version": {
                     "type": "string",
                     "example": "0.1.4"
+                }
+            }
+        },
+        "internal_api.ImageDetailResponse": {
+            "description": "Detailed container image information including labels",
+            "type": "object",
+            "properties": {
+                "compatibility_rank": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "compatible": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "created": {
+                    "type": "string",
+                    "example": "2024-01-15T10:30:00Z"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Python development image"
+                },
+                "has_claude_cli": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "id": {
+                    "type": "string",
+                    "example": "sha256:abc123def456"
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "rank_description": {
+                    "type": "string",
+                    "example": "Standard glibc-based (compatible)"
+                },
+                "repository": {
+                    "type": "string",
+                    "example": "python"
+                },
+                "size": {
+                    "type": "integer",
+                    "example": 125000000
+                },
+                "tag": {
+                    "type": "string",
+                    "example": "3.12-slim"
+                },
+                "tools": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "python",
+                        "pip"
+                    ]
+                }
+            }
+        },
+        "internal_api.ImageInfoResponse": {
+            "description": "Container image metadata with compatibility information",
+            "type": "object",
+            "properties": {
+                "compatibility_rank": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "compatible": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "created": {
+                    "type": "string",
+                    "example": "2024-01-15T10:30:00Z"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Python development image"
+                },
+                "has_claude_cli": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "id": {
+                    "type": "string",
+                    "example": "sha256:abc123def456"
+                },
+                "repository": {
+                    "type": "string",
+                    "example": "python"
+                },
+                "size": {
+                    "type": "integer",
+                    "example": 125000000
+                },
+                "tag": {
+                    "type": "string",
+                    "example": "3.12-slim"
+                },
+                "tools": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "python",
+                        "pip"
+                    ]
+                }
+            }
+        },
+        "internal_api.ImagePullRequest": {
+            "description": "Request to pull a container image from a registry",
+            "type": "object",
+            "required": [
+                "image"
+            ],
+            "properties": {
+                "image": {
+                    "type": "string",
+                    "example": "python:3.12-slim"
+                },
+                "platform": {
+                    "type": "string",
+                    "example": "linux/amd64"
+                },
+                "quiet": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "internal_api.ImagePullResponse": {
+            "description": "Result of image pull operation",
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "string",
+                    "example": "python:3.12-slim"
+                },
+                "image_id": {
+                    "type": "string",
+                    "example": "sha256:abc123def456"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "internal_api.ImageSearchResponse": {
+            "description": "Search results from container registries",
+            "type": "object",
+            "properties": {
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_api.SearchResultResponse"
+                    }
+                }
+            }
+        },
+        "internal_api.ImagesListResponse": {
+            "description": "List of local container images sorted by compatibility",
+            "type": "object",
+            "properties": {
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_api.ImageInfoResponse"
+                    }
                 }
             }
         },
@@ -906,6 +1461,54 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_api.SearchResultResponse": {
+            "description": "Search result from a container registry",
+            "type": "object",
+            "properties": {
+                "automated": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Python is an interpreted programming language"
+                },
+                "index": {
+                    "type": "string",
+                    "example": "docker.io"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "python"
+                },
+                "official": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "stars": {
+                    "type": "integer",
+                    "example": 8500
+                }
+            }
+        },
+        "internal_api.SecretInfoResponse": {
+            "description": "Secret metadata (never contains the actual secret value)",
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string",
+                    "example": "2024-01-15T10:30:00Z"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "abc123def456"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "github-token"
+                }
+            }
+        },
         "internal_api.SecretsListResponse": {
             "description": "List of available secrets that can be injected into agents",
             "type": "object",
@@ -916,12 +1519,8 @@ const docTemplate = `{
                 "secrets": {
                     "type": "array",
                     "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "github-token",
-                        "gitlab-token"
-                    ]
+                        "$ref": "#/definitions/internal_api.SecretInfoResponse"
+                    }
                 }
             }
         },

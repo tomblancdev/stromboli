@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	"stromboli/internal/images"
 )
 
 // DefaultCLIImageName is the default name of the image containing Claude CLI
@@ -16,17 +18,6 @@ var ClaudeCLIImageName = "stromboli-claude-cli"
 
 // ClaudeCLIMountPath is where the Claude CLI image is mounted inside containers
 const ClaudeCLIMountPath = "/opt/claude"
-
-// incompatibleImagePatterns lists images that won't work with Claude CLI image mount
-// These use musl libc (Alpine) or are too minimal (distroless/scratch)
-var incompatibleImagePatterns = []string{
-	"*alpine*",
-	"*-alpine",
-	"alpine:*",
-	"gcr.io/distroless/*",
-	"scratch",
-	"busybox*",
-}
 
 // ImageValidator validates container images against allowed patterns
 type ImageValidator struct {
@@ -74,17 +65,7 @@ func (v *ImageValidator) Validate(image string) error {
 // IsIncompatible checks if an image is known to be incompatible with Claude CLI mount
 // Alpine and musl-based images won't work because the mounted node binary requires glibc
 func (v *ImageValidator) IsIncompatible(image string) bool {
-	normalizedImage := strings.ToLower(image)
-	for _, pattern := range incompatibleImagePatterns {
-		if matched, _ := filepath.Match(pattern, normalizedImage); matched {
-			return true
-		}
-		// Also check the tag part
-		if strings.Contains(normalizedImage, pattern) {
-			return true
-		}
-	}
-	return false
+	return images.IsIncompatibleImage(image)
 }
 
 // IsAllowed checks if an image matches any allowed pattern

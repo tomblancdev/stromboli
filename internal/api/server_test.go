@@ -16,6 +16,7 @@ import (
 	"stromboli/internal/auth"
 	"stromboli/internal/claude"
 	strerrors "stromboli/internal/errors"
+	"stromboli/internal/images"
 	"stromboli/internal/job"
 	"stromboli/internal/runner"
 	"stromboli/internal/secrets"
@@ -42,10 +43,11 @@ func newTestServer(t *testing.T, mockRunner runner.Runner, configured bool) *Ser
 	// Rate limiting disabled for tests (backward compatibility)
 	rateLimitConfig := RateLimitConfig{Enabled: false}
 	jobMgr := job.NewManager()
-	// Create a mock secrets registry
+	// Create mock registries
 	secretsRegistry := secrets.NewRegistry(&mockTestExecutor{})
+	imagesRegistry := images.NewRegistry(&mockTestExecutor{})
 	// Health checker, blacklist nil and tracing disabled for basic tests
-	return NewServer(mockRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, nil, nil, false, sessionsDir, secretsRegistry)
+	return NewServer(mockRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, nil, nil, false, sessionsDir, secretsRegistry, imagesRegistry)
 }
 
 func TestHealthCheck(t *testing.T) {
@@ -89,7 +91,8 @@ func TestHealthCheck_WithHealthChecker(t *testing.T) {
 	healthChecker := NewHealthChecker(mockExecutor, healthConfig)
 
 	secretsRegistry := secrets.NewRegistry(&mockTestExecutor{})
-	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, nil, false, tmpDir, secretsRegistry)
+	imagesRegistry := images.NewRegistry(&mockTestExecutor{})
+	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, nil, false, tmpDir, secretsRegistry, imagesRegistry)
 
 	req, err := http.NewRequest(http.MethodGet, "/health", nil)
 	require.NoError(t, err)
@@ -140,7 +143,8 @@ func TestHealthCheck_Degraded(t *testing.T) {
 	healthChecker := NewHealthChecker(mockExecutor, healthConfig)
 
 	secretsRegistry := secrets.NewRegistry(&mockTestExecutor{})
-	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, nil, false, tmpDir, secretsRegistry)
+	imagesRegistry := images.NewRegistry(&mockTestExecutor{})
+	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, nil, false, tmpDir, secretsRegistry, imagesRegistry)
 
 	req, err := http.NewRequest(http.MethodGet, "/health", nil)
 	require.NoError(t, err)
@@ -509,8 +513,9 @@ func TestListSecrets_PodmanError(t *testing.T) {
 	// Create mock executor that returns error for secret ls
 	mockSecretsExec := &errorMockExecutor{err: context.DeadlineExceeded}
 	secretsRegistry := secrets.NewRegistry(mockSecretsExec)
+	imagesRegistry := images.NewRegistry(&mockTestExecutor{})
 
-	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, nil, nil, false, tmpDir, secretsRegistry)
+	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, nil, nil, false, tmpDir, secretsRegistry, imagesRegistry)
 
 	req, err := http.NewRequest(http.MethodGet, "/secrets", nil)
 	require.NoError(t, err)
