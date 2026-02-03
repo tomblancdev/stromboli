@@ -107,3 +107,82 @@ type DeleteSecretResponse struct {
 	Name    string `json:"name,omitempty" example:"github-token"`
 	Error   string `json:"error,omitempty"`
 }
+
+// ============================================================================
+// Image Discovery API Types
+// ============================================================================
+
+// ImagesListResponse represents the list of local container images
+// @Description List of local container images sorted by compatibility
+type ImagesListResponse struct {
+	Images []ImageInfoResponse `json:"images"`
+	Error  string              `json:"error,omitempty"`
+}
+
+// ImageInfoResponse represents metadata about a container image
+// @Description Container image metadata with compatibility information
+type ImageInfoResponse struct {
+	ID                string   `json:"id" example:"sha256:abc123def456"`
+	Repository        string   `json:"repository" example:"python"`
+	Tag               string   `json:"tag" example:"3.12-slim"`
+	Size              int64    `json:"size" example:"125000000"`
+	Created           string   `json:"created" example:"2024-01-15T10:30:00Z"`
+	CompatibilityRank int      `json:"compatibility_rank" example:"3"`
+	Compatible        bool     `json:"compatible" example:"true"`
+	Tools             []string `json:"tools,omitempty" example:"python,pip"`
+	HasClaudeCLI      bool     `json:"has_claude_cli" example:"false"`
+	Description       string   `json:"description,omitempty" example:"Python development image"`
+}
+
+// ImageDetailResponse represents detailed information about a specific image
+// @Description Detailed container image information including labels
+type ImageDetailResponse struct {
+	ID                string            `json:"id" example:"sha256:abc123def456"`
+	Repository        string            `json:"repository" example:"python"`
+	Tag               string            `json:"tag" example:"3.12-slim"`
+	Size              int64             `json:"size" example:"125000000"`
+	Created           string            `json:"created" example:"2024-01-15T10:30:00Z"`
+	Labels            map[string]string `json:"labels,omitempty"`
+	CompatibilityRank int               `json:"compatibility_rank" example:"3"`
+	RankDescription   string            `json:"rank_description" example:"Standard glibc-based (compatible)"`
+	Compatible        bool              `json:"compatible" example:"true"`
+	Tools             []string          `json:"tools,omitempty" example:"python,pip"`
+	HasClaudeCLI      bool              `json:"has_claude_cli" example:"false"`
+	Description       string            `json:"description,omitempty" example:"Python development image"`
+	Error             string            `json:"error,omitempty"`
+}
+
+// ImageSearchResponse represents registry search results
+// @Description Search results from container registries
+type ImageSearchResponse struct {
+	Results []SearchResultResponse `json:"results"`
+	Error   string                 `json:"error,omitempty"`
+}
+
+// SearchResultResponse represents a single search result
+// @Description Search result from a container registry
+type SearchResultResponse struct {
+	Index       string `json:"index" example:"docker.io"`
+	Name        string `json:"name" example:"python"`
+	Description string `json:"description" example:"Python is an interpreted programming language"`
+	Stars       int    `json:"stars" example:"8500"`
+	Official    bool   `json:"official" example:"true"`
+	Automated   bool   `json:"automated" example:"false"`
+}
+
+// ImagePullRequest represents a request to pull an image
+// @Description Request to pull a container image from a registry
+type ImagePullRequest struct {
+	Image    string `json:"image" binding:"required" example:"python:3.12-slim"`
+	Platform string `json:"platform,omitempty" example:"linux/amd64"`
+	Quiet    bool   `json:"quiet,omitempty" example:"true"`
+}
+
+// ImagePullResponse represents the response from pulling an image
+// @Description Result of image pull operation
+type ImagePullResponse struct {
+	Success bool   `json:"success" example:"true"`
+	ImageID string `json:"image_id,omitempty" example:"sha256:abc123def456"`
+	Image   string `json:"image" example:"python:3.12-slim"`
+	Error   string `json:"error,omitempty"`
+}

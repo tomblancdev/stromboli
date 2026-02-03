@@ -36,6 +36,7 @@ import (
 	"stromboli/internal/auth"
 	"stromboli/internal/claude"
 	"stromboli/internal/config"
+	"stromboli/internal/images"
 	"stromboli/internal/job"
 	"stromboli/internal/runner"
 	"stromboli/internal/secrets"
@@ -249,12 +250,15 @@ func main() {
 	// Create secrets registry for secret management API
 	secretsRegistry := secrets.NewRegistry(runner.NewShellExecutor())
 
+	// Create images registry for image discovery API
+	imagesRegistry := images.NewRegistry(runner.NewShellExecutor())
+
 	// Setup signal handling for graceful shutdown
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	// Create the API server
-	server := api.NewServer(podmanRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, blacklist, cfg.Tracing.Enabled, cfg.Agent.SessionsDir, secretsRegistry)
+	server := api.NewServer(podmanRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, blacklist, cfg.Tracing.Enabled, cfg.Agent.SessionsDir, secretsRegistry, imagesRegistry)
 
 	srv := &http.Server{
 		Addr:    cfg.Server.Address,

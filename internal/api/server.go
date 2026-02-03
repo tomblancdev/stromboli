@@ -11,6 +11,7 @@ import (
 	"stromboli/internal/auth"
 	"stromboli/internal/claude"
 	strerrors "stromboli/internal/errors"
+	"stromboli/internal/images"
 	"stromboli/internal/job"
 	"stromboli/internal/runner"
 	"stromboli/internal/secrets"
@@ -30,10 +31,11 @@ type Server struct {
 	tracingEnabled  bool
 	historyHandler  *SessionHistoryHandler
 	secretsHandler  *SecretsHandler
+	imagesHandler   *ImagesHandler
 }
 
 // NewServer creates a new API server
-func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Config, rateLimitConfig RateLimitConfig, jobMgr *job.Manager, healthChecker *HealthChecker, blacklist *auth.TokenBlacklist, tracingEnabled bool, sessionsDir string, secretsRegistry *secrets.Registry) *Server {
+func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Config, rateLimitConfig RateLimitConfig, jobMgr *job.Manager, healthChecker *HealthChecker, blacklist *auth.TokenBlacklist, tracingEnabled bool, sessionsDir string, secretsRegistry *secrets.Registry, imagesRegistry *images.Registry) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -62,6 +64,7 @@ func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Con
 		tracingEnabled:  tracingEnabled,
 		historyHandler:  NewSessionHistoryHandler(sessionsDir),
 		secretsHandler:  NewSecretsHandler(secretsRegistry),
+		imagesHandler:   NewImagesHandler(imagesRegistry),
 	}
 	s.setupRoutes()
 
@@ -116,6 +119,12 @@ func (s *Server) setupRoutes() {
 		protected.POST("/secrets", s.secretsHandler.Create)
 		protected.GET("/secrets/:name", s.secretsHandler.Get)
 		protected.DELETE("/secrets/:name", s.secretsHandler.Delete)
+
+		// Image discovery
+		protected.GET("/images", s.imagesHandler.List)
+		protected.GET("/images/search", s.imagesHandler.Search)
+		protected.GET("/images/:name", s.imagesHandler.Inspect)
+		protected.POST("/images/pull", s.imagesHandler.Pull)
 	}
 }
 

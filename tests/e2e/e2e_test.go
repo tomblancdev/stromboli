@@ -16,6 +16,7 @@ import (
 	"stromboli/internal/api"
 	"stromboli/internal/auth"
 	"stromboli/internal/claude"
+	"stromboli/internal/images"
 	"stromboli/internal/job"
 	"stromboli/internal/runner"
 	"stromboli/internal/secrets"
@@ -113,6 +114,9 @@ func setupE2EEnv(t *testing.T) *testEnv {
 	// Create secrets registry for E2E tests
 	secretsRegistry := secrets.NewRegistry(runner.NewShellExecutor())
 
+	// Create images registry for E2E tests
+	imagesRegistry := images.NewRegistry(runner.NewShellExecutor())
+
 	// Create server with test configuration
 	server := api.NewServer(
 		podmanRunner,
@@ -125,6 +129,7 @@ func setupE2EEnv(t *testing.T) *testEnv {
 		false,           // Tracing disabled for E2E tests
 		sessionsDir,     // Sessions directory for history API
 		secretsRegistry, // Secrets registry for managing Podman secrets
+		imagesRegistry,  // Images registry for image discovery API
 	)
 
 	// Find available port
