@@ -221,9 +221,9 @@ func TestRegistry_Search_Success(t *testing.T) {
 	assert.False(t, results[1].Official)
 	assert.True(t, results[1].Automated)
 
-	// Should call: podman search python --format json --limit 25
+	// Should call: podman search docker.io/python --format json --limit 25
 	call := exec.GetCalls()[0]
-	assert.Equal(t, []string{"podman", "search", "python", "--format", "json", "--limit", "25"}, call)
+	assert.Equal(t, []string{"podman", "search", "docker.io/python", "--format", "json", "--limit", "25"}, call)
 }
 
 func TestRegistry_Search_WithOptions(t *testing.T) {
@@ -372,6 +372,30 @@ func TestRegistry_Pull_Error(t *testing.T) {
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrPullFailed)
+}
+
+func TestNormalizeSearchQuery(t *testing.T) {
+	tests := []struct {
+		name     string
+		query    string
+		expected string
+	}{
+		{"simple query", "python", "docker.io/python"},
+		{"query with namespace", "library/python", "docker.io/library/python"},
+		{"already has docker.io", "docker.io/python", "docker.io/python"},
+		{"already has ghcr.io", "ghcr.io/owner/repo", "ghcr.io/owner/repo"},
+		{"already has quay.io", "quay.io/org/image", "quay.io/org/image"},
+		{"localhost registry", "localhost/myimage", "localhost/myimage"},
+		{"localhost with port", "localhost:5000/myimage", "docker.io/localhost:5000/myimage"}, // Port without dot, treated as namespace
+		{"custom registry", "registry.example.com/image", "registry.example.com/image"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := normalizeSearchQuery(tt.query)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }
 
 func TestParseRepoTag(t *testing.T) {

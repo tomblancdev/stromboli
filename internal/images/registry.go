@@ -173,8 +173,11 @@ func (r *Registry) Search(ctx context.Context, query string, opts *SearchOptions
 	ctx, cancel := withTimeout(ctx)
 	defer cancel()
 
+	// Prepend default registry if query doesn't include one
+	searchQuery := normalizeSearchQuery(query)
+
 	// Build command args
-	args := []string{cmdPodman, cmdSearch, query, "--format", "json"}
+	args := []string{cmdPodman, cmdSearch, searchQuery, "--format", "json"}
 
 	if opts != nil {
 		if opts.Limit > 0 {
@@ -275,4 +278,18 @@ func parseRepoTag(repoTags []string, fallback string) (string, string) {
 		return strings.Join(parts[:len(parts)-1], ":"), parts[len(parts)-1]
 	}
 	return fallback, "latest"
+}
+
+// normalizeSearchQuery prepends docker.io/ to queries without a registry prefix.
+// This ensures searches work even when unqualified-search-registries is not configured.
+func normalizeSearchQuery(query string) string {
+	// If query already contains a registry (has / and first segment has a dot or is localhost)
+	if strings.Contains(query, "/") {
+		firstSegment := strings.Split(query, "/")[0]
+		if strings.Contains(firstSegment, ".") || firstSegment == "localhost" {
+			return query
+		}
+	}
+	// Prepend docker.io/ for unqualified queries
+	return defaultSearchRegistry + "/" + query
 }

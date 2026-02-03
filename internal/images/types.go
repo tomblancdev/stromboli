@@ -74,6 +74,9 @@ const (
 	cmdSearch  = "search"
 	cmdPull    = "pull"
 
+	// Default registry for search queries without explicit registry
+	defaultSearchRegistry = "docker.io"
+
 	// Error detection patterns
 	errPatternNotFound = "image not known"
 )
