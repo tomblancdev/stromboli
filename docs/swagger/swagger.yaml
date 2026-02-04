@@ -799,6 +799,44 @@ definitions:
         example: false
         type: boolean
     type: object
+  stromboli_internal_types.LifecycleHooks:
+    description: Commands to run at specific container lifecycle stages
+    properties:
+      hooks_timeout:
+        description: |-
+          HooksTimeout is the maximum duration for all hooks combined (e.g., "5m", "30s").
+          If not specified, hooks run with the container's timeout.
+          This is useful to prevent long-running hooks from blocking the main command.
+        example: 5m
+        type: string
+      on_create_command:
+        description: |-
+          OnCreateCommand runs after container creation, before Claude starts (first run only)
+          Commands are executed sequentially via "podman exec"
+        example:
+        - pip install -r requirements.txt
+        items:
+          type: string
+        type: array
+      post_create:
+        description: |-
+          PostCreate runs after OnCreateCommand completes (first run only)
+          Commands are executed sequentially via "podman exec"
+        example:
+        - npm run setup
+        items:
+          type: string
+        type: array
+      post_start:
+        description: |-
+          PostStart runs after container starts (every run, including continues)
+          Commands are executed sequentially via "podman exec"
+        example:
+        - redis-server --daemonize yes
+        items:
+          type: string
+        type: array
+    type: object
   stromboli_internal_types.PodmanOptions:
     description: Podman container mount configuration
     properties:
@@ -814,6 +852,10 @@ definitions:
         description: Container image override (must match allowed patterns)
         example: python:3.12
         type: string
+      lifecycle:
+        allOf:
+        - $ref: '#/definitions/stromboli_internal_types.LifecycleHooks'
+        description: Lifecycle hooks for running commands at specific container events
       memory:
         description: Memory limit (e.g., "512m", "1g")
         example: 512m
