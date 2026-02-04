@@ -47,8 +47,12 @@ func ValidateLifecycleHooks(hooks types.LifecycleHooks) error {
 
 	// Validate hooks_timeout if specified
 	if hooks.HooksTimeout != "" {
-		if _, err := time.ParseDuration(hooks.HooksTimeout); err != nil {
+		duration, err := time.ParseDuration(hooks.HooksTimeout)
+		if err != nil {
 			return fmt.Errorf("invalid hooks_timeout %q: %w", hooks.HooksTimeout, err)
+		}
+		if duration <= 0 {
+			return fmt.Errorf("hooks_timeout must be positive, got %q", hooks.HooksTimeout)
 		}
 	}
 
@@ -109,6 +113,9 @@ func HasInitHooks(hooks types.LifecycleHooks) bool {
 // 2. Run postStart hooks
 // 3. Run the main command
 //
+// If HooksTimeout is specified, hooks (but not the main command) are wrapped
+// with the `timeout` command to enforce a time limit.
+//
 // REQUIREMENT: Container images must have a POSIX-compatible /bin/sh shell.
 // Hooks are executed using `sh -c` which requires this shell to be present.
 // Alpine-based images typically use busybox ash which is compatible.
@@ -118,33 +125,45 @@ func WrapCommandWithHooks(mainCmd []string, hooks types.LifecycleHooks, runInit 
 		return mainCmd
 	}
 
-	var commands []string
+	var hookCommands []string
 
 	// Add init hooks (only on first run)
 	if runInit {
 		if len(hooks.OnCreateCommand) > 0 {
-			commands = append(commands, escapeShellCommand(hooks.OnCreateCommand))
+			hookCommands = append(hookCommands, escapeShellCommand(hooks.OnCreateCommand))
 		}
 		if len(hooks.PostCreate) > 0 {
-			commands = append(commands, escapeShellCommand(hooks.PostCreate))
+			hookCommands = append(hookCommands, escapeShellCommand(hooks.PostCreate))
 		}
 	}
 
 	// Add postStart hook (every run)
 	if len(hooks.PostStart) > 0 {
-		commands = append(commands, escapeShellCommand(hooks.PostStart))
+		hookCommands = append(hookCommands, escapeShellCommand(hooks.PostStart))
 	}
 
 	// No hooks to run, return original command
-	if len(commands) == 0 {
+	if len(hookCommands) == 0 {
 		return mainCmd
 	}
 
-	// Add the main command
-	commands = append(commands, escapeShellCommand(mainCmd))
+	// Build the final shell command
+	var shellCmd string
+	mainCmdEscaped := escapeShellCommand(mainCmd)
 
-	// Join all commands with && for sequential execution with fail-fast
-	shellCmd := strings.Join(commands, " && ")
+	if hooks.HooksTimeout != "" {
+		// Apply timeout to hooks only (not to main command)
+		// HooksTimeout has already been validated by ValidateLifecycleHooks
+		timeout, _ := time.ParseDuration(hooks.HooksTimeout)
+		hooksShellCmd := strings.Join(hookCommands, " && ")
+		// timeout with --kill-after sends SIGKILL after grace period if process doesn't terminate
+		shellCmd = fmt.Sprintf("timeout --kill-after=10s %.0fs sh -c %s && %s",
+			timeout.Seconds(), EscapeShellArg(hooksShellCmd), mainCmdEscaped)
+	} else {
+		// No timeout - join hooks and main command with &&
+		allCommands := append(hookCommands, mainCmdEscaped)
+		shellCmd = strings.Join(allCommands, " && ")
+	}
 
 	return []string{"sh", "-c", shellCmd}
 }
@@ -176,7 +195,7 @@ func escapeShellCommand(cmd []string) string {
 		return ""
 	}
 
-	var escaped []string
+	escaped := make([]string, 0, len(cmd)) // Pre-allocate for efficiency
 	for _, arg := range cmd {
 		escaped = append(escaped, EscapeShellArg(arg))
 	}

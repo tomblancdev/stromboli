@@ -1484,3 +1484,134 @@ func TestPodmanRunner_Run_SessionMarkedInitialized(t *testing.T) {
 	_, err = os.Stat(markerPath)
 	assert.NoError(t, err, "session should be marked as initialized")
 }
+
+// TestPodmanRunner_Run_LockContention_SessionInitialized tests behavior when lock is held but session is already initialized
+func TestPodmanRunner_Run_LockContention_SessionInitialized(t *testing.T) {
+	skipIfNoPodman(t)
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+
+	mock := NewMockExecutor()
+	mock.DefaultOutput = []byte("ok")
+
+	runner, err := NewPodmanRunnerWithExecutor("test-image", secretsFile, sessionsDir, []string{}, mock)
+	require.NoError(t, err)
+
+	// First run - creates session and initializes it
+	result1, err := runner.Run(context.Background(), Request{
+		Prompt: "first",
+		Podman: types.PodmanOptions{
+			Lifecycle: types.LifecycleHooks{
+				OnCreateCommand: []string{"init"},
+			},
+		},
+	})
+	require.NoError(t, err)
+	sessionID := result1.SessionID
+
+	// Verify session is initialized
+	markerPath := filepath.Join(sessionsDir, sessionID, ".stromboli-initialized")
+	_, err = os.Stat(markerPath)
+	require.NoError(t, err, "session should be initialized after first run")
+
+	mock.Reset()
+
+	// Second run with same session - even if lock were contended, session is initialized
+	// so it should proceed without error
+	_, err = runner.Run(context.Background(), Request{
+		Prompt: "second",
+		Claude: types.ClaudeOptions{
+			SessionID: sessionID,
+			Resume:    true,
+		},
+		Podman: types.PodmanOptions{
+			Lifecycle: types.LifecycleHooks{
+				OnCreateCommand: []string{"init"},
+			},
+		},
+	})
+	require.NoError(t, err, "should succeed when session is already initialized")
+
+	// Verify init hooks were NOT run again
+	secondCmd := strings.Join(mock.GetCalls()[0], " ")
+	assert.NotContains(t, secondCmd, "init", "init hooks should not run for initialized session")
+}
+
+// TestPodmanRunner_Run_LifecycleHooksValidationFails tests that invalid hooks are rejected
+func TestPodmanRunner_Run_LifecycleHooksValidationFails(t *testing.T) {
+	skipIfNoPodman(t)
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+
+	mock := NewMockExecutor()
+	mock.DefaultOutput = []byte("ok")
+
+	runner, err := NewPodmanRunnerWithExecutor("test-image", secretsFile, sessionsDir, []string{}, mock)
+	require.NoError(t, err)
+
+	// Test with negative timeout
+	_, err = runner.Run(context.Background(), Request{
+		Prompt: "test",
+		Podman: types.PodmanOptions{
+			Lifecycle: types.LifecycleHooks{
+				PostStart:    []string{"echo", "ready"},
+				HooksTimeout: "-5m",
+			},
+		},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must be positive", "should reject negative timeout")
+
+	// Test with empty hook slice
+	_, err = runner.Run(context.Background(), Request{
+		Prompt: "test",
+		Podman: types.PodmanOptions{
+			Lifecycle: types.LifecycleHooks{
+				PostStart: []string{}, // Empty but non-nil
+			},
+		},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "empty", "should reject empty hook slice")
+}
+
+// TestPodmanRunner_Run_WithHooksTimeout tests that hooks timeout is included in command
+func TestPodmanRunner_Run_WithHooksTimeout(t *testing.T) {
+	skipIfNoPodman(t)
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+
+	mock := NewMockExecutor()
+	mock.DefaultOutput = []byte("ok")
+
+	runner, err := NewPodmanRunnerWithExecutor("test-image", secretsFile, sessionsDir, []string{}, mock)
+	require.NoError(t, err)
+
+	// Run with hooks timeout
+	_, err = runner.Run(context.Background(), Request{
+		Prompt: "test",
+		Podman: types.PodmanOptions{
+			Lifecycle: types.LifecycleHooks{
+				PostStart:    []string{"setup-script"},
+				HooksTimeout: "5m",
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	// Verify command includes timeout
+	calls := mock.GetCalls()
+	require.Len(t, calls, 1)
+	cmdStr := strings.Join(calls[0], " ")
+	assert.Contains(t, cmdStr, "timeout", "command should include timeout")
+	assert.Contains(t, cmdStr, "300s", "timeout should be 300 seconds (5m)")
+}

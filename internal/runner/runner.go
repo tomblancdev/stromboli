@@ -152,6 +152,53 @@ func NewPodmanRunnerFull(image, credentialsFile, sessionsDir, sessionsHostDir st
 	}, nil
 }
 
+// prepareLifecycleHooks validates hooks, acquires locks, and returns state needed for execution.
+// Returns (needsInit bool, cleanup func(), error).
+// Caller MUST defer cleanup() if it's not nil.
+func (r *PodmanRunner) prepareLifecycleHooks(
+	ctx context.Context,
+	hooks types.LifecycleHooks,
+	sessionID string,
+) (needsInit bool, cleanup func(), err error) {
+	// Validate lifecycle hooks
+	if err := ValidateLifecycleHooks(hooks); err != nil {
+		return false, nil, fmt.Errorf("lifecycle hooks validation failed: %w", err)
+	}
+
+	// Check if this session needs init hooks with proper locking
+	if HasInitHooks(hooks) {
+		acquired, lockCleanup, err := r.sessionMgr.TryAcquireInitLock(sessionID)
+		if err != nil {
+			return false, nil, fmt.Errorf("failed to acquire init lock: %w", err)
+		}
+		if acquired {
+			cleanup = lockCleanup
+			// Double-check under lock
+			if !r.sessionMgr.IsInitialized(sessionID) {
+				needsInit = true
+			}
+		} else {
+			// Lock contention - another process holds the lock
+			// Check if previous holder completed or may have crashed
+			if !r.sessionMgr.IsInitialized(sessionID) {
+				// Previous init holder may have crashed or is still running
+				// Return error so caller can retry
+				return false, nil, fmt.Errorf("session %s initialization in progress by another process; please retry", sessionID)
+			}
+			// Session is already initialized by another process, proceed normally
+		}
+	}
+
+	// Add tracing attributes
+	tracing.AddSpanAttributes(ctx,
+		"runner.has_init_hooks", HasInitHooks(hooks),
+		"runner.has_poststart_hook", len(hooks.PostStart) > 0,
+		"runner.needs_init", needsInit,
+	)
+
+	return needsInit, cleanup, nil
+}
+
 // Run executes Claude in a Podman container
 func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	ctx, span := tracing.StartSpanWithKind(ctx, "runner.Run", tracing.SpanKindInternal)
@@ -260,35 +307,14 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 		claudeCmd = append([]string{"claude"}, claudeCmd...)
 	}
 
-	// Validate lifecycle hooks
-	if err := ValidateLifecycleHooks(req.Podman.Lifecycle); err != nil {
-		return nil, fmt.Errorf("lifecycle hooks validation failed: %w", err)
+	// Prepare lifecycle hooks (validate, acquire locks, determine if init needed)
+	needsInit, cleanup, err := r.prepareLifecycleHooks(ctx, req.Podman.Lifecycle, sessionID)
+	if err != nil {
+		return nil, err
 	}
-
-	// Check if this session needs init hooks with proper locking
-	needsInit := false
-	if HasInitHooks(req.Podman.Lifecycle) {
-		acquired, cleanup, err := r.sessionMgr.TryAcquireInitLock(sessionID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to acquire init lock: %w", err)
-		}
-		if acquired {
-			// Use defer to ensure cleanup even on context cancellation or panic
-			defer cleanup()
-			// Double-check under lock
-			if !r.sessionMgr.IsInitialized(sessionID) {
-				needsInit = true
-			}
-		}
-		// If not acquired, another process is initializing - skip init hooks
+	if cleanup != nil {
+		defer cleanup()
 	}
-
-	// Add lifecycle hook tracing attributes
-	tracing.AddSpanAttributes(ctx,
-		"runner.has_init_hooks", HasInitHooks(req.Podman.Lifecycle),
-		"runner.has_poststart_hook", len(req.Podman.Lifecycle.PostStart) > 0,
-		"runner.needs_init", needsInit,
-	)
 
 	// Wrap command with lifecycle hooks if any are configured
 	// Init hooks (onCreateCommand, postCreate) only run on first session use
@@ -461,35 +487,14 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 		claudeCmd = append([]string{"claude"}, claudeCmd...)
 	}
 
-	// Validate lifecycle hooks
-	if err := ValidateLifecycleHooks(req.Podman.Lifecycle); err != nil {
-		return nil, fmt.Errorf("lifecycle hooks validation failed: %w", err)
+	// Prepare lifecycle hooks (validate, acquire locks, determine if init needed)
+	needsInit, cleanup, err := r.prepareLifecycleHooks(ctx, req.Podman.Lifecycle, sessionID)
+	if err != nil {
+		return nil, err
 	}
-
-	// Check if this session needs init hooks with proper locking
-	needsInit := false
-	if HasInitHooks(req.Podman.Lifecycle) {
-		acquired, cleanup, err := r.sessionMgr.TryAcquireInitLock(sessionID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to acquire init lock: %w", err)
-		}
-		if acquired {
-			// Use defer to ensure cleanup even on context cancellation or panic
-			defer cleanup()
-			// Double-check under lock
-			if !r.sessionMgr.IsInitialized(sessionID) {
-				needsInit = true
-			}
-		}
-		// If not acquired, another process is initializing - skip init hooks
+	if cleanup != nil {
+		defer cleanup()
 	}
-
-	// Add lifecycle hook tracing attributes
-	tracing.AddSpanAttributes(ctx,
-		"runner.has_init_hooks", HasInitHooks(req.Podman.Lifecycle),
-		"runner.has_poststart_hook", len(req.Podman.Lifecycle.PostStart) > 0,
-		"runner.needs_init", needsInit,
-	)
 
 	// Wrap command with lifecycle hooks if any are configured
 	// Init hooks (onCreateCommand, postCreate) only run on first session use

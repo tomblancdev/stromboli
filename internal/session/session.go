@@ -1,3 +1,10 @@
+//go:build unix
+
+// Package session provides session management for Stromboli containers.
+//
+// Platform Support: This package uses flock(2) for init lock synchronization,
+// which is only available on Unix-like systems (Linux, macOS, BSD).
+// On Windows or other platforms, alternative locking mechanisms would be needed.
 package session
 
 import (
@@ -16,6 +23,15 @@ import (
 // InitMarkerFile is the name of the marker file that indicates lifecycle hooks have run.
 // This file is checked on subsequent runs to skip re-initialization.
 // The leading dot hides it from casual directory listings.
+//
+// Contract:
+//   - Created atomically (temp file + rename) after successful init hook execution
+//   - Presence = init hooks completed successfully
+//   - Absence = init hooks need to run (or are currently running)
+//   - MUST NOT be deleted while session is active
+//   - Contains timestamp for debugging purposes
+//
+// Recovery: If hooks crash before marker creation, next run re-attempts init.
 const InitMarkerFile = ".stromboli-initialized"
 
 // initLockFile is used for flock-based mutual exclusion during initialization.
@@ -215,6 +231,9 @@ func (m *Manager) MarkInitialized(sessionID string) error {
 // TryAcquireInitLock attempts to acquire an exclusive lock for initialization.
 // Returns (acquired, cleanup, error). If acquired is true, caller MUST call cleanup.
 // If another process holds the lock, returns (false, nil, nil).
+//
+// Platform Support: Uses flock(2), only available on Unix-like systems.
+// On Windows or other platforms, consider alternative locking mechanisms.
 func (m *Manager) TryAcquireInitLock(sessionID string) (bool, func(), error) {
 	// Validate session ID
 	if err := validateSessionID(sessionID); err != nil {
@@ -248,13 +267,13 @@ func (m *Manager) TryAcquireInitLock(sessionID string) (bool, func(), error) {
 		return false, nil, fmt.Errorf("failed to acquire lock: %w", err)
 	}
 
-	// Create cleanup function that logs errors (non-fatal)
+	// Create cleanup function that logs errors (non-fatal but worth noting)
 	cleanup := func() {
 		if err := syscall.Flock(int(lockFile.Fd()), syscall.LOCK_UN); err != nil {
-			slog.Debug("Failed to release init lock", "session_id", sessionID, "error", err)
+			slog.Warn("Failed to release init lock", "session_id", sessionID, "error", err)
 		}
 		if err := lockFile.Close(); err != nil {
-			slog.Debug("Failed to close lock file", "session_id", sessionID, "error", err)
+			slog.Warn("Failed to close lock file", "session_id", sessionID, "error", err)
 		}
 	}
 

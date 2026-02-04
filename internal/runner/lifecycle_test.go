@@ -556,7 +556,16 @@ func TestValidateLifecycleHooks(t *testing.T) {
 			hooks: types.LifecycleHooks{
 				HooksTimeout: "-5m",
 			},
-			wantErr: false, // ParseDuration accepts negative values; validation could be stricter
+			wantErr: true,
+			errMsg:  "must be positive",
+		},
+		{
+			name: "invalid hooks_timeout - zero duration",
+			hooks: types.LifecycleHooks{
+				HooksTimeout: "0s",
+			},
+			wantErr: true,
+			errMsg:  "must be positive",
 		},
 	}
 
@@ -615,4 +624,103 @@ func TestEscapeShellArg(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+// =============================================================================
+// HooksTimeout Tests
+// =============================================================================
+
+// TestWrapCommandWithHooks_WithTimeout tests that timeout wraps hooks but not main command
+func TestWrapCommandWithHooks_WithTimeout(t *testing.T) {
+	mainCmd := []string{"claude", "--prompt", "hello"}
+
+	tests := []struct {
+		name           string
+		hooks          types.LifecycleHooks
+		runInit        bool
+		wantTimeout    bool
+		timeoutSeconds string
+	}{
+		{
+			name: "timeout with postStart hook",
+			hooks: types.LifecycleHooks{
+				PostStart:    []string{"echo", "ready"},
+				HooksTimeout: "5m",
+			},
+			runInit:        false,
+			wantTimeout:    true,
+			timeoutSeconds: "300",
+		},
+		{
+			name: "timeout with init hooks",
+			hooks: types.LifecycleHooks{
+				OnCreateCommand: []string{"pip", "install"},
+				PostCreate:      []string{"npm", "build"},
+				HooksTimeout:    "10m",
+			},
+			runInit:        true,
+			wantTimeout:    true,
+			timeoutSeconds: "600",
+		},
+		{
+			name: "timeout with 30 seconds",
+			hooks: types.LifecycleHooks{
+				PostStart:    []string{"redis-server"},
+				HooksTimeout: "30s",
+			},
+			runInit:        false,
+			wantTimeout:    true,
+			timeoutSeconds: "30",
+		},
+		{
+			name: "no timeout specified",
+			hooks: types.LifecycleHooks{
+				PostStart: []string{"echo", "ready"},
+			},
+			runInit:     false,
+			wantTimeout: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := WrapCommandWithHooks(mainCmd, tt.hooks, tt.runInit)
+
+			// Should be wrapped with sh -c
+			assert.Equal(t, "sh", result[0])
+			assert.Equal(t, "-c", result[1])
+
+			shellCmd := result[2]
+
+			if tt.wantTimeout {
+				assert.Contains(t, shellCmd, "timeout")
+				assert.Contains(t, shellCmd, tt.timeoutSeconds+"s")
+				assert.Contains(t, shellCmd, "--kill-after=10s")
+			} else {
+				assert.NotContains(t, shellCmd, "timeout")
+			}
+
+			// Main command should always be present
+			assert.Contains(t, shellCmd, "claude")
+		})
+	}
+}
+
+// TestWrapCommandWithHooks_TimeoutOnlyWrapsHooks verifies main command is not wrapped with timeout
+func TestWrapCommandWithHooks_TimeoutOnlyWrapsHooks(t *testing.T) {
+	mainCmd := []string{"claude", "--prompt", "long running task"}
+	hooks := types.LifecycleHooks{
+		PostStart:    []string{"echo", "setup"},
+		HooksTimeout: "1m",
+	}
+
+	result := WrapCommandWithHooks(mainCmd, hooks, false)
+	shellCmd := result[2]
+
+	// The command structure should be: timeout ... sh -c 'hooks' && main_cmd
+	// NOT: timeout ... sh -c 'hooks && main_cmd'
+	// This ensures the main command runs without timeout
+
+	// Main command should appear after the timeout-wrapped hooks
+	assert.Contains(t, shellCmd, "&& 'claude'", "main command should be chained after timeout-wrapped hooks")
 }
