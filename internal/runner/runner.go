@@ -267,14 +267,14 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 
 	// Check if this session needs init hooks with proper locking
 	needsInit := false
-	var initCleanup func()
 	if HasInitHooks(req.Podman.Lifecycle) {
 		acquired, cleanup, err := r.sessionMgr.TryAcquireInitLock(sessionID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to acquire init lock: %w", err)
 		}
 		if acquired {
-			initCleanup = cleanup
+			// Use defer to ensure cleanup even on context cancellation or panic
+			defer cleanup()
 			// Double-check under lock
 			if !r.sessionMgr.IsInitialized(sessionID) {
 				needsInit = true
@@ -282,6 +282,13 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 		}
 		// If not acquired, another process is initializing - skip init hooks
 	}
+
+	// Add lifecycle hook tracing attributes
+	tracing.AddSpanAttributes(ctx,
+		"runner.has_init_hooks", HasInitHooks(req.Podman.Lifecycle),
+		"runner.has_poststart_hook", len(req.Podman.Lifecycle.PostStart) > 0,
+		"runner.needs_init", needsInit,
+	)
 
 	// Wrap command with lifecycle hooks if any are configured
 	// Init hooks (onCreateCommand, postCreate) only run on first session use
@@ -300,10 +307,6 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	// Execute command using executor
 	output, err := r.executor.Run(ctx, fullCmd)
 	if err != nil {
-		// Release init lock if we have it
-		if initCleanup != nil {
-			initCleanup()
-		}
 		tracing.RecordError(ctx, err)
 
 		// Check if this is a crash (signal termination)
@@ -332,19 +335,11 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	}
 
 	// Mark session as initialized if we ran init hooks successfully
+	// Note: Lock cleanup is handled by defer, so we don't need to release manually
 	if needsInit {
 		if markErr := r.sessionMgr.MarkInitialized(sessionID); markErr != nil {
-			// Release lock before returning error
-			if initCleanup != nil {
-				initCleanup()
-			}
 			return nil, fmt.Errorf("failed to mark session as initialized: %w", markErr)
 		}
-	}
-
-	// Release init lock after successful marker write
-	if initCleanup != nil {
-		initCleanup()
 	}
 
 	result := &Result{
@@ -473,14 +468,14 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 
 	// Check if this session needs init hooks with proper locking
 	needsInit := false
-	var initCleanup func()
 	if HasInitHooks(req.Podman.Lifecycle) {
 		acquired, cleanup, err := r.sessionMgr.TryAcquireInitLock(sessionID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to acquire init lock: %w", err)
 		}
 		if acquired {
-			initCleanup = cleanup
+			// Use defer to ensure cleanup even on context cancellation or panic
+			defer cleanup()
 			// Double-check under lock
 			if !r.sessionMgr.IsInitialized(sessionID) {
 				needsInit = true
@@ -488,6 +483,13 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 		}
 		// If not acquired, another process is initializing - skip init hooks
 	}
+
+	// Add lifecycle hook tracing attributes
+	tracing.AddSpanAttributes(ctx,
+		"runner.has_init_hooks", HasInitHooks(req.Podman.Lifecycle),
+		"runner.has_poststart_hook", len(req.Podman.Lifecycle.PostStart) > 0,
+		"runner.needs_init", needsInit,
+	)
 
 	// Wrap command with lifecycle hooks if any are configured
 	// Init hooks (onCreateCommand, postCreate) only run on first session use
@@ -506,17 +508,11 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	// Execute command with streaming using executor
 	stdoutPipe, stderrPipe, start, wait, err := r.executor.RunStream(ctx, fullCmd)
 	if err != nil {
-		if initCleanup != nil {
-			initCleanup()
-		}
 		return nil, fmt.Errorf("failed to setup streaming: %w", err)
 	}
 
 	// Start command
 	if err := start(); err != nil {
-		if initCleanup != nil {
-			initCleanup()
-		}
 		return nil, fmt.Errorf("failed to start command: %w", err)
 	}
 
@@ -560,10 +556,6 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	cmdErr := wait()
 
 	if cmdErr != nil {
-		// Release init lock if we have it
-		if initCleanup != nil {
-			initCleanup()
-		}
 		tracing.RecordError(ctx, cmdErr)
 
 		// Check if this is a crash (signal termination)
@@ -591,19 +583,11 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	}
 
 	// Mark session as initialized if we ran init hooks successfully
+	// Note: Lock cleanup is handled by defer, so we don't need to release manually
 	if needsInit {
 		if markErr := r.sessionMgr.MarkInitialized(sessionID); markErr != nil {
-			// Release lock before returning error
-			if initCleanup != nil {
-				initCleanup()
-			}
 			return nil, fmt.Errorf("failed to mark session as initialized: %w", markErr)
 		}
-	}
-
-	// Release init lock after successful marker write
-	if initCleanup != nil {
-		initCleanup()
 	}
 
 	result := &Result{

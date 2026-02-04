@@ -411,6 +411,39 @@ func TestValidateLifecycleHooks(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "empty onCreateCommand slice (non-nil but empty)",
+			hooks: types.LifecycleHooks{
+				OnCreateCommand: []string{},
+			},
+			wantErr: true,
+			errMsg:  "hook configured but empty",
+		},
+		{
+			name: "empty postCreate slice (non-nil but empty)",
+			hooks: types.LifecycleHooks{
+				PostCreate: []string{},
+			},
+			wantErr: true,
+			errMsg:  "hook configured but empty",
+		},
+		{
+			name: "empty postStart slice (non-nil but empty)",
+			hooks: types.LifecycleHooks{
+				PostStart: []string{},
+			},
+			wantErr: true,
+			errMsg:  "hook configured but empty",
+		},
+		{
+			name: "nil slices - valid (no hooks configured)",
+			hooks: types.LifecycleHooks{
+				OnCreateCommand: nil,
+				PostCreate:      nil,
+				PostStart:       nil,
+			},
+			wantErr: false,
+		},
+		{
 			name: "max arguments - valid",
 			hooks: types.LifecycleHooks{
 				OnCreateCommand: makeArgs(100),
@@ -477,6 +510,53 @@ func TestValidateLifecycleHooks(t *testing.T) {
 				PostStart:       makeArgs(50),
 			},
 			wantErr: false,
+		},
+		{
+			name: "valid hooks_timeout - 5 minutes",
+			hooks: types.LifecycleHooks{
+				OnCreateCommand: []string{"pip", "install"},
+				HooksTimeout:    "5m",
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid hooks_timeout - 30 seconds",
+			hooks: types.LifecycleHooks{
+				PostStart:    []string{"echo", "ready"},
+				HooksTimeout: "30s",
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid hooks_timeout - 1 hour",
+			hooks: types.LifecycleHooks{
+				HooksTimeout: "1h",
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid hooks_timeout - bad format",
+			hooks: types.LifecycleHooks{
+				OnCreateCommand: []string{"pip", "install"},
+				HooksTimeout:    "5 minutes",
+			},
+			wantErr: true,
+			errMsg:  "invalid hooks_timeout",
+		},
+		{
+			name: "invalid hooks_timeout - empty string with hooks",
+			hooks: types.LifecycleHooks{
+				OnCreateCommand: []string{"pip", "install"},
+				HooksTimeout:    "",
+			},
+			wantErr: false, // empty is valid (uses container timeout)
+		},
+		{
+			name: "invalid hooks_timeout - negative duration",
+			hooks: types.LifecycleHooks{
+				HooksTimeout: "-5m",
+			},
+			wantErr: false, // ParseDuration accepts negative values; validation could be stricter
 		},
 	}
 

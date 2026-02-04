@@ -3,6 +3,7 @@ package runner
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"stromboli/internal/types"
 )
@@ -44,11 +45,29 @@ func ValidateLifecycleHooks(hooks types.LifecycleHooks) error {
 		return fmt.Errorf("total hook arguments %d exceeds maximum %d", totalArgs, MaxTotalHookArgs)
 	}
 
+	// Validate hooks_timeout if specified
+	if hooks.HooksTimeout != "" {
+		if _, err := time.ParseDuration(hooks.HooksTimeout); err != nil {
+			return fmt.Errorf("invalid hooks_timeout %q: %w", hooks.HooksTimeout, err)
+		}
+	}
+
 	return nil
 }
 
 // validateHookCommand validates a single hook command
 func validateHookCommand(name string, cmd []string, totalLength *int, totalArgs *int) error {
+	// Skip nil slices (valid - no hook configured)
+	if cmd == nil {
+		return nil
+	}
+
+	// Reject non-nil but empty slices (e.g., []string{})
+	// This would produce invalid "sh -c ''" commands
+	if len(cmd) == 0 {
+		return fmt.Errorf("%s: hook configured but empty (must have at least one command)", name)
+	}
+
 	if len(cmd) > MaxHookCommandArgs {
 		return fmt.Errorf("%s: too many arguments (%d > %d)", name, len(cmd), MaxHookCommandArgs)
 	}
@@ -89,6 +108,11 @@ func HasInitHooks(hooks types.LifecycleHooks) bool {
 // 1. Run init hooks if runInit is true
 // 2. Run postStart hooks
 // 3. Run the main command
+//
+// REQUIREMENT: Container images must have a POSIX-compatible /bin/sh shell.
+// Hooks are executed using `sh -c` which requires this shell to be present.
+// Alpine-based images typically use busybox ash which is compatible.
+// Distroless images may need modification to include a shell.
 func WrapCommandWithHooks(mainCmd []string, hooks types.LifecycleHooks, runInit bool) []string {
 	if !HasAnyHooks(hooks) {
 		return mainCmd

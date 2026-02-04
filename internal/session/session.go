@@ -82,7 +82,17 @@ func (m *Manager) Create(sessionID string) (string, string, error) {
 	return sessionID, absSessionPath, nil
 }
 
-// Destroy removes a session and all its data
+// Destroy removes a session and all its data.
+//
+// WARNING: If another process holds the init lock for this session,
+// the directory will still be removed but the lock holder will not be
+// notified. The lock file descriptor in the other process will become
+// invalid, and any subsequent operations will fail.
+//
+// Callers should ensure no operations are in progress before destroying
+// a session. In practice, this means:
+//   - Waiting for any running containers to complete
+//   - Not destroying sessions that may be used by other processes
 func (m *Manager) Destroy(sessionID string) error {
 	// Validate session ID to prevent path traversal and null byte injection
 	if err := validateSessionID(sessionID); err != nil {
@@ -166,15 +176,23 @@ func (m *Manager) MarkInitialized(sessionID string) error {
 	}
 	tmpName := tmpFile.Name()
 
-	// Write content and close
+	// Write content
 	_, writeErr := tmpFile.WriteString(time.Now().Format(time.RFC3339))
-	closeErr := tmpFile.Close()
-
 	if writeErr != nil {
+		tmpFile.Close()
 		os.Remove(tmpName)
 		return fmt.Errorf("failed to write marker: %w", writeErr)
 	}
-	if closeErr != nil {
+
+	// Sync to ensure data is on disk before rename (durability on some filesystems)
+	if syncErr := tmpFile.Sync(); syncErr != nil {
+		tmpFile.Close()
+		os.Remove(tmpName)
+		return fmt.Errorf("failed to sync marker: %w", syncErr)
+	}
+
+	// Close the file
+	if closeErr := tmpFile.Close(); closeErr != nil {
 		os.Remove(tmpName)
 		return fmt.Errorf("failed to close marker: %w", closeErr)
 	}
