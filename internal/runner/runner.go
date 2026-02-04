@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"stromboli/internal/claude"
+	strerrors "stromboli/internal/errors"
 	"stromboli/internal/job"
 	"stromboli/internal/metrics"
 	"stromboli/internal/podman"
@@ -155,6 +156,12 @@ func NewPodmanRunnerFull(image, credentialsFile, sessionsDir, sessionsHostDir st
 // prepareLifecycleHooks validates hooks, acquires locks, and returns state needed for execution.
 // Returns (needsInit bool, cleanup func(), error).
 // Caller MUST defer cleanup() if it's not nil.
+//
+// Error Handling:
+//   - Returns ErrInitInProgress if another process is currently initializing the session.
+//     Callers can detect this with errors.Is(err, strerrors.ErrInitInProgress) and retry.
+//   - If a previous initializer crashed, flock(2) automatically releases the lock,
+//     allowing the next caller to acquire it and complete initialization.
 func (r *PodmanRunner) prepareLifecycleHooks(
 	ctx context.Context,
 	hooks types.LifecycleHooks,
@@ -182,8 +189,8 @@ func (r *PodmanRunner) prepareLifecycleHooks(
 			// Check if previous holder completed or may have crashed
 			if !r.sessionMgr.IsInitialized(sessionID) {
 				// Previous init holder may have crashed or is still running
-				// Return error so caller can retry
-				return false, nil, fmt.Errorf("session %s initialization in progress by another process; please retry", sessionID)
+				// Return typed error so caller can detect and retry
+				return false, nil, strerrors.InitInProgress(sessionID)
 			}
 			// Session is already initialized by another process, proceed normally
 		}

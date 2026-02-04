@@ -14,11 +14,19 @@ var (
 	ErrSessionIDRequired    = errors.New("session ID is required")
 	ErrInvalidSessionID     = errors.New("invalid session ID")
 	ErrWorkspaceNotAllowed  = errors.New("workspace path not allowed")
+	ErrInitInProgress       = errors.New("session initialization in progress")
 )
 
 // SessionNotFound returns a session not found error with the session ID
 func SessionNotFound(id string) error {
 	return fmt.Errorf("%w: %s", ErrSessionNotFound, id)
+}
+
+// InitInProgress returns an error indicating session initialization is in progress.
+// Callers can use errors.Is(err, ErrInitInProgress) to detect this condition
+// and implement retry logic.
+func InitInProgress(sessionID string) error {
+	return fmt.Errorf("%w: session %s; please retry", ErrInitInProgress, sessionID)
 }
 
 // TokenError wraps a token retrieval error

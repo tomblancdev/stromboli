@@ -567,6 +567,21 @@ func TestValidateLifecycleHooks(t *testing.T) {
 			wantErr: true,
 			errMsg:  "must be positive",
 		},
+		{
+			name: "invalid hooks_timeout - exceeds maximum",
+			hooks: types.LifecycleHooks{
+				HooksTimeout: "2h", // Exceeds MaxHooksTimeout (1h)
+			},
+			wantErr: true,
+			errMsg:  "exceeds maximum",
+		},
+		{
+			name: "valid hooks_timeout - at maximum",
+			hooks: types.LifecycleHooks{
+				HooksTimeout: "1h", // Exactly MaxHooksTimeout
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -723,4 +738,68 @@ func TestWrapCommandWithHooks_TimeoutOnlyWrapsHooks(t *testing.T) {
 
 	// Main command should appear after the timeout-wrapped hooks
 	assert.Contains(t, shellCmd, "&& 'claude'", "main command should be chained after timeout-wrapped hooks")
+}
+
+// TestWrapCommandWithHooks_FailFastBehavior verifies that hooks use && for fail-fast semantics
+// If any hook fails (exits non-zero), subsequent hooks and main command should NOT run.
+func TestWrapCommandWithHooks_FailFastBehavior(t *testing.T) {
+	mainCmd := []string{"main-command"}
+
+	tests := []struct {
+		name          string
+		hooks         types.LifecycleHooks
+		runInit       bool
+		expectedChain int // Number of && operators expected
+	}{
+		{
+			name: "single init hook chains to main",
+			hooks: types.LifecycleHooks{
+				OnCreateCommand: []string{"init-cmd"},
+			},
+			runInit:       true,
+			expectedChain: 1, // init && main
+		},
+		{
+			name: "all hooks chain sequentially",
+			hooks: types.LifecycleHooks{
+				OnCreateCommand: []string{"init-1"},
+				PostCreate:      []string{"init-2"},
+				PostStart:       []string{"start"},
+			},
+			runInit:       true,
+			expectedChain: 3, // init-1 && init-2 && start && main
+		},
+		{
+			name: "only postStart when not running init",
+			hooks: types.LifecycleHooks{
+				OnCreateCommand: []string{"init-1"},
+				PostCreate:      []string{"init-2"},
+				PostStart:       []string{"start"},
+			},
+			runInit:       false,
+			expectedChain: 1, // start && main
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := WrapCommandWithHooks(mainCmd, tt.hooks, tt.runInit)
+
+			// Should be wrapped with sh -c
+			assert.Equal(t, "sh", result[0])
+			assert.Equal(t, "-c", result[1])
+
+			shellCmd := result[2]
+
+			// Count && operators to verify fail-fast chaining
+			chainCount := strings.Count(shellCmd, " && ")
+			assert.Equal(t, tt.expectedChain, chainCount,
+				"expected %d '&&' operators for fail-fast chaining, got %d in: %s",
+				tt.expectedChain, chainCount, shellCmd)
+
+			// Verify NO semicolons (which would allow commands to run regardless of exit code)
+			assert.NotContains(t, shellCmd, ";",
+				"should not use semicolons, only && for fail-fast behavior")
+		})
+	}
 }

@@ -9,15 +9,26 @@ import (
 )
 
 // Validation limits for lifecycle hooks
+//
+// These limits are chosen to balance flexibility with security and system constraints:
+// - MaxHookArgLength (4096): Matches PATH_MAX on Linux, reasonable for any single argument
+// - MaxTotalHookLength (65536): Well under ARG_MAX (typically 2MB) but prevents abuse
+// - MaxHookCommandArgs (100): Generous for any reasonable command
+// - MaxTotalHookArgs (200): Allows complex setups while preventing DoS
+// - MaxHooksTimeout (1h): Prevents accidental runaway processes
 const (
 	// MaxHookCommandArgs is the maximum number of arguments in a single hook command
 	MaxHookCommandArgs = 100
-	// MaxHookArgLength is the maximum length of a single hook argument
+	// MaxHookArgLength is the maximum length of a single hook argument (matches PATH_MAX)
 	MaxHookArgLength = 4096
 	// MaxTotalHookLength is the maximum total length of all hook arguments combined
+	// Chosen to be well under kernel ARG_MAX (~2MB) while preventing excessive memory use
 	MaxTotalHookLength = 65536
 	// MaxTotalHookArgs is the maximum total number of arguments across all hooks
 	MaxTotalHookArgs = 200
+	// MaxHooksTimeout is the maximum allowed duration for hooks_timeout
+	// Prevents accidental misconfiguration with very long timeouts
+	MaxHooksTimeout = time.Hour
 )
 
 // ValidateLifecycleHooks validates lifecycle hook inputs for security and sanity.
@@ -53,6 +64,9 @@ func ValidateLifecycleHooks(hooks types.LifecycleHooks) error {
 		}
 		if duration <= 0 {
 			return fmt.Errorf("hooks_timeout must be positive, got %q", hooks.HooksTimeout)
+		}
+		if duration > MaxHooksTimeout {
+			return fmt.Errorf("hooks_timeout %q exceeds maximum allowed (%v)", hooks.HooksTimeout, MaxHooksTimeout)
 		}
 	}
 

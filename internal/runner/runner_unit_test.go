@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	strerrors "stromboli/internal/errors"
 	"stromboli/internal/types"
 )
 
@@ -1614,4 +1615,51 @@ func TestPodmanRunner_Run_WithHooksTimeout(t *testing.T) {
 	cmdStr := strings.Join(calls[0], " ")
 	assert.Contains(t, cmdStr, "timeout", "command should include timeout")
 	assert.Contains(t, cmdStr, "300s", "timeout should be 300 seconds (5m)")
+}
+
+// TestPodmanRunner_Run_HooksTimeoutExceedsMax tests that very long timeouts are rejected
+func TestPodmanRunner_Run_HooksTimeoutExceedsMax(t *testing.T) {
+	skipIfNoPodman(t)
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".credentials.json")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	err := os.WriteFile(secretsFile, []byte("test-token"), 0600)
+	require.NoError(t, err)
+
+	mock := NewMockExecutor()
+	mock.DefaultOutput = []byte("ok")
+
+	runner, err := NewPodmanRunnerWithExecutor("test-image", secretsFile, sessionsDir, []string{}, mock)
+	require.NoError(t, err)
+
+	// Test with timeout exceeding max (1h)
+	_, err = runner.Run(context.Background(), Request{
+		Prompt: "test",
+		Podman: types.PodmanOptions{
+			Lifecycle: types.LifecycleHooks{
+				PostStart:    []string{"echo", "ready"},
+				HooksTimeout: "2h", // Exceeds MaxHooksTimeout
+			},
+		},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds maximum", "should reject timeout exceeding max")
+}
+
+// TestErrInitInProgress_ErrorsIs verifies the custom error type works with errors.Is
+func TestErrInitInProgress_ErrorsIs(t *testing.T) {
+	// Create the error using the helper function
+	err := strerrors.InitInProgress("test-session-id")
+
+	// Verify errors.Is can detect the error type
+	assert.True(t, errors.Is(err, strerrors.ErrInitInProgress),
+		"errors.Is should detect ErrInitInProgress")
+
+	// Verify the error message contains the session ID
+	assert.Contains(t, err.Error(), "test-session-id",
+		"error message should contain session ID")
+
+	// Verify it's NOT a different error type
+	assert.False(t, errors.Is(err, strerrors.ErrSessionNotFound),
+		"errors.Is should not match different error types")
 }

@@ -232,8 +232,20 @@ func (m *Manager) MarkInitialized(sessionID string) error {
 // Returns (acquired, cleanup, error). If acquired is true, caller MUST call cleanup.
 // If another process holds the lock, returns (false, nil, nil).
 //
+// Stale Lock Behavior:
+// This function uses flock(2) which provides automatic cleanup semantics:
+//   - If a process crashes while holding the lock, the kernel automatically
+//     releases the lock when the process terminates
+//   - The lock file remains on disk but becomes available for acquisition
+//   - No manual stale lock detection is needed
+//
+// This means if Process A crashes mid-initialization:
+//  1. The lock is automatically released by the kernel
+//  2. Process B can acquire the lock on next attempt
+//  3. Process B checks IsInitialized() and re-runs init hooks if needed
+//
 // Platform Support: Uses flock(2), only available on Unix-like systems.
-// On Windows or other platforms, consider alternative locking mechanisms.
+// On Windows, use WSL2 for development (see session_windows.go).
 func (m *Manager) TryAcquireInitLock(sessionID string) (bool, func(), error) {
 	// Validate session ID
 	if err := validateSessionID(sessionID); err != nil {
