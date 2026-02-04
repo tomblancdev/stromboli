@@ -2104,6 +2104,47 @@
                 }
             }
         },
+        "stromboli_internal_types.LifecycleHooks": {
+            "description": "Commands to run at specific container lifecycle stages",
+            "type": "object",
+            "properties": {
+                "hooks_timeout": {
+                    "description": "HooksTimeout is the maximum duration for all hooks combined (e.g., \"5m\", \"30s\").\nIf not specified, hooks run with the container's timeout.\nThis is useful to prevent long-running hooks from blocking the main command.",
+                    "type": "string",
+                    "example": "5m"
+                },
+                "on_create_command": {
+                    "description": "OnCreateCommand runs after container creation, before Claude starts (first run only)\nCommands are executed sequentially via \"podman exec\"",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "pip install -r requirements.txt"
+                    ]
+                },
+                "post_create": {
+                    "description": "PostCreate runs after OnCreateCommand completes (first run only)\nCommands are executed sequentially via \"podman exec\"",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "npm run setup"
+                    ]
+                },
+                "post_start": {
+                    "description": "PostStart runs after container starts (every run, including continues)\nCommands are executed sequentially via \"podman exec\"",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "redis-server --daemonize yes"
+                    ]
+                }
+            }
+        },
         "stromboli_internal_types.PodmanOptions": {
             "description": "Podman container mount configuration",
             "type": "object",
@@ -2122,6 +2163,14 @@
                     "description": "Container image override (must match allowed patterns)",
                     "type": "string",
                     "example": "python:3.12"
+                },
+                "lifecycle": {
+                    "description": "Lifecycle hooks for running commands at specific container events",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stromboli_internal_types.LifecycleHooks"
+                        }
+                    ]
                 },
                 "memory": {
                     "description": "Memory limit (e.g., \"512m\", \"1g\")",

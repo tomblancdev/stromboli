@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"stromboli/internal/claude"
+	strerrors "stromboli/internal/errors"
 	"stromboli/internal/job"
 	"stromboli/internal/metrics"
 	"stromboli/internal/podman"
@@ -152,6 +153,59 @@ func NewPodmanRunnerFull(image, credentialsFile, sessionsDir, sessionsHostDir st
 	}, nil
 }
 
+// prepareLifecycleHooks validates hooks, acquires locks, and returns state needed for execution.
+// Returns (needsInit bool, cleanup func(), error).
+// Caller MUST defer cleanup() if it's not nil.
+//
+// Error Handling:
+//   - Returns ErrInitInProgress if another process is currently initializing the session.
+//     Callers can detect this with errors.Is(err, strerrors.ErrInitInProgress) and retry.
+//   - If a previous initializer crashed, flock(2) automatically releases the lock,
+//     allowing the next caller to acquire it and complete initialization.
+func (r *PodmanRunner) prepareLifecycleHooks(
+	ctx context.Context,
+	hooks types.LifecycleHooks,
+	sessionID string,
+) (needsInit bool, cleanup func(), err error) {
+	// Validate lifecycle hooks
+	if err := ValidateLifecycleHooks(hooks); err != nil {
+		return false, nil, fmt.Errorf("lifecycle hooks validation failed: %w", err)
+	}
+
+	// Check if this session needs init hooks with proper locking
+	if HasInitHooks(hooks) {
+		acquired, lockCleanup, err := r.sessionMgr.TryAcquireInitLock(sessionID)
+		if err != nil {
+			return false, nil, fmt.Errorf("failed to acquire init lock: %w", err)
+		}
+		if acquired {
+			cleanup = lockCleanup
+			// Double-check under lock
+			if !r.sessionMgr.IsInitialized(sessionID) {
+				needsInit = true
+			}
+		} else {
+			// Lock contention - another process holds the lock
+			// Check if previous holder completed or may have crashed
+			if !r.sessionMgr.IsInitialized(sessionID) {
+				// Previous init holder may have crashed or is still running
+				// Return typed error so caller can detect and retry
+				return false, nil, strerrors.InitInProgress(sessionID)
+			}
+			// Session is already initialized by another process, proceed normally
+		}
+	}
+
+	// Add tracing attributes
+	tracing.AddSpanAttributes(ctx,
+		"runner.has_init_hooks", HasInitHooks(hooks),
+		"runner.has_poststart_hook", len(hooks.PostStart) > 0,
+		"runner.needs_init", needsInit,
+	)
+
+	return needsInit, cleanup, nil
+}
+
 // Run executes Claude in a Podman container
 func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	ctx, span := tracing.StartSpanWithKind(ctx, "runner.Run", tracing.SpanKindInternal)
@@ -260,8 +314,22 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 		claudeCmd = append([]string{"claude"}, claudeCmd...)
 	}
 
+	// Prepare lifecycle hooks (validate, acquire locks, determine if init needed)
+	needsInit, cleanup, err := r.prepareLifecycleHooks(ctx, req.Podman.Lifecycle, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	if cleanup != nil {
+		defer cleanup()
+	}
+
+	// Wrap command with lifecycle hooks if any are configured
+	// Init hooks (onCreateCommand, postCreate) only run on first session use
+	// PostStart runs every time
+	commandWithHooks := WrapCommandWithHooks(claudeCmd, req.Podman.Lifecycle, needsInit)
+
 	// Wrap command to create workdir if it doesn't exist
-	finalCmd := wrapCommandWithWorkdirSetup(req.Workdir, claudeCmd, r.workdirAutoCreate)
+	finalCmd := wrapCommandWithWorkdirSetup(req.Workdir, commandWithHooks, r.workdirAutoCreate)
 	podmanBuilder.WithCommand(finalCmd)
 	fullCmd := podmanBuilder.Build()
 
@@ -297,6 +365,14 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 
 		tracing.SetSpanStatus(ctx, tracing.StatusError, "execution failed")
 		return nil, fmt.Errorf("execution failed: %w, output: %s", err, string(output))
+	}
+
+	// Mark session as initialized if we ran init hooks successfully
+	// Note: Lock cleanup is handled by defer, so we don't need to release manually
+	if needsInit {
+		if markErr := r.sessionMgr.MarkInitialized(sessionID); markErr != nil {
+			return nil, fmt.Errorf("failed to mark session as initialized: %w", markErr)
+		}
 	}
 
 	result := &Result{
@@ -418,8 +494,22 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 		claudeCmd = append([]string{"claude"}, claudeCmd...)
 	}
 
+	// Prepare lifecycle hooks (validate, acquire locks, determine if init needed)
+	needsInit, cleanup, err := r.prepareLifecycleHooks(ctx, req.Podman.Lifecycle, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	if cleanup != nil {
+		defer cleanup()
+	}
+
+	// Wrap command with lifecycle hooks if any are configured
+	// Init hooks (onCreateCommand, postCreate) only run on first session use
+	// PostStart runs every time
+	commandWithHooks := WrapCommandWithHooks(claudeCmd, req.Podman.Lifecycle, needsInit)
+
 	// Wrap command to create workdir if it doesn't exist
-	finalCmd := wrapCommandWithWorkdirSetup(req.Workdir, claudeCmd, r.workdirAutoCreate)
+	finalCmd := wrapCommandWithWorkdirSetup(req.Workdir, commandWithHooks, r.workdirAutoCreate)
 	podmanBuilder.WithCommand(finalCmd)
 	fullCmd := podmanBuilder.Build()
 
@@ -502,6 +592,14 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 
 		tracing.SetSpanStatus(ctx, tracing.StatusError, "execution failed")
 		return nil, fmt.Errorf("execution failed: %w", cmdErr)
+	}
+
+	// Mark session as initialized if we ran init hooks successfully
+	// Note: Lock cleanup is handled by defer, so we don't need to release manually
+	if needsInit {
+		if markErr := r.sessionMgr.MarkInitialized(sessionID); markErr != nil {
+			return nil, fmt.Errorf("failed to mark session as initialized: %w", markErr)
+		}
 	}
 
 	result := &Result{
@@ -832,20 +930,15 @@ func wrapCommandWithWorkdirSetup(workdir string, cmd []string, autoCreate bool) 
 		return cmd
 	}
 
-	// Escape each argument for shell
+	// Escape each argument for shell using the shared helper
 	var escapedArgs []string
 	for _, arg := range cmd {
-		// Escape single quotes by replacing ' with '\''
-		escaped := strings.ReplaceAll(arg, "'", "'\\''")
-		escapedArgs = append(escapedArgs, "'"+escaped+"'")
+		escapedArgs = append(escapedArgs, EscapeShellArg(arg))
 	}
-
-	// Escape the workdir for shell
-	escapedWorkdir := strings.ReplaceAll(workdir, "'", "'\\''")
 
 	// Build the wrapped command:
 	// mkdir -p '/workdir' && exec original_command
-	shellCmd := fmt.Sprintf("mkdir -p '%s' && exec %s", escapedWorkdir, strings.Join(escapedArgs, " "))
+	shellCmd := fmt.Sprintf("mkdir -p %s && exec %s", EscapeShellArg(workdir), strings.Join(escapedArgs, " "))
 
 	return []string{"sh", "-c", shellCmd}
 }

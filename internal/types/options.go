@@ -114,6 +114,41 @@ type ClaudeOptions struct {
 	DisableSlashCommands bool `json:"disable_slash_commands,omitempty" example:"false"`
 }
 
+// LifecycleHooks configures commands to run at container lifecycle events.
+//
+// Hook Execution Order:
+//  1. OnCreateCommand - runs once when session is first created
+//  2. PostCreate - runs once after OnCreateCommand completes
+//  3. PostStart - runs on every container start
+//
+// IMPORTANT - Idempotency Requirement:
+// Init hooks (OnCreateCommand, PostCreate) should be idempotent since they
+// may run again if the first attempt crashes before completion. Design hooks
+// to be safe to re-run (e.g., use "pip install" not "pip install && rm cache").
+//
+// All hooks are chained with && for fail-fast behavior. If any hook fails,
+// subsequent hooks and the main command will not run.
+//
+// @Description Commands to run at specific container lifecycle stages
+type LifecycleHooks struct {
+	// OnCreateCommand runs after container creation, before Claude starts (first run only)
+	// Commands are executed sequentially via "podman exec"
+	OnCreateCommand []string `json:"on_create_command,omitempty" example:"pip install -r requirements.txt"`
+
+	// PostCreate runs after OnCreateCommand completes (first run only)
+	// Commands are executed sequentially via "podman exec"
+	PostCreate []string `json:"post_create,omitempty" example:"npm run setup"`
+
+	// PostStart runs after container starts (every run, including continues)
+	// Commands are executed sequentially via "podman exec"
+	PostStart []string `json:"post_start,omitempty" example:"redis-server --daemonize yes"`
+
+	// HooksTimeout is the maximum duration for all hooks combined (e.g., "5m", "30s").
+	// If not specified, hooks run with the container's timeout.
+	// This is useful to prevent long-running hooks from blocking the main command.
+	HooksTimeout string `json:"hooks_timeout,omitempty" example:"5m"`
+}
+
 // PodmanOptions contains Podman container configuration
 // @Description Podman container mount configuration
 type PodmanOptions struct {
@@ -139,4 +174,7 @@ type PodmanOptions struct {
 
 	// CPU shares (relative weight, default 1024)
 	CPUShares int `json:"cpu_shares,omitempty" example:"512"`
+
+	// Lifecycle hooks for running commands at specific container events
+	Lifecycle LifecycleHooks `json:"lifecycle,omitempty"`
 }
