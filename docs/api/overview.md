@@ -62,6 +62,15 @@ See [Authentication](authentication.md) for details.
 | POST | `/auth/validate` | Validate a token |
 | POST | `/auth/logout` | Invalidate a token |
 
+### Images
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/images` | List local images (sorted by compatibility) |
+| GET | `/images/:name` | Inspect a specific image |
+| GET | `/images/search` | Search container registries |
+| POST | `/images/pull` | Pull an image from a registry |
+
 ## Request Format
 
 All POST endpoints accept JSON:

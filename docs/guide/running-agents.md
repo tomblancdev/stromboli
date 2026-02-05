@@ -332,3 +332,48 @@ curl -X POST http://localhost:8080/run \
 ```
 
 See [Secrets Guide](secrets.md) for more details.
+
+## Lifecycle Hooks
+
+Run commands at specific container lifecycle stages:
+
+```bash
+curl -X POST http://localhost:8080/run \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Run the tests",
+    "workdir": "/workspace",
+    "podman": {
+      "image": "python:3.12",
+      "volumes": ["/home/user/myproject:/workspace"],
+      "lifecycle": {
+        "on_create_command": ["pip install -r requirements.txt"],
+        "post_start": ["redis-server --daemonize yes"]
+      }
+    }
+  }'
+```
+
+See [Lifecycle Hooks](lifecycle-hooks.md) for more details.
+
+## Compose Environments
+
+Run Claude in multi-service environments with databases, caches, and other services:
+
+```bash
+curl -X POST http://localhost:8080/run \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Set up the database schema",
+    "workdir": "/workspace",
+    "podman": {
+      "environment": {
+        "type": "compose",
+        "path": "/home/user/myproject/docker-compose.yml",
+        "service": "dev"
+      }
+    }
+  }'
+```
+
+See [Compose Environments](compose-environments.md) for more details.

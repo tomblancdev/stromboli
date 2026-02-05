@@ -157,6 +157,22 @@ Reduce file reads by caching credentials in memory.
 | `STROMBOLI_TRACING_SERVICE_NAME` | `stromboli` | Service name in traces |
 | `STROMBOLI_TRACING_INSECURE` | `true` | Use insecure connection (no TLS) |
 
+### Compose Environments
+
+Control behavior for multi-service compose environments.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `STROMBOLI_COMPOSE_ALLOW_PRIVILEGED` | `false` | Allow services with `privileged: true` |
+| `STROMBOLI_COMPOSE_ALLOW_HOST_NETWORK` | `false` | Allow services with `network_mode: host` |
+| `STROMBOLI_COMPOSE_ALLOW_HOST_VOLUMES` | `false` | Allow host volume mounts in compose files |
+| `STROMBOLI_COMPOSE_BUILD_TIMEOUT` | `10m` | Maximum time for compose build/up |
+| `STROMBOLI_COMPOSE_HEALTH_TIMEOUT` | `2m` | Maximum time to wait for healthy services |
+| `STROMBOLI_COMPOSE_STACK_TTL` | `1h` | Maximum age for orphaned stacks before cleanup |
+
+!!! danger "Security Settings"
+    All compose `allow_*` settings are `false` by default for security. Only enable them if you trust the compose files being used. See [Compose Environments](../guide/compose-environments.md) for details.
+
 ## Config File
 
 Use a YAML config file for cleaner configuration:
@@ -222,6 +238,15 @@ tracing:
   service_name: "stromboli"
   endpoint: "localhost:4317"
   insecure: true
+
+# Compose environment settings
+compose:
+  allow_privileged: false    # Allow privileged containers (DANGEROUS)
+  allow_host_network: false  # Allow host network mode
+  allow_host_volumes: false  # Allow host volume mounts
+  build_timeout: "10m"       # Max time for compose build/up
+  health_timeout: "2m"       # Max time to wait for healthy services
+  stack_ttl: "1h"            # Max age for orphaned stacks
 ```
 
 Load with:

@@ -40,7 +40,19 @@ Run Claude synchronously.
     "timeout": "5m",
     "memory": "512m",
     "cpus": "1",
-    "cpu_shares": 512
+    "cpu_shares": 512,
+    "lifecycle": {
+      "on_create_command": ["pip install -r requirements.txt"],
+      "post_create": ["npm run build"],
+      "post_start": ["redis-server --daemonize yes"],
+      "hooks_timeout": "5m"
+    },
+    "environment": {
+      "type": "compose",
+      "path": "/path/to/docker-compose.yml",
+      "service": "dev",
+      "build_timeout": "15m"
+    }
   }
 }
 ```
@@ -305,3 +317,174 @@ Prometheus metrics endpoint.
 stromboli_active_containers 2
 ...
 ```
+
+---
+
+## Image Discovery API
+
+The Image Discovery API allows you to list, inspect, search, and pull container images.
+
+---
+
+## GET /images
+
+List all local container images sorted by compatibility.
+
+### Response
+
+```json
+{
+  "images": [
+    {
+      "id": "sha256:abc123...",
+      "repository": "python",
+      "tag": "3.12",
+      "size": 1073741824,
+      "created": "2024-01-15T10:30:00Z",
+      "compatibility_rank": 3,
+      "compatible": true,
+      "tools": ["python", "pip"],
+      "has_claude_cli": false,
+      "description": "Python 3.12 runtime"
+    }
+  ]
+}
+```
+
+### Compatibility Ranks
+
+| Rank | Description | Compatible |
+|------|-------------|------------|
+| 1 | Official Stromboli agent image | Yes |
+| 2 | Verified compatible (has Claude CLI) | Yes |
+| 3 | Standard glibc-based image | Yes |
+| 4 | Alpine/musl-based image | No |
+
+---
+
+## GET /images/:name
+
+Get detailed information about a specific image.
+
+### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | path | Image name with optional tag (e.g., `python:3.12-slim`) |
+
+### Response
+
+```json
+{
+  "id": "sha256:abc123...",
+  "repository": "python",
+  "tag": "3.12-slim",
+  "size": 536870912,
+  "created": "2024-01-15T10:30:00Z",
+  "labels": {
+    "org.opencontainers.image.source": "https://github.com/...",
+    "maintainer": "..."
+  },
+  "compatibility_rank": 3,
+  "rank_description": "Standard glibc-based image (compatible)",
+  "compatible": true,
+  "tools": ["python3", "pip"],
+  "has_claude_cli": false,
+  "description": "Python 3.12 slim runtime"
+}
+```
+
+### Errors
+
+| Status | Error |
+|--------|-------|
+| 400 | Invalid image name |
+| 404 | Image not found |
+| 500 | Internal server error |
+
+---
+
+## GET /images/search
+
+Search container registries for images.
+
+### Query Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `q` | string | Required | Search query (e.g., `python`, `node`) |
+| `limit` | int | 25 | Maximum results (max 100) |
+| `no_trunc` | bool | false | Show full descriptions |
+
+### Response
+
+```json
+{
+  "results": [
+    {
+      "index": "docker.io",
+      "name": "python",
+      "description": "Python is an interpreted, interactive, object-oriented...",
+      "stars": 9500,
+      "official": true,
+      "automated": false
+    },
+    {
+      "index": "docker.io",
+      "name": "pypy",
+      "description": "PyPy is a fast, compliant Python implementation...",
+      "stars": 850,
+      "official": true,
+      "automated": false
+    }
+  ]
+}
+```
+
+### Errors
+
+| Status | Error |
+|--------|-------|
+| 400 | Missing query parameter 'q' |
+| 400 | Invalid limit parameter |
+| 502 | Registry search failed |
+
+---
+
+## POST /images/pull
+
+Pull an image from a container registry.
+
+### Request
+
+```json
+{
+  "image": "python:3.12",
+  "quiet": false,
+  "platform": "linux/amd64"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `image` | string | Yes | Image name with optional tag |
+| `quiet` | bool | No | Suppress pull output |
+| `platform` | string | No | Target platform (e.g., `linux/amd64`, `linux/arm64`) |
+
+### Response
+
+```json
+{
+  "success": true,
+  "image_id": "sha256:abc123def456...",
+  "image": "python:3.12"
+}
+```
+
+### Errors
+
+| Status | Error |
+|--------|-------|
+| 400 | Invalid request |
+| 400 | Invalid image name |
+| 500 | Failed to pull image |

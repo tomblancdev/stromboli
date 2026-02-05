@@ -17,6 +17,9 @@ Stromboli is a REST API that provides secure, isolated execution of Claude AI in
 - **Resource Controls**: CPU, memory, and timeout limits per container
 - **Security**: Token-based authentication, JWT with refresh tokens, workspace allowlisting, secret management
 - **Observability**: Prometheus metrics, OpenTelemetry distributed tracing, structured logging, request tracking
+- **Lifecycle Hooks**: Run commands at container creation and startup (install deps, start background services)
+- **Compose Environments**: Run Claude in multi-service environments with databases, caches, and other services
+- **Image Discovery**: List, inspect, search, and pull container images via API
 
 ## Quick Start
 

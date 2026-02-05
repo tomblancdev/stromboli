@@ -52,6 +52,14 @@ graph LR
 
     Resource limits, timeouts, custom images, and more.
 
+- :material-play-circle: **Lifecycle Hooks**
+
+    Run setup commands at container creation and startup (install deps, start services).
+
+- :material-layers: **Compose Environments**
+
+    Run Claude in multi-service environments with databases, caches, and more.
+
 </div>
 
 ## Quick Example
@@ -104,6 +112,8 @@ Response:
 - [Configuration](getting-started/configuration.md) - Customize Stromboli for your needs
 - [API Reference](api/overview.md) - Complete API documentation
 - [Secrets Guide](guide/secrets.md) - Inject tokens securely
+- [Lifecycle Hooks](guide/lifecycle-hooks.md) - Run setup commands at container lifecycle stages
+- [Compose Environments](guide/compose-environments.md) - Multi-service environments
 
 ## License
 

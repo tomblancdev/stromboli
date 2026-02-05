@@ -2,6 +2,44 @@
 
 All notable changes to Stromboli will be documented here.
 
+## [Unreleased]
+
+### Added
+
+#### Lifecycle Hooks
+- **OnCreateCommand**: Run commands once when session is first created (e.g., `pip install`)
+- **PostCreate**: Run commands after OnCreateCommand completes (e.g., build steps)
+- **PostStart**: Run commands on every container start (e.g., start background services)
+- **Hooks Timeout**: Configurable timeout for hook execution (`hooks_timeout`)
+- Hooks are chained with fail-fast behavior - if any hook fails, execution stops
+- Shell escaping for all hook arguments to prevent injection attacks
+- Documentation: [Lifecycle Hooks Guide](guide/lifecycle-hooks.md)
+
+#### Compose Environments
+- **Multi-service environments**: Run Claude agents in Docker/Podman Compose stacks
+- **Service selection**: Specify which service Claude runs in via `environment.service`
+- **Health check waiting**: Stromboli waits for all services to become healthy
+- **Stack lifecycle management**: Automatic cleanup on session destroy or TTL expiry
+- **Security validation**: Blocks privileged containers, host network, and dangerous configurations
+- Configuration options: `allow_privileged`, `allow_host_network`, `allow_host_volumes`
+- Timeout configuration: `build_timeout`, `health_timeout`, `stack_ttl`
+- Documentation: [Compose Environments Guide](guide/compose-environments.md)
+
+#### Image Discovery API
+- **GET /images**: List all local images sorted by compatibility rank
+- **GET /images/:name**: Inspect a specific image with detailed metadata
+- **GET /images/search**: Search container registries (Docker Hub, etc.)
+- **POST /images/pull**: Pull an image from a registry
+- Compatibility ranking system (1-4) to identify Claude-compatible images
+
+### Security
+
+- Compose file validation with security checks for dangerous configurations
+- Lifecycle hooks validation with length limits and shell escaping
+- TOCTOU protection for compose file parsing
+
+---
+
 ## [0.3.0-alpha] - 2026-01-31
 
 ### Changed

@@ -115,6 +115,8 @@ nav:
     - Sessions: guide/sessions.md
     - Secrets: guide/secrets.md
     - Working Directory: guide/workspaces.md
+    - Lifecycle Hooks: guide/lifecycle-hooks.md
+    - Compose Environments: guide/compose-environments.md
     - Security: guide/security.md
     - Troubleshooting: guide/troubleshooting.md
   - API Reference:
