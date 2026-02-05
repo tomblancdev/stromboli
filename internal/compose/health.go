@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	strerrors "stromboli/internal/errors"
 )
 
 // HealthCheckResult represents the result of a health check poll
@@ -70,7 +72,7 @@ func (h *HealthChecker) WaitForHealthy(ctx context.Context, projectName string, 
 			statusCtx, statusCancel := context.WithTimeout(context.Background(), 5*time.Second)
 			lastResult := h.checkHealth(statusCtx, projectName)
 			statusCancel()
-			return fmt.Errorf("%w: %s", ErrComposeHealthTimeout, formatUnhealthyServices(lastResult.Services))
+			return fmt.Errorf("%w: %s", strerrors.ErrComposeHealthTimeout, formatUnhealthyServices(lastResult.Services))
 		case <-ticker.C:
 			result := h.checkHealth(ctx, projectName)
 			if result.Error != nil {
@@ -182,6 +184,3 @@ func formatUnhealthyServices(services []ServiceStatus) string {
 	}
 	return strings.Join(unhealthy, ", ")
 }
-
-// Error for health timeout
-var ErrComposeHealthTimeout = fmt.Errorf("compose services did not become healthy in time")

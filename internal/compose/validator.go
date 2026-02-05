@@ -2,6 +2,7 @@ package compose
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -154,25 +155,51 @@ type composeService struct {
 	NetworkMode string        `yaml:"network_mode"`
 	Volumes     []interface{} `yaml:"volumes"` // Can be strings or maps
 	CapAdd      []string      `yaml:"cap_add"`
+	// Additional dangerous fields that need validation
+	IPC         string            `yaml:"ipc"`
+	PIDMode     string            `yaml:"pid"`
+	SecurityOpt []string          `yaml:"security_opt"`
+	Devices     []interface{}     `yaml:"devices"`
+	Sysctls     map[string]string `yaml:"sysctls"`
 }
 
 // maxComposeFileSize is the maximum allowed size for compose files (1MB)
 const maxComposeFileSize = 1 * 1024 * 1024
 
-// parseComposeFile reads and parses a compose file
+// parseComposeFile reads and parses a compose file.
+// It opens the file once and keeps the handle throughout to prevent TOCTOU attacks.
 func (v *FileValidator) parseComposeFile(path string) (*composeFile, error) {
-	// Check file size first to prevent DoS via large files
-	info, err := os.Stat(path)
+	// Open file once and keep handle to prevent TOCTOU
+	f, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("%w: %s", ErrComposeFileNotFound, path)
+		}
+		return nil, fmt.Errorf("%w: cannot open file: %v", ErrInvalidComposeFile, err)
+	}
+	defer f.Close()
+
+	// Get file info from the open handle
+	info, err := f.Stat()
 	if err != nil {
 		return nil, fmt.Errorf("%w: cannot stat file: %v", ErrInvalidComposeFile, err)
 	}
+
+	// Check file size to prevent DoS via large files
 	if info.Size() > maxComposeFileSize {
 		return nil, fmt.Errorf("%w: file too large (max %d bytes, got %d)", ErrInvalidComposeFile, maxComposeFileSize, info.Size())
 	}
 
-	data, err := os.ReadFile(path)
+	// Read from the same file handle (prevents TOCTOU)
+	// Use LimitReader to enforce size limit even if file grows
+	data, err := io.ReadAll(io.LimitReader(f, maxComposeFileSize+1))
 	if err != nil {
 		return nil, fmt.Errorf("%w: cannot read file: %v", ErrInvalidComposeFile, err)
+	}
+
+	// Double-check size after read
+	if int64(len(data)) > maxComposeFileSize {
+		return nil, fmt.Errorf("%w: file too large (max %d bytes)", ErrInvalidComposeFile, maxComposeFileSize)
 	}
 
 	var compose composeFile
@@ -199,6 +226,44 @@ func (v *FileValidator) validateService(name string, service composeService) err
 		for _, cap := range service.CapAdd {
 			if cap == "ALL" || cap == "SYS_ADMIN" {
 				return fmt.Errorf("%w: service %q has dangerous capability: %s", ErrPrivilegedNotAllowed, name, cap)
+			}
+		}
+	}
+
+	// Check IPC mode (host IPC namespace)
+	if service.IPC == "host" && !v.config.AllowPrivileged {
+		return fmt.Errorf("%w: service %q has ipc: host", ErrPrivilegedNotAllowed, name)
+	}
+
+	// Check PID mode (host PID namespace)
+	if service.PIDMode == "host" && !v.config.AllowPrivileged {
+		return fmt.Errorf("%w: service %q has pid: host", ErrPrivilegedNotAllowed, name)
+	}
+
+	// Check security options for dangerous settings
+	if !v.config.AllowPrivileged {
+		for _, opt := range service.SecurityOpt {
+			optLower := strings.ToLower(opt)
+			if strings.Contains(optLower, "seccomp:unconfined") ||
+				strings.Contains(optLower, "seccomp=unconfined") ||
+				strings.Contains(optLower, "apparmor:unconfined") ||
+				strings.Contains(optLower, "apparmor=unconfined") {
+				return fmt.Errorf("%w: service %q has dangerous security_opt: %s", ErrPrivilegedNotAllowed, name, opt)
+			}
+		}
+	}
+
+	// Check device mounts
+	if len(service.Devices) > 0 && !v.config.AllowPrivileged {
+		return fmt.Errorf("%w: service %q has device mounts", ErrPrivilegedNotAllowed, name)
+	}
+
+	// Check dangerous sysctls
+	if !v.config.AllowPrivileged {
+		for key := range service.Sysctls {
+			// Block kernel and network sysctls that could affect host
+			if strings.HasPrefix(key, "kernel.") || strings.HasPrefix(key, "net.") {
+				return fmt.Errorf("%w: service %q has potentially dangerous sysctl: %s", ErrPrivilegedNotAllowed, name, key)
 			}
 		}
 	}

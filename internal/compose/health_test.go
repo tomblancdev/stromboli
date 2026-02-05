@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	strerrors "stromboli/internal/errors"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -49,7 +51,7 @@ func TestHealthChecker_WaitForHealthy_Timeout(t *testing.T) {
 	checker := NewHealthChecker(executor)
 	err := checker.WaitForHealthy(context.Background(), "test-project", 100*time.Millisecond)
 	assert.Error(t, err)
-	assert.ErrorIs(t, err, ErrComposeHealthTimeout)
+	assert.ErrorIs(t, err, strerrors.ErrComposeHealthTimeout)
 }
 
 func TestHealthChecker_ParseServicesStatus(t *testing.T) {

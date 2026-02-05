@@ -5,13 +5,11 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 	"time"
 
 	"stromboli/internal/claude"
 	"stromboli/internal/compose"
-	strerrors "stromboli/internal/errors"
 	"stromboli/internal/metrics"
 	"stromboli/internal/tracing"
 )
@@ -76,8 +74,8 @@ func (r *PodmanRunner) runWithCompose(ctx context.Context, req Request) (*Result
 	}
 
 	stack := r.composeMgr.GetStack(sessionID)
-	if stack == nil {
-		// Start the compose stack
+	if stack == nil || !stack.IsReady() {
+		// Start the compose stack (or wait for it to become ready)
 		stack, err = r.composeMgr.Up(ctx, env, sessionID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to start compose stack: %w", err)
@@ -203,7 +201,7 @@ func (r *PodmanRunner) runStreamWithCompose(ctx context.Context, req Request, ou
 	}
 
 	stack := r.composeMgr.GetStack(sessionID)
-	if stack == nil {
+	if stack == nil || !stack.IsReady() {
 		stack, err = r.composeMgr.Up(ctx, env, sessionID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to start compose stack: %w", err)
@@ -382,13 +380,6 @@ func (r *PodmanRunner) CleanupComposeStacks(ctx context.Context, maxAge time.Dur
 	return r.composeMgr.CleanupOrphanedStacks(ctx, maxAge)
 }
 
-// Add composeMgr field to PodmanRunner - this will be done via init
-var _ = func() int {
-	// This is a compile-time check that compose.Manager implements compose.Executor
-	// The actual field addition is done in the struct modification below
-	return 0
-}()
-
 // ComposeManager returns the compose manager if configured
 func (r *PodmanRunner) ComposeManager() *compose.Manager {
 	return r.composeMgr
@@ -401,9 +392,3 @@ func (r *PodmanRunner) IsComposeActive(sessionID string) bool {
 	}
 	return r.composeMgr.IsActive(sessionID)
 }
-
-// Errors for compose operations
-var (
-	_ = strerrors.ErrSessionNotFound // Use existing error types
-	_ = os.ErrNotExist               // Standard file errors
-)

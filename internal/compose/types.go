@@ -51,6 +51,18 @@ func DefaultConfig() Config {
 	}
 }
 
+// StackState represents the lifecycle state of a compose stack
+type StackState string
+
+const (
+	// StackStateStarting indicates the stack is being initialized
+	StackStateStarting StackState = "starting"
+	// StackStateRunning indicates the stack is fully operational
+	StackStateRunning StackState = "running"
+	// StackStateStopping indicates the stack is being torn down
+	StackStateStopping StackState = "stopping"
+)
+
 // Stack represents a running compose stack
 type Stack struct {
 	// ProjectName is the compose project name (stromboli-{session_id})
@@ -67,6 +79,14 @@ type Stack struct {
 
 	// StartedAt records when the stack was started
 	StartedAt time.Time
+
+	// State is the current lifecycle state
+	State StackState
+}
+
+// IsReady returns true if the stack is in a usable state
+func (s *Stack) IsReady() bool {
+	return s.State == StackStateRunning
 }
 
 // ServiceStatus represents the health status of a service

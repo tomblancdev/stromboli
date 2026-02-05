@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	strerrors "stromboli/internal/errors"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -260,7 +262,7 @@ func TestManager_CleanupOrphanedStacks(t *testing.T) {
 	executor := NewMockExecutor()
 	mgr := NewManager(executor, DefaultConfig())
 
-	// Add an old stack
+	// Add an old stack and a new stack (both must be in Running state)
 	oldTime := time.Now().Add(-2 * time.Hour)
 	newTime := time.Now()
 
@@ -268,10 +270,12 @@ func TestManager_CleanupOrphanedStacks(t *testing.T) {
 	mgr.stacks["old-session"] = &Stack{
 		SessionID: "old-session",
 		StartedAt: oldTime,
+		State:     StackStateRunning,
 	}
 	mgr.stacks["new-session"] = &Stack{
 		SessionID: "new-session",
 		StartedAt: newTime,
+		State:     StackStateRunning,
 	}
 	mgr.mu.Unlock()
 
@@ -360,7 +364,7 @@ func TestManager_Up_HealthCheckTimeout(t *testing.T) {
 	stack, err := mgr.Up(context.Background(), env, "test-session")
 	assert.Error(t, err)
 	assert.Nil(t, stack)
-	assert.True(t, errors.Is(err, ErrComposeHealthTimeout) || strings.Contains(err.Error(), "healthy"))
+	assert.True(t, errors.Is(err, strerrors.ErrComposeHealthTimeout) || strings.Contains(err.Error(), "healthy"))
 
 	// Should have been polled multiple times
 	assert.GreaterOrEqual(t, callCount, 1)
@@ -460,6 +464,129 @@ func TestManager_BuildTimeoutError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid build timeout")
 	assert.Contains(t, err.Error(), "invalid-duration") // Error should include the bad value
+}
+
+func TestManager_ConcurrentGetStack(t *testing.T) {
+	executor := NewMockExecutor()
+	mgr := NewManager(executor, DefaultConfig())
+
+	// Add a test stack
+	mgr.mu.Lock()
+	mgr.stacks["test-session"] = &Stack{
+		SessionID: "test-session",
+		State:     StackStateRunning,
+	}
+	mgr.mu.Unlock()
+
+	// Concurrent reads should not race
+	var wg sync.WaitGroup
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			stack := mgr.GetStack("test-session")
+			if stack != nil {
+				_ = stack.IsReady()
+			}
+		}()
+	}
+	wg.Wait()
+}
+
+func TestManager_IsReady(t *testing.T) {
+	executor := NewMockExecutor()
+	mgr := NewManager(executor, DefaultConfig())
+
+	// No stack
+	assert.False(t, mgr.IsReady("nonexistent"))
+
+	// Stack in starting state
+	mgr.mu.Lock()
+	mgr.stacks["starting"] = &Stack{SessionID: "starting", State: StackStateStarting}
+	mgr.mu.Unlock()
+	assert.False(t, mgr.IsReady("starting"))
+
+	// Stack in running state
+	mgr.mu.Lock()
+	mgr.stacks["running"] = &Stack{SessionID: "running", State: StackStateRunning}
+	mgr.mu.Unlock()
+	assert.True(t, mgr.IsReady("running"))
+
+	// Stack in stopping state
+	mgr.mu.Lock()
+	mgr.stacks["stopping"] = &Stack{SessionID: "stopping", State: StackStateStopping}
+	mgr.mu.Unlock()
+	assert.False(t, mgr.IsReady("stopping"))
+}
+
+func TestManager_StackState_Lifecycle(t *testing.T) {
+	composePath := createTestComposeFile(t, `services:
+  dev:
+    image: python:3.12
+`)
+
+	executor := NewMockExecutor()
+	healthyResponse := []byte(`[{"Name":"dev-1","Service":"dev","State":"running","Health":""}]`)
+	executor.RunFunc = func(ctx context.Context, args []string) ([]byte, error) {
+		if containsArg(args, "ps") {
+			return healthyResponse, nil
+		}
+		return []byte{}, nil
+	}
+
+	mgr := NewManager(executor, Config{
+		BuildTimeout:  5 * time.Minute,
+		HealthTimeout: 30 * time.Second,
+	})
+
+	env := Environment{
+		Type:    "compose",
+		Path:    composePath,
+		Service: "dev",
+	}
+
+	// Start the stack
+	stack, err := mgr.Up(context.Background(), env, "lifecycle-test")
+	require.NoError(t, err)
+
+	// Stack should be running
+	assert.Equal(t, StackStateRunning, stack.State)
+	assert.True(t, mgr.IsReady("lifecycle-test"))
+
+	// Stop the stack
+	err = mgr.Down(context.Background(), "lifecycle-test")
+	require.NoError(t, err)
+
+	// Stack should be gone
+	assert.False(t, mgr.IsActive("lifecycle-test"))
+}
+
+func TestManager_CleanupOrphanedStacks_OnlyRunningStacks(t *testing.T) {
+	executor := NewMockExecutor()
+	mgr := NewManager(executor, DefaultConfig())
+
+	now := time.Now()
+	oldTime := now.Add(-2 * time.Hour)
+
+	// Add stacks in various states
+	mgr.mu.Lock()
+	mgr.stacks["old-running"] = &Stack{SessionID: "old-running", StartedAt: oldTime, State: StackStateRunning}
+	mgr.stacks["old-starting"] = &Stack{SessionID: "old-starting", StartedAt: oldTime, State: StackStateStarting}
+	mgr.stacks["old-stopping"] = &Stack{SessionID: "old-stopping", StartedAt: oldTime, State: StackStateStopping}
+	mgr.stacks["new-running"] = &Stack{SessionID: "new-running", StartedAt: now, State: StackStateRunning}
+	mgr.mu.Unlock()
+
+	// Cleanup stacks older than 1 hour - should only clean running stacks
+	err := mgr.CleanupOrphanedStacks(context.Background(), 1*time.Hour)
+	require.NoError(t, err)
+
+	// Old running stack should be cleaned up
+	assert.False(t, mgr.IsActive("old-running"))
+	// Starting and stopping should be skipped (not cleaned)
+	assert.True(t, mgr.IsActive("old-starting"))
+	assert.True(t, mgr.IsActive("old-stopping"))
+	// New running should remain
+	assert.True(t, mgr.IsActive("new-running"))
 }
 
 // Helper function to check if args contain a specific argument

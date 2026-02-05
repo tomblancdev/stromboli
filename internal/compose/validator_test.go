@@ -225,6 +225,184 @@ func TestFileValidator_HostNetworkAllowed(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestFileValidator_IPCHostBlocked(t *testing.T) {
+	tmpDir := t.TempDir()
+	composePath := filepath.Join(tmpDir, "docker-compose.yml")
+
+	content := `services:
+  web:
+    image: nginx
+    ipc: host
+`
+	err := os.WriteFile(composePath, []byte(content), 0644)
+	require.NoError(t, err)
+
+	validator := NewFileValidator(Config{AllowPrivileged: false})
+	err = validator.Validate(composePath)
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, ErrPrivilegedNotAllowed))
+	assert.Contains(t, err.Error(), "ipc: host")
+}
+
+func TestFileValidator_PIDHostBlocked(t *testing.T) {
+	tmpDir := t.TempDir()
+	composePath := filepath.Join(tmpDir, "docker-compose.yml")
+
+	content := `services:
+  web:
+    image: nginx
+    pid: host
+`
+	err := os.WriteFile(composePath, []byte(content), 0644)
+	require.NoError(t, err)
+
+	validator := NewFileValidator(Config{AllowPrivileged: false})
+	err = validator.Validate(composePath)
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, ErrPrivilegedNotAllowed))
+	assert.Contains(t, err.Error(), "pid: host")
+}
+
+func TestFileValidator_SecurityOptBlocked(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{
+			name: "seccomp unconfined colon",
+			content: `services:
+  web:
+    image: nginx
+    security_opt:
+      - seccomp:unconfined
+`,
+		},
+		{
+			name: "seccomp unconfined equals",
+			content: `services:
+  web:
+    image: nginx
+    security_opt:
+      - seccomp=unconfined
+`,
+		},
+		{
+			name: "apparmor unconfined",
+			content: `services:
+  web:
+    image: nginx
+    security_opt:
+      - apparmor:unconfined
+`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			composePath := filepath.Join(tmpDir, "docker-compose.yml")
+
+			err := os.WriteFile(composePath, []byte(tt.content), 0644)
+			require.NoError(t, err)
+
+			validator := NewFileValidator(Config{AllowPrivileged: false})
+			err = validator.Validate(composePath)
+			assert.Error(t, err)
+			assert.True(t, errors.Is(err, ErrPrivilegedNotAllowed))
+			assert.Contains(t, err.Error(), "security_opt")
+		})
+	}
+}
+
+func TestFileValidator_DevicesBlocked(t *testing.T) {
+	tmpDir := t.TempDir()
+	composePath := filepath.Join(tmpDir, "docker-compose.yml")
+
+	content := `services:
+  web:
+    image: nginx
+    devices:
+      - /dev/sda:/dev/xvda
+`
+	err := os.WriteFile(composePath, []byte(content), 0644)
+	require.NoError(t, err)
+
+	validator := NewFileValidator(Config{AllowPrivileged: false})
+	err = validator.Validate(composePath)
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, ErrPrivilegedNotAllowed))
+	assert.Contains(t, err.Error(), "device")
+}
+
+func TestFileValidator_SysctlsBlocked(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{
+			name: "kernel sysctl",
+			content: `services:
+  web:
+    image: nginx
+    sysctls:
+      kernel.msgmax: 65536
+`,
+		},
+		{
+			name: "net sysctl",
+			content: `services:
+  web:
+    image: nginx
+    sysctls:
+      net.core.somaxconn: 1024
+`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			composePath := filepath.Join(tmpDir, "docker-compose.yml")
+
+			err := os.WriteFile(composePath, []byte(tt.content), 0644)
+			require.NoError(t, err)
+
+			validator := NewFileValidator(Config{AllowPrivileged: false})
+			err = validator.Validate(composePath)
+			assert.Error(t, err)
+			assert.True(t, errors.Is(err, ErrPrivilegedNotAllowed))
+			assert.Contains(t, err.Error(), "sysctl")
+		})
+	}
+}
+
+func TestFileValidator_DangerousFieldsAllowedWhenPrivileged(t *testing.T) {
+	tmpDir := t.TempDir()
+	composePath := filepath.Join(tmpDir, "docker-compose.yml")
+
+	// A compose file with many dangerous settings
+	content := `services:
+  web:
+    image: nginx
+    privileged: true
+    ipc: host
+    pid: host
+    security_opt:
+      - seccomp:unconfined
+    devices:
+      - /dev/sda:/dev/xvda
+    sysctls:
+      kernel.msgmax: 65536
+`
+	err := os.WriteFile(composePath, []byte(content), 0644)
+	require.NoError(t, err)
+
+	// Should pass when AllowPrivileged is true
+	validator := NewFileValidator(Config{AllowPrivileged: true})
+	err = validator.Validate(composePath)
+	assert.NoError(t, err)
+}
+
 func TestFileValidator_HostVolumesBlocked(t *testing.T) {
 	tests := []struct {
 		name    string

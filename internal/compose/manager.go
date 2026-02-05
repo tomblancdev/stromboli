@@ -90,14 +90,15 @@ func (m *Manager) Up(ctx context.Context, env Environment, sessionID string) (*S
 		return nil, fmt.Errorf("failed to start compose stack: %w", err)
 	}
 
-	// Track the stack BEFORE health check to prevent race condition
-	// If health check fails, Down() will clean it up
+	// Track the stack in "starting" state BEFORE health check
+	// This prevents operations on partially-initialized stacks
 	stack := &Stack{
 		ProjectName: projectName,
 		ComposePath: env.Path,
 		Service:     env.Service,
 		SessionID:   sessionID,
 		StartedAt:   time.Now(),
+		State:       StackStateStarting,
 	}
 
 	m.mu.Lock()
@@ -106,10 +107,22 @@ func (m *Manager) Up(ctx context.Context, env Environment, sessionID string) (*S
 
 	// Wait for services to be healthy
 	if err := m.healthChecker.WaitForHealthy(ctx, projectName, m.config.HealthTimeout); err != nil {
+		// Mark as stopping before cleanup
+		m.mu.Lock()
+		if s, ok := m.stacks[sessionID]; ok {
+			s.State = StackStateStopping
+		}
+		m.mu.Unlock()
+
 		// Clean up on failure - Down() will also remove from tracking
 		_ = m.Down(context.Background(), sessionID)
 		return nil, err
 	}
+
+	// Mark stack as running
+	m.mu.Lock()
+	stack.State = StackStateRunning
+	m.mu.Unlock()
 
 	m.logger.Info("compose stack started successfully",
 		"session_id", sessionID,
@@ -126,8 +139,11 @@ func (m *Manager) Down(ctx context.Context, sessionID string) error {
 
 	m.logger.Info("stopping compose stack", "session_id", sessionID, "project_name", projectName)
 
-	// Remove from tracking first
+	// Mark as stopping, then remove from tracking
 	m.mu.Lock()
+	if s, ok := m.stacks[sessionID]; ok {
+		s.State = StackStateStopping
+	}
 	delete(m.stacks, sessionID)
 	m.mu.Unlock()
 
@@ -214,6 +230,16 @@ func (m *Manager) IsActive(sessionID string) bool {
 	return m.GetStack(sessionID) != nil
 }
 
+// IsReady returns true if a compose stack exists and is in a usable state
+func (m *Manager) IsReady(sessionID string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if stack, ok := m.stacks[sessionID]; ok {
+		return stack.State == StackStateRunning
+	}
+	return false
+}
+
 // ListStacks returns all tracked stacks
 func (m *Manager) ListStacks() []*Stack {
 	m.mu.RLock()
@@ -234,13 +260,17 @@ func (m *Manager) CleanupOrphanedStacks(ctx context.Context, maxAge time.Duratio
 	now := time.Now()
 
 	for sessionID, stack := range m.stacks {
-		if now.Sub(stack.StartedAt) > maxAge {
+		// Only cleanup stacks that are running and older than maxAge
+		// Skip stacks that are already starting or stopping
+		if stack.State == StackStateRunning && now.Sub(stack.StartedAt) > maxAge {
+			// Mark as stopping while we hold the lock to prevent other operations
+			stack.State = StackStateStopping
 			toCleanup = append(toCleanup, sessionID)
 		}
 	}
 	m.mu.Unlock()
 
-	// Clean up old stacks
+	// Clean up old stacks (they're already marked as stopping)
 	var errs []error
 	for _, sessionID := range toCleanup {
 		if err := m.Down(ctx, sessionID); err != nil {
