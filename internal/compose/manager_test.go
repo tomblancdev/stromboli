@@ -1,0 +1,473 @@
+package compose
+
+import (
+	"context"
+	"errors"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// MockExecutor implements Executor for testing
+type MockExecutor struct {
+	mu sync.Mutex
+
+	// Calls tracks all command invocations
+	Calls [][]string
+
+	// RunFunc is called when Run is invoked, if set
+	RunFunc func(ctx context.Context, args []string) ([]byte, error)
+
+	// RunStreamFunc is called when RunStream is invoked, if set
+	RunStreamFunc func(ctx context.Context, args []string) (stdout io.ReadCloser, stderr io.ReadCloser, start func() error, wait func() error, err error)
+
+	// DefaultOutput is returned if RunFunc is not set
+	DefaultOutput []byte
+
+	// DefaultError is returned if RunFunc is not set
+	DefaultError error
+}
+
+// NewMockExecutor creates a new MockExecutor
+func NewMockExecutor() *MockExecutor {
+	return &MockExecutor{
+		Calls: make([][]string, 0),
+	}
+}
+
+// Run executes the mock command
+func (m *MockExecutor) Run(ctx context.Context, args []string) ([]byte, error) {
+	m.mu.Lock()
+	m.Calls = append(m.Calls, args)
+	m.mu.Unlock()
+
+	if m.RunFunc != nil {
+		return m.RunFunc(ctx, args)
+	}
+
+	return m.DefaultOutput, m.DefaultError
+}
+
+// RunStream executes the mock command with streaming
+func (m *MockExecutor) RunStream(ctx context.Context, args []string) (stdout io.ReadCloser, stderr io.ReadCloser, start func() error, wait func() error, err error) {
+	m.mu.Lock()
+	m.Calls = append(m.Calls, args)
+	m.mu.Unlock()
+
+	if m.RunStreamFunc != nil {
+		return m.RunStreamFunc(ctx, args)
+	}
+
+	// Return empty streams
+	stdoutReader := io.NopCloser(strings.NewReader(""))
+	stderrReader := io.NopCloser(strings.NewReader(""))
+
+	return stdoutReader, stderrReader, func() error { return nil }, func() error { return nil }, nil
+}
+
+// GetCalls returns all recorded command calls
+func (m *MockExecutor) GetCalls() [][]string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.Calls
+}
+
+// Reset clears all recorded calls
+func (m *MockExecutor) Reset() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.Calls = make([][]string, 0)
+}
+
+// Helper to create a valid compose file
+func createTestComposeFile(t *testing.T, content string) string {
+	t.Helper()
+	tmpDir := t.TempDir()
+	composePath := filepath.Join(tmpDir, "docker-compose.yml")
+	err := os.WriteFile(composePath, []byte(content), 0644)
+	require.NoError(t, err)
+	return composePath
+}
+
+func TestManager_Up_Success(t *testing.T) {
+	composePath := createTestComposeFile(t, `services:
+  dev:
+    image: python:3.12
+  db:
+    image: postgres:15
+`)
+
+	executor := NewMockExecutor()
+	// Return healthy status for health check
+	executor.RunFunc = func(ctx context.Context, args []string) ([]byte, error) {
+		if containsArg(args, "ps") {
+			return []byte(`[{"Name":"dev-1","Service":"dev","State":"running","Health":""},{"Name":"db-1","Service":"db","State":"running","Health":"healthy"}]`), nil
+		}
+		return []byte{}, nil
+	}
+
+	mgr := NewManager(executor, Config{
+		BuildTimeout:  5 * time.Minute,
+		HealthTimeout: 30 * time.Second,
+	})
+
+	env := Environment{
+		Type:    "compose",
+		Path:    composePath,
+		Service: "dev",
+	}
+
+	stack, err := mgr.Up(context.Background(), env, "test-session-123")
+	require.NoError(t, err)
+	assert.NotNil(t, stack)
+	assert.Equal(t, "stromboli-test-session-123", stack.ProjectName)
+	assert.Equal(t, "dev", stack.Service)
+	assert.Equal(t, composePath, stack.ComposePath)
+
+	// Verify up command was called
+	calls := executor.GetCalls()
+	found := false
+	for _, call := range calls {
+		if containsArg(call, "up") && containsArg(call, "-d") && containsArg(call, "--build") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "expected up command with -d and --build flags")
+
+	// Verify stack is tracked
+	assert.True(t, mgr.IsActive("test-session-123"))
+}
+
+func TestManager_Up_ValidationFails(t *testing.T) {
+	// Create compose file with privileged service
+	composePath := createTestComposeFile(t, `services:
+  dev:
+    image: python:3.12
+    privileged: true
+`)
+
+	executor := NewMockExecutor()
+	mgr := NewManager(executor, Config{
+		AllowPrivileged: false, // Block privileged
+		BuildTimeout:    5 * time.Minute,
+		HealthTimeout:   30 * time.Second,
+	})
+
+	env := Environment{
+		Type:    "compose",
+		Path:    composePath,
+		Service: "dev",
+	}
+
+	stack, err := mgr.Up(context.Background(), env, "test-session")
+	assert.Error(t, err)
+	assert.Nil(t, stack)
+	assert.True(t, errors.Is(err, ErrPrivilegedNotAllowed) || strings.Contains(err.Error(), "privileged"))
+
+	// Verify no commands were executed
+	assert.Empty(t, executor.GetCalls())
+}
+
+func TestManager_Up_ServiceNotFound(t *testing.T) {
+	composePath := createTestComposeFile(t, `services:
+  web:
+    image: nginx
+`)
+
+	executor := NewMockExecutor()
+	mgr := NewManager(executor, DefaultConfig())
+
+	env := Environment{
+		Type:    "compose",
+		Path:    composePath,
+		Service: "nonexistent",
+	}
+
+	stack, err := mgr.Up(context.Background(), env, "test-session")
+	assert.Error(t, err)
+	assert.Nil(t, stack)
+	assert.True(t, errors.Is(err, ErrServiceNotFound) || strings.Contains(err.Error(), "not found"))
+}
+
+func TestManager_Down_Success(t *testing.T) {
+	executor := NewMockExecutor()
+	mgr := NewManager(executor, DefaultConfig())
+
+	// Pre-populate the stack
+	mgr.mu.Lock()
+	mgr.stacks["test-session"] = &Stack{
+		ProjectName: "stromboli-test-session",
+		SessionID:   "test-session",
+	}
+	mgr.mu.Unlock()
+
+	err := mgr.Down(context.Background(), "test-session")
+	require.NoError(t, err)
+
+	// Verify down command was called
+	calls := executor.GetCalls()
+	require.Len(t, calls, 1)
+	assert.True(t, containsArg(calls[0], "down"))
+	assert.True(t, containsArg(calls[0], "-v"))
+	assert.True(t, containsArg(calls[0], "-p"))
+	assert.True(t, containsArg(calls[0], "stromboli-test-session"))
+
+	// Verify stack is no longer tracked
+	assert.False(t, mgr.IsActive("test-session"))
+}
+
+func TestManager_Down_Idempotent(t *testing.T) {
+	executor := NewMockExecutor()
+	// Simulate "not found" error
+	executor.DefaultError = errors.New("no such project: stromboli-test-session")
+
+	mgr := NewManager(executor, DefaultConfig())
+
+	// Should succeed even when stack doesn't exist
+	err := mgr.Down(context.Background(), "test-session")
+	assert.NoError(t, err)
+}
+
+func TestManager_Exec(t *testing.T) {
+	executor := NewMockExecutor()
+	executor.DefaultOutput = []byte("hello world")
+
+	mgr := NewManager(executor, DefaultConfig())
+
+	output, err := mgr.Exec(context.Background(), "test-session", "dev", []string{"echo", "hello"})
+	require.NoError(t, err)
+	assert.Equal(t, "hello world", string(output))
+
+	// Verify exec command was called
+	calls := executor.GetCalls()
+	require.Len(t, calls, 1)
+	assert.True(t, containsArg(calls[0], "exec"))
+	assert.True(t, containsArg(calls[0], "-T"))
+	assert.True(t, containsArg(calls[0], "dev"))
+	assert.True(t, containsArg(calls[0], "echo"))
+	assert.True(t, containsArg(calls[0], "hello"))
+}
+
+func TestManager_CleanupOrphanedStacks(t *testing.T) {
+	executor := NewMockExecutor()
+	mgr := NewManager(executor, DefaultConfig())
+
+	// Add an old stack
+	oldTime := time.Now().Add(-2 * time.Hour)
+	newTime := time.Now()
+
+	mgr.mu.Lock()
+	mgr.stacks["old-session"] = &Stack{
+		SessionID: "old-session",
+		StartedAt: oldTime,
+	}
+	mgr.stacks["new-session"] = &Stack{
+		SessionID: "new-session",
+		StartedAt: newTime,
+	}
+	mgr.mu.Unlock()
+
+	// Cleanup stacks older than 1 hour
+	err := mgr.CleanupOrphanedStacks(context.Background(), 1*time.Hour)
+	require.NoError(t, err)
+
+	// Old stack should be removed, new stack should remain
+	assert.False(t, mgr.IsActive("old-session"))
+	assert.True(t, mgr.IsActive("new-session"))
+}
+
+func TestManager_ListStacks(t *testing.T) {
+	executor := NewMockExecutor()
+	mgr := NewManager(executor, DefaultConfig())
+
+	// Add some stacks
+	mgr.mu.Lock()
+	mgr.stacks["session-1"] = &Stack{SessionID: "session-1"}
+	mgr.stacks["session-2"] = &Stack{SessionID: "session-2"}
+	mgr.mu.Unlock()
+
+	stacks := mgr.ListStacks()
+	assert.Len(t, stacks, 2)
+}
+
+func TestManager_ExecStream(t *testing.T) {
+	executor := NewMockExecutor()
+	outputContent := "streaming output"
+	executor.RunStreamFunc = func(ctx context.Context, args []string) (io.ReadCloser, io.ReadCloser, func() error, func() error, error) {
+		stdout := io.NopCloser(strings.NewReader(outputContent))
+		stderr := io.NopCloser(strings.NewReader(""))
+		return stdout, stderr, func() error { return nil }, func() error { return nil }, nil
+	}
+
+	mgr := NewManager(executor, DefaultConfig())
+
+	stdout, stderr, start, wait, err := mgr.ExecStream(context.Background(), "test-session", "dev", []string{"claude", "-p", "hello"})
+	require.NoError(t, err)
+
+	err = start()
+	require.NoError(t, err)
+
+	// Read stdout
+	data, err := io.ReadAll(stdout)
+	require.NoError(t, err)
+	assert.Equal(t, outputContent, string(data))
+
+	// Read stderr (empty)
+	data, err = io.ReadAll(stderr)
+	require.NoError(t, err)
+	assert.Empty(t, data)
+
+	err = wait()
+	require.NoError(t, err)
+}
+
+func TestManager_Up_HealthCheckTimeout(t *testing.T) {
+	composePath := createTestComposeFile(t, `services:
+  dev:
+    image: python:3.12
+`)
+
+	executor := NewMockExecutor()
+	callCount := 0
+	executor.RunFunc = func(ctx context.Context, args []string) ([]byte, error) {
+		if containsArg(args, "ps") {
+			callCount++
+			// Always return unhealthy
+			return []byte(`[{"Name":"dev-1","Service":"dev","State":"starting","Health":"starting"}]`), nil
+		}
+		return []byte{}, nil
+	}
+
+	mgr := NewManager(executor, Config{
+		BuildTimeout:  5 * time.Minute,
+		HealthTimeout: 100 * time.Millisecond, // Very short timeout for test
+	})
+
+	env := Environment{
+		Type:    "compose",
+		Path:    composePath,
+		Service: "dev",
+	}
+
+	stack, err := mgr.Up(context.Background(), env, "test-session")
+	assert.Error(t, err)
+	assert.Nil(t, stack)
+	assert.True(t, errors.Is(err, ErrComposeHealthTimeout) || strings.Contains(err.Error(), "healthy"))
+
+	// Should have been polled multiple times
+	assert.GreaterOrEqual(t, callCount, 1)
+
+	// Stack should not be tracked
+	assert.False(t, mgr.IsActive("test-session"))
+}
+
+func TestManager_DiscoverOrphanedStacks(t *testing.T) {
+	tests := []struct {
+		name           string
+		output         string
+		trackedSession string
+		wantOrphaned   []string
+	}{
+		{
+			name:           "empty output",
+			output:         "",
+			trackedSession: "",
+			wantOrphaned:   nil,
+		},
+		{
+			name:           "no stromboli stacks",
+			output:         `[{"Name":"myapp","Status":"running"}]`,
+			trackedSession: "",
+			wantOrphaned:   nil,
+		},
+		{
+			name:           "orphaned stromboli stack",
+			output:         `[{"Name":"stromboli-orphan-123","Status":"running"}]`,
+			trackedSession: "",
+			wantOrphaned:   []string{"orphan-123"},
+		},
+		{
+			name:           "tracked stromboli stack",
+			output:         `[{"Name":"stromboli-tracked-456","Status":"running"}]`,
+			trackedSession: "tracked-456",
+			wantOrphaned:   nil,
+		},
+		{
+			name:           "mixed stacks",
+			output:         `[{"Name":"stromboli-orphan-1","Status":"running"},{"Name":"stromboli-tracked-2","Status":"running"},{"Name":"other-app","Status":"running"}]`,
+			trackedSession: "tracked-2",
+			wantOrphaned:   []string{"orphan-1"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			executor := NewMockExecutor()
+			executor.DefaultOutput = []byte(tt.output)
+
+			mgr := NewManager(executor, DefaultConfig())
+
+			// Track a session if specified
+			if tt.trackedSession != "" {
+				mgr.mu.Lock()
+				mgr.stacks[tt.trackedSession] = &Stack{SessionID: tt.trackedSession}
+				mgr.mu.Unlock()
+			}
+
+			orphaned, err := mgr.DiscoverOrphanedStacks(context.Background())
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantOrphaned, orphaned)
+		})
+	}
+}
+
+func TestManager_DiscoverOrphanedStacks_InvalidJSON(t *testing.T) {
+	executor := NewMockExecutor()
+	executor.DefaultOutput = []byte("not valid json")
+
+	mgr := NewManager(executor, DefaultConfig())
+
+	_, err := mgr.DiscoverOrphanedStacks(context.Background())
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to parse")
+}
+
+func TestManager_BuildTimeoutError(t *testing.T) {
+	composePath := createTestComposeFile(t, `services:
+  dev:
+    image: python:3.12
+`)
+
+	executor := NewMockExecutor()
+	mgr := NewManager(executor, DefaultConfig())
+
+	env := Environment{
+		Type:         "compose",
+		Path:         composePath,
+		Service:      "dev",
+		BuildTimeout: "invalid-duration",
+	}
+
+	_, err := mgr.Up(context.Background(), env, "test-session")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid build timeout")
+	assert.Contains(t, err.Error(), "invalid-duration") // Error should include the bad value
+}
+
+// Helper function to check if args contain a specific argument
+func containsArg(args []string, target string) bool {
+	for _, arg := range args {
+		if arg == target {
+			return true
+		}
+	}
+	return false
+}

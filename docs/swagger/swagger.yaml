@@ -799,6 +799,30 @@ definitions:
         example: false
         type: boolean
     type: object
+  stromboli_internal_types.EnvironmentConfig:
+    description: Runtime environment configuration (single container or compose)
+    properties:
+      build_timeout:
+        description: |-
+          Optional build timeout override for compose (e.g., "15m")
+          If not specified, uses server default (10m)
+        example: 15m
+        type: string
+      path:
+        description: |-
+          Path to compose file (required when type="compose")
+          Must be an absolute path ending in .yml or .yaml
+        example: /home/user/project/docker-compose.yml
+        type: string
+      service:
+        description: Service name where Claude will run (required when type="compose")
+        example: dev
+        type: string
+      type:
+        description: 'Type of environment: "" (default single container) or "compose"'
+        example: compose
+        type: string
+    type: object
   stromboli_internal_types.LifecycleHooks:
     description: Commands to run at specific container lifecycle stages
     properties:
@@ -848,6 +872,13 @@ definitions:
         description: CPU limit (e.g., "0.5", "2")
         example: "1"
         type: string
+      environment:
+        allOf:
+        - $ref: '#/definitions/stromboli_internal_types.EnvironmentConfig'
+        description: |-
+          Environment specifies a compose-based multi-service environment.
+          When set, the agent runs inside the specified service of the compose stack
+          instead of a standalone container.
       image:
         description: Container image override (must match allowed patterns)
         example: python:3.12

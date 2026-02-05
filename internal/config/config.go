@@ -23,6 +23,7 @@ type Config struct {
 	JWT       JWTConfig
 	Jobs      JobsConfig
 	Tracing   TracingConfig
+	Compose   ComposeConfig
 }
 
 // ServerConfig holds HTTP server configuration
@@ -97,6 +98,16 @@ type TracingConfig struct {
 	Insecure    bool   // Use insecure connection (no TLS)
 }
 
+// ComposeConfig holds compose environment configuration
+type ComposeConfig struct {
+	AllowPrivileged  bool          // Allow services with privileged: true (default: false)
+	AllowHostNetwork bool          // Allow services with network_mode: host (default: false)
+	AllowHostVolumes bool          // Allow host volume mounts (default: false)
+	BuildTimeout     time.Duration // Maximum time for compose build/up (default: 10m)
+	HealthTimeout    time.Duration // Maximum time to wait for healthy services (default: 2m)
+	StackTTL         time.Duration // Maximum age for orphaned stacks before cleanup (default: 1h)
+}
+
 // Default values
 const (
 	defaultServerAddress      = ":8080"
@@ -118,6 +129,11 @@ const (
 	defaultTokenCacheTTL     = 5 * time.Minute
 	defaultTracingEndpoint   = "localhost:4317"
 	defaultTracingService    = "stromboli"
+
+	// Compose defaults
+	defaultComposeBuildTimeout  = 10 * time.Minute
+	defaultComposeHealthTimeout = 2 * time.Minute
+	defaultComposeStackTTL      = 1 * time.Hour
 )
 
 // Load reads configuration from environment variables, config files, and defaults.
@@ -196,6 +212,14 @@ func setupViper(v *viper.Viper) {
 	v.SetDefault("tracing.endpoint", defaultTracingEndpoint)
 	v.SetDefault("tracing.insecure", true)
 
+	// Compose defaults (secure by default)
+	v.SetDefault("compose.allow_privileged", false)
+	v.SetDefault("compose.allow_host_network", false)
+	v.SetDefault("compose.allow_host_volumes", false)
+	v.SetDefault("compose.build_timeout", defaultComposeBuildTimeout.String())
+	v.SetDefault("compose.health_timeout", defaultComposeHealthTimeout.String())
+	v.SetDefault("compose.stack_ttl", defaultComposeStackTTL.String())
+
 	// Environment variable configuration
 	v.SetEnvPrefix("STROMBOLI")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
@@ -237,6 +261,14 @@ func setupViper(v *viper.Viper) {
 	_ = v.BindEnv("tracing.service_name", "STROMBOLI_TRACING_SERVICE_NAME")
 	_ = v.BindEnv("tracing.endpoint", "STROMBOLI_TRACING_ENDPOINT")
 	_ = v.BindEnv("tracing.insecure", "STROMBOLI_TRACING_INSECURE")
+
+	// Compose environment variables
+	_ = v.BindEnv("compose.allow_privileged", "STROMBOLI_COMPOSE_ALLOW_PRIVILEGED")
+	_ = v.BindEnv("compose.allow_host_network", "STROMBOLI_COMPOSE_ALLOW_HOST_NETWORK")
+	_ = v.BindEnv("compose.allow_host_volumes", "STROMBOLI_COMPOSE_ALLOW_HOST_VOLUMES")
+	_ = v.BindEnv("compose.build_timeout", "STROMBOLI_COMPOSE_BUILD_TIMEOUT")
+	_ = v.BindEnv("compose.health_timeout", "STROMBOLI_COMPOSE_HEALTH_TIMEOUT")
+	_ = v.BindEnv("compose.stack_ttl", "STROMBOLI_COMPOSE_STACK_TTL")
 }
 
 // parseConfig extracts and validates configuration from viper
@@ -323,6 +355,29 @@ func parseConfig(v *viper.Viper) (*Config, error) {
 		ServiceName: v.GetString("tracing.service_name"),
 		Endpoint:    v.GetString("tracing.endpoint"),
 		Insecure:    v.GetBool("tracing.insecure"),
+	}
+
+	// Parse compose config
+	composeBuildTimeout, err := parseDuration(v.GetString("compose.build_timeout"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid compose build timeout: %w", err)
+	}
+	composeHealthTimeout, err := parseDuration(v.GetString("compose.health_timeout"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid compose health timeout: %w", err)
+	}
+	composeStackTTL, err := parseDuration(v.GetString("compose.stack_ttl"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid compose stack TTL: %w", err)
+	}
+
+	cfg.Compose = ComposeConfig{
+		AllowPrivileged:  v.GetBool("compose.allow_privileged"),
+		AllowHostNetwork: v.GetBool("compose.allow_host_network"),
+		AllowHostVolumes: v.GetBool("compose.allow_host_volumes"),
+		BuildTimeout:     composeBuildTimeout,
+		HealthTimeout:    composeHealthTimeout,
+		StackTTL:         composeStackTTL,
 	}
 
 	// Validate configuration
@@ -433,6 +488,17 @@ func (c *Config) Validate() error {
 	// Validate tracing config
 	if c.Tracing.Enabled && c.Tracing.Endpoint == "" {
 		return fmt.Errorf("tracing endpoint must be set when tracing is enabled")
+	}
+
+	// Validate compose config
+	if c.Compose.BuildTimeout <= 0 {
+		return fmt.Errorf("compose build timeout must be positive")
+	}
+	if c.Compose.HealthTimeout <= 0 {
+		return fmt.Errorf("compose health timeout must be positive")
+	}
+	if c.Compose.StackTTL <= 0 {
+		return fmt.Errorf("compose stack TTL must be positive")
 	}
 
 	return nil

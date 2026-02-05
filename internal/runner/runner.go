@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"stromboli/internal/claude"
+	"stromboli/internal/compose"
 	strerrors "stromboli/internal/errors"
 	"stromboli/internal/job"
 	"stromboli/internal/metrics"
@@ -89,6 +90,7 @@ type PodmanRunner struct {
 	volumeAutoCreate  bool // Auto-create host directories for volume mounts
 	defaults          ResourceDefaults
 	executor          Executor
+	composeMgr        *compose.Manager // Compose manager for multi-service environments
 }
 
 // NewPodmanRunner creates a new Podman-based runner with no default resource limits
@@ -218,6 +220,12 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 		"runner.model", req.Claude.Model,
 		"runner.session_id", req.Claude.SessionID,
 	)
+
+	// Check if this is a compose environment request
+	if isComposeEnvironment(req) {
+		tracing.AddSpanAttributes(ctx, "runner.environment_type", "compose")
+		return r.runWithCompose(ctx, req)
+	}
 
 	// Sync credentials if the file has changed (handles local token refresh)
 	synced, err := r.secretsMgr.SyncIfChanged(ctx)
@@ -396,7 +404,6 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<- string) (*Result, error) {
 	ctx, span := tracing.StartSpanWithKind(ctx, "runner.RunStream", tracing.SpanKindInternal)
 	defer span.End()
-	defer close(output)
 
 	// Add request attributes to span
 	tracing.AddSpanAttributes(ctx,
@@ -406,6 +413,15 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 		"runner.session_id", req.Claude.SessionID,
 		"runner.streaming", true,
 	)
+
+	// Check if this is a compose environment request
+	if isComposeEnvironment(req) {
+		tracing.AddSpanAttributes(ctx, "runner.environment_type", "compose")
+		return r.runStreamWithCompose(ctx, req, output)
+	}
+
+	// Non-compose path: close output channel when done
+	defer close(output)
 
 	// Sync credentials if the file has changed (handles local token refresh)
 	synced, err := r.secretsMgr.SyncIfChanged(ctx)
@@ -621,6 +637,10 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 
 // DestroySession removes a session and all its data
 func (r *PodmanRunner) DestroySession(sessionID string) error {
+	// Clean up compose stack if active
+	if r.composeMgr != nil {
+		_ = r.composeMgr.Down(context.Background(), sessionID)
+	}
 	return r.sessionMgr.Destroy(sessionID)
 }
 

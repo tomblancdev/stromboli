@@ -159,6 +159,25 @@ func main() {
 		"cpus", cfg.Resources.CPUs,
 		"timeout", cfg.Resources.Timeout)
 
+	// Configure compose support if needed
+	if cfg.Compose.BuildTimeout > 0 {
+		podmanRunner.SetComposeConfig(runner.ComposeConfig{
+			AllowPrivileged:  cfg.Compose.AllowPrivileged,
+			AllowHostNetwork: cfg.Compose.AllowHostNetwork,
+			AllowHostVolumes: cfg.Compose.AllowHostVolumes,
+			BuildTimeout:     cfg.Compose.BuildTimeout,
+			HealthTimeout:    cfg.Compose.HealthTimeout,
+			StackTTL:         cfg.Compose.StackTTL,
+		})
+		slog.Info("Compose environment support enabled",
+			"allow_privileged", cfg.Compose.AllowPrivileged,
+			"allow_host_network", cfg.Compose.AllowHostNetwork,
+			"allow_host_volumes", cfg.Compose.AllowHostVolumes,
+			"build_timeout", cfg.Compose.BuildTimeout,
+			"health_timeout", cfg.Compose.HealthTimeout,
+			"stack_ttl", cfg.Compose.StackTTL)
+	}
+
 	if len(cfg.Agent.AllowedImagePatterns) > 0 {
 		slog.Info("Dynamic images enabled",
 			"allowed_patterns", cfg.Agent.AllowedImagePatterns,
@@ -228,6 +247,27 @@ func main() {
 		"ttl", cfg.Jobs.CleanupTTL,
 		"interval", cfg.Jobs.CleanupInterval)
 
+	// Start compose stack cleanup if compose is configured
+	var composeCleanupStop chan struct{}
+	if cfg.Compose.BuildTimeout > 0 {
+		composeCleanupStop = make(chan struct{})
+		go func() {
+			ticker := time.NewTicker(cfg.Jobs.CleanupInterval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					if err := podmanRunner.CleanupComposeStacks(context.Background(), cfg.Compose.StackTTL); err != nil {
+						slog.Warn("Failed to cleanup compose stacks", "error", err)
+					}
+				case <-composeCleanupStop:
+					return
+				}
+			}
+		}()
+		slog.Info("Compose stack cleanup started", "ttl", cfg.Compose.StackTTL)
+	}
+
 	// Create token blacklist for logout support
 	blacklist := auth.NewTokenBlacklist()
 
@@ -281,6 +321,12 @@ func main() {
 	// Stop job cleanup
 	jobMgr.StopCleanup()
 	slog.Info("Job cleanup stopped")
+
+	// Stop compose stack cleanup
+	if composeCleanupStop != nil {
+		close(composeCleanupStop)
+		slog.Info("Compose stack cleanup stopped")
+	}
 
 	// Stop blacklist cleanup
 	blacklist.StopCleanup()
