@@ -334,6 +334,25 @@ func TestFileValidator_DevicesBlocked(t *testing.T) {
 	assert.Contains(t, err.Error(), "device")
 }
 
+func TestFileValidator_UserNSModeHostBlocked(t *testing.T) {
+	tmpDir := t.TempDir()
+	composePath := filepath.Join(tmpDir, "docker-compose.yml")
+
+	content := `services:
+  web:
+    image: nginx
+    userns_mode: host
+`
+	err := os.WriteFile(composePath, []byte(content), 0644)
+	require.NoError(t, err)
+
+	validator := NewFileValidator(Config{AllowPrivileged: false})
+	err = validator.Validate(composePath)
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, ErrPrivilegedNotAllowed))
+	assert.Contains(t, err.Error(), "userns_mode: host")
+}
+
 func TestFileValidator_SysctlsBlocked(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -355,6 +374,33 @@ func TestFileValidator_SysctlsBlocked(t *testing.T) {
     image: nginx
     sysctls:
       net.core.somaxconn: 1024
+`,
+		},
+		{
+			name: "fs sysctl",
+			content: `services:
+  web:
+    image: nginx
+    sysctls:
+      fs.file-max: 65536
+`,
+		},
+		{
+			name: "vm sysctl",
+			content: `services:
+  web:
+    image: nginx
+    sysctls:
+      vm.swappiness: 60
+`,
+		},
+		{
+			name: "debug sysctl",
+			content: `services:
+  web:
+    image: nginx
+    sysctls:
+      debug.exception-trace: 1
 `,
 		},
 	}

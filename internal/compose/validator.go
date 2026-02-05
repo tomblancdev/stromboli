@@ -158,6 +158,7 @@ type composeService struct {
 	// Additional dangerous fields that need validation
 	IPC         string            `yaml:"ipc"`
 	PIDMode     string            `yaml:"pid"`
+	UserNSMode  string            `yaml:"userns_mode"`
 	SecurityOpt []string          `yaml:"security_opt"`
 	Devices     []interface{}     `yaml:"devices"`
 	Sysctls     map[string]string `yaml:"sysctls"`
@@ -240,6 +241,11 @@ func (v *FileValidator) validateService(name string, service composeService) err
 		return fmt.Errorf("%w: service %q has pid: host", ErrPrivilegedNotAllowed, name)
 	}
 
+	// Check user namespace mode (host user namespace)
+	if service.UserNSMode == "host" && !v.config.AllowPrivileged {
+		return fmt.Errorf("%w: service %q has userns_mode: host", ErrPrivilegedNotAllowed, name)
+	}
+
 	// Check security options for dangerous settings
 	if !v.config.AllowPrivileged {
 		for _, opt := range service.SecurityOpt {
@@ -261,8 +267,12 @@ func (v *FileValidator) validateService(name string, service composeService) err
 	// Check dangerous sysctls
 	if !v.config.AllowPrivileged {
 		for key := range service.Sysctls {
-			// Block kernel and network sysctls that could affect host
-			if strings.HasPrefix(key, "kernel.") || strings.HasPrefix(key, "net.") {
+			// Block sysctls that could affect host security/stability
+			if strings.HasPrefix(key, "kernel.") ||
+				strings.HasPrefix(key, "net.") ||
+				strings.HasPrefix(key, "fs.") ||
+				strings.HasPrefix(key, "vm.") ||
+				strings.HasPrefix(key, "debug.") {
 				return fmt.Errorf("%w: service %q has potentially dangerous sysctl: %s", ErrPrivilegedNotAllowed, name, key)
 			}
 		}

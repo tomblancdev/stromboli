@@ -74,11 +74,18 @@ func (m *MockExecutor) RunStream(ctx context.Context, args []string) (stdout io.
 	return stdoutReader, stderrReader, func() error { return nil }, func() error { return nil }, nil
 }
 
-// GetCalls returns all recorded command calls
+// GetCalls returns a copy of all recorded command calls
+// Returns a copy to prevent race conditions when iterating
 func (m *MockExecutor) GetCalls() [][]string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.Calls
+	// Return a copy to prevent race conditions
+	calls := make([][]string, len(m.Calls))
+	for i, call := range m.Calls {
+		calls[i] = make([]string, len(call))
+		copy(calls[i], call)
+	}
+	return calls
 }
 
 // Reset clears all recorded calls

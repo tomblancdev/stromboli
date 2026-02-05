@@ -87,6 +87,11 @@ func (m *Manager) Up(ctx context.Context, env Environment, sessionID string) (*S
 		Build()
 
 	if _, err := m.executor.Run(buildCtx, cmd); err != nil {
+		// Attempt cleanup of any partial resources created by compose up
+		// Use a short timeout since we're in error path
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		_ = m.cleanupProject(cleanupCtx, projectName)
+		cleanupCancel()
 		return nil, fmt.Errorf("failed to start compose stack: %w", err)
 	}
 
@@ -325,4 +330,33 @@ func (m *Manager) DiscoverOrphanedStacks(ctx context.Context) ([]string, error) 
 	}
 
 	return orphaned, nil
+}
+
+// cleanupProject runs podman compose down for a project without affecting stack tracking.
+// This is used for cleanup on build failures where the stack was never tracked.
+func (m *Manager) cleanupProject(ctx context.Context, projectName string) error {
+	cmd := NewCommandBuilder().
+		WithProject(projectName).
+		Down().
+		RemoveVolumes().
+		Build()
+
+	_, err := m.executor.Run(ctx, cmd)
+	if err != nil {
+		// Check if it's an ExitError - non-zero exit often means "not found" for down
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			// Project may not exist, that's OK for cleanup
+			return nil
+		}
+		// Also handle string-based errors
+		errStr := err.Error()
+		if strings.Contains(errStr, "not found") ||
+			strings.Contains(errStr, "no such") ||
+			strings.Contains(errStr, "does not exist") {
+			return nil
+		}
+		return err
+	}
+	return nil
 }

@@ -80,6 +80,10 @@ func (r *PodmanRunner) runWithCompose(ctx context.Context, req Request) (*Result
 		if err != nil {
 			return nil, fmt.Errorf("failed to start compose stack: %w", err)
 		}
+		// Defensive nil check - Up() should never return nil stack without error
+		if stack == nil {
+			return nil, fmt.Errorf("compose stack is nil after Up() succeeded")
+		}
 		tracing.AddSpanAttributes(ctx, "runner.compose.stack_started", true)
 	}
 
@@ -205,6 +209,10 @@ func (r *PodmanRunner) runStreamWithCompose(ctx context.Context, req Request, ou
 		stack, err = r.composeMgr.Up(ctx, env, sessionID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to start compose stack: %w", err)
+		}
+		// Defensive nil check - Up() should never return nil stack without error
+		if stack == nil {
+			return nil, fmt.Errorf("compose stack is nil after Up() succeeded")
 		}
 		tracing.AddSpanAttributes(ctx, "runner.compose.stack_started", true)
 	}
