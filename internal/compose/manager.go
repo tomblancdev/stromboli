@@ -87,16 +87,30 @@ func (m *Manager) Up(ctx context.Context, env Environment, sessionID string) (*S
 		Build()
 
 	if _, err := m.executor.Run(buildCtx, cmd); err != nil {
+		m.logger.Error("compose up failed",
+			"session_id", sessionID,
+			"error", err,
+		)
+
 		// Attempt cleanup of any partial resources created by compose up
-		// Use a short timeout since we're in error path
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 30*time.Second)
-		_ = m.cleanupProject(cleanupCtx, projectName)
+		// Use timeout that scales with build timeout for adequate cleanup time
+		cleanupTimeout := buildTimeout / 2
+		if cleanupTimeout < 1*time.Minute {
+			cleanupTimeout = 1 * time.Minute
+		}
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), cleanupTimeout)
+		if cleanupErr := m.cleanupProject(cleanupCtx, projectName); cleanupErr != nil {
+			m.logger.Warn("cleanup failed after failed compose up",
+				"session_id", sessionID,
+				"cleanup_error", cleanupErr,
+			)
+		}
 		cleanupCancel()
 		return nil, fmt.Errorf("failed to start compose stack: %w", err)
 	}
 
-	// Track the stack in "starting" state BEFORE health check
-	// This prevents operations on partially-initialized stacks
+	// Create stack object but DON'T track yet - only track after health check passes
+	// This prevents concurrent operations from seeing unhealthy stacks
 	stack := &Stack{
 		ProjectName: projectName,
 		ComposePath: env.Path,
@@ -106,27 +120,34 @@ func (m *Manager) Up(ctx context.Context, env Environment, sessionID string) (*S
 		State:       StackStateStarting,
 	}
 
-	m.mu.Lock()
-	m.stacks[sessionID] = stack
-	m.mu.Unlock()
-
-	// Wait for services to be healthy
+	// Wait for services to be healthy BEFORE adding to tracking
 	if err := m.healthChecker.WaitForHealthy(ctx, projectName, m.config.HealthTimeout); err != nil {
-		// Mark as stopping before cleanup
-		m.mu.Lock()
-		if s, ok := m.stacks[sessionID]; ok {
-			s.State = StackStateStopping
-		}
-		m.mu.Unlock()
+		m.logger.Error("health check failed",
+			"session_id", sessionID,
+			"error", err,
+		)
 
-		// Clean up on failure - Down() will also remove from tracking
-		_ = m.Down(context.Background(), sessionID)
+		// Clean up without tracking - use cleanupProject since stack isn't tracked
+		cleanupTimeout := m.config.HealthTimeout
+		if cleanupTimeout < 1*time.Minute {
+			cleanupTimeout = 1 * time.Minute
+		}
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), cleanupTimeout)
+		if cleanupErr := m.cleanupProject(cleanupCtx, projectName); cleanupErr != nil {
+			m.logger.Warn("cleanup failed after health check failure",
+				"session_id", sessionID,
+				"cleanup_error", cleanupErr,
+			)
+		}
+		cleanupCancel()
 		return nil, err
 	}
 
-	// Mark stack as running
-	m.mu.Lock()
+	// Health check passed - NOW add to tracking as running
+	// This ensures concurrent callers only see fully-healthy stacks
 	stack.State = StackStateRunning
+	m.mu.Lock()
+	m.stacks[sessionID] = stack
 	m.mu.Unlock()
 
 	m.logger.Info("compose stack started successfully",
@@ -188,7 +209,22 @@ func (m *Manager) Down(ctx context.Context, sessionID string) error {
 
 // Exec runs a command in the specified service container.
 // Returns the combined output from the command.
+// The service must match the stack's configured service for security.
 func (m *Manager) Exec(ctx context.Context, sessionID, service string, cmd []string) ([]byte, error) {
+	// Validate service matches stack's configured service
+	// This prevents accidental or malicious exec into unvalidated services
+	m.mu.RLock()
+	stack, ok := m.stacks[sessionID]
+	m.mu.RUnlock()
+
+	if !ok {
+		return nil, fmt.Errorf("stack not found for session %s", sessionID)
+	}
+
+	if service != stack.Service {
+		return nil, fmt.Errorf("service %q not allowed; only %q is configured for this stack", service, stack.Service)
+	}
+
 	projectName := ProjectName(sessionID)
 
 	execCmd := NewCommandBuilder().
@@ -206,6 +242,7 @@ func (m *Manager) Exec(ctx context.Context, sessionID, service string, cmd []str
 
 // ExecStream runs a command with streaming output.
 // Returns stdout and stderr readers, start function, and wait function.
+// The service must match the stack's configured service for security.
 func (m *Manager) ExecStream(ctx context.Context, sessionID, service string, cmd []string) (
 	stdout io.ReadCloser,
 	stderr io.ReadCloser,
@@ -213,6 +250,19 @@ func (m *Manager) ExecStream(ctx context.Context, sessionID, service string, cmd
 	wait func() error,
 	err error,
 ) {
+	// Validate service matches stack's configured service
+	m.mu.RLock()
+	stack, ok := m.stacks[sessionID]
+	m.mu.RUnlock()
+
+	if !ok {
+		return nil, nil, nil, nil, fmt.Errorf("stack not found for session %s", sessionID)
+	}
+
+	if service != stack.Service {
+		return nil, nil, nil, nil, fmt.Errorf("service %q not allowed; only %q is configured for this stack", service, stack.Service)
+	}
+
 	projectName := ProjectName(sessionID)
 
 	execCmd := NewCommandBuilder().
@@ -259,27 +309,48 @@ func (m *Manager) ListStacks() []*Stack {
 
 // CleanupOrphanedStacks removes stacks older than maxAge.
 // This should be called periodically to clean up stacks that weren't properly shut down.
+// Uses its own context to ensure cleanup completes even if caller cancels.
 func (m *Manager) CleanupOrphanedStacks(ctx context.Context, maxAge time.Duration) error {
 	m.mu.Lock()
-	var toCleanup []string
+	var toCleanup []*Stack
 	now := time.Now()
 
-	for sessionID, stack := range m.stacks {
+	for _, stack := range m.stacks {
 		// Only cleanup stacks that are running and older than maxAge
 		// Skip stacks that are already starting or stopping
 		if stack.State == StackStateRunning && now.Sub(stack.StartedAt) > maxAge {
 			// Mark as stopping while we hold the lock to prevent other operations
 			stack.State = StackStateStopping
-			toCleanup = append(toCleanup, sessionID)
+			toCleanup = append(toCleanup, stack)
 		}
 	}
 	m.mu.Unlock()
 
+	if len(toCleanup) == 0 {
+		return nil
+	}
+
+	// Use a cleanup-specific context independent of caller's context
+	// This ensures cleanup happens even if caller cancels early
+	cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
 	// Clean up old stacks (they're already marked as stopping)
 	var errs []error
-	for _, sessionID := range toCleanup {
-		if err := m.Down(ctx, sessionID); err != nil {
-			errs = append(errs, fmt.Errorf("cleanup %s: %w", sessionID, err))
+	for _, stack := range toCleanup {
+		if err := m.Down(cleanupCtx, stack.SessionID); err != nil {
+			errs = append(errs, fmt.Errorf("cleanup %s: %w", stack.SessionID, err))
+
+			// Restore state to Running so it can be retried later
+			m.mu.Lock()
+			if s, ok := m.stacks[stack.SessionID]; ok && s.State == StackStateStopping {
+				s.State = StackStateRunning
+				m.logger.Warn("cleanup failed, restored stack state",
+					"session_id", stack.SessionID,
+					"error", err,
+				)
+			}
+			m.mu.Unlock()
 		}
 	}
 

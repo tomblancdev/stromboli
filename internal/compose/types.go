@@ -85,7 +85,11 @@ type Stack struct {
 }
 
 // IsReady returns true if the stack is in a usable state
+// Returns false if the receiver is nil (defensive programming)
 func (s *Stack) IsReady() bool {
+	if s == nil {
+		return false
+	}
 	return s.State == StackStateRunning
 }
 

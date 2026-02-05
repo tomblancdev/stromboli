@@ -24,10 +24,11 @@ type HealthCheckResult struct {
 
 // PsOutput represents the JSON output from podman compose ps
 type PsOutput struct {
-	Name    string `json:"Name"`
-	State   string `json:"State"`
-	Health  string `json:"Health"`
-	Service string `json:"Service"`
+	Name     string `json:"Name"`
+	State    string `json:"State"`
+	Health   string `json:"Health"`
+	Service  string `json:"Service"`
+	ExitCode int    `json:"ExitCode,omitempty"`
 }
 
 // HealthChecker provides health check functionality for compose stacks
@@ -55,6 +56,9 @@ func (h *HealthChecker) WaitForHealthy(ctx context.Context, projectName string, 
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
+	// Track last successful result for error reporting
+	var lastGoodResult HealthCheckResult
+
 	// Do an initial check immediately
 	result := h.checkHealth(ctx, projectName)
 	if result.Error != nil {
@@ -63,15 +67,33 @@ func (h *HealthChecker) WaitForHealthy(ctx context.Context, projectName string, 
 	if result.AllHealthy {
 		return nil
 	}
+	lastGoodResult = result
 
 	for {
 		select {
 		case <-ctx.Done():
-			// Get final status for error message with a short timeout
-			// We use a separate context to avoid hanging if the command is slow
-			statusCtx, statusCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			// Calculate status timeout that scales with configured timeout
+			// Use 1/4 of the configured timeout, bounded between 1s and 10s
+			statusTimeout := timeout / 4
+			if statusTimeout < 1*time.Second {
+				statusTimeout = 1 * time.Second
+			}
+			if statusTimeout > 10*time.Second {
+				statusTimeout = 10 * time.Second
+			}
+
+			// Get final status for error message
+			statusCtx, statusCancel := context.WithTimeout(context.Background(), statusTimeout)
 			lastResult := h.checkHealth(statusCtx, projectName)
 			statusCancel()
+
+			// Use last successful result if final check fails
+			if lastResult.Error != nil {
+				if len(lastGoodResult.Services) > 0 {
+					return fmt.Errorf("%w: %s", strerrors.ErrComposeHealthTimeout, formatUnhealthyServices(lastGoodResult.Services))
+				}
+				return fmt.Errorf("%w: timeout waiting for services to become healthy", strerrors.ErrComposeHealthTimeout)
+			}
 			return fmt.Errorf("%w: %s", strerrors.ErrComposeHealthTimeout, formatUnhealthyServices(lastResult.Services))
 		case <-ticker.C:
 			result := h.checkHealth(ctx, projectName)
@@ -79,6 +101,8 @@ func (h *HealthChecker) WaitForHealthy(ctx context.Context, projectName string, 
 				// Log but continue polling - transient errors are expected
 				continue
 			}
+			// Track last good result for error reporting
+			lastGoodResult = result
 			if result.AllHealthy {
 				return nil
 			}
@@ -139,9 +163,10 @@ func (h *HealthChecker) parseServicesStatus(output []byte) ([]ServiceStatus, err
 	services := make([]ServiceStatus, 0, len(psOutputs))
 	for _, ps := range psOutputs {
 		services = append(services, ServiceStatus{
-			Name:   ps.Service,
-			State:  ps.State,
-			Health: ps.Health,
+			Name:     ps.Service,
+			State:    ps.State,
+			Health:   ps.Health,
+			ExitCode: ps.ExitCode,
 		})
 	}
 
@@ -150,9 +175,18 @@ func (h *HealthChecker) parseServicesStatus(output []byte) ([]ServiceStatus, err
 
 // isServiceHealthy determines if a service is considered healthy
 func isServiceHealthy(svc ServiceStatus) bool {
-	// Service must be running
 	state := strings.ToLower(svc.State)
-	if state != "running" && state != "up" && !strings.HasPrefix(state, "up ") {
+
+	// Check if container is in a running state
+	isRunning := state == "running" || state == "up" || strings.HasPrefix(state, "up ")
+
+	// If not running and has non-zero exit code, it's unhealthy
+	if !isRunning && svc.ExitCode != 0 {
+		return false
+	}
+
+	// Service must be running
+	if !isRunning {
 		return false
 	}
 
@@ -174,6 +208,9 @@ func formatUnhealthyServices(services []ServiceStatus) string {
 			status := fmt.Sprintf("%s (state=%s", svc.Name, svc.State)
 			if svc.Health != "" && svc.Health != "-" {
 				status += fmt.Sprintf(", health=%s", svc.Health)
+			}
+			if svc.ExitCode != 0 {
+				status += fmt.Sprintf(", exit_code=%d", svc.ExitCode)
 			}
 			status += ")"
 			unhealthy = append(unhealthy, status)

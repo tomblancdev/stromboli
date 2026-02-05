@@ -251,6 +251,15 @@ func TestManager_Exec(t *testing.T) {
 
 	mgr := NewManager(executor, DefaultConfig())
 
+	// Register a stack first (required for Exec to work)
+	mgr.mu.Lock()
+	mgr.stacks["test-session"] = &Stack{
+		SessionID: "test-session",
+		Service:   "dev",
+		State:     StackStateRunning,
+	}
+	mgr.mu.Unlock()
+
 	output, err := mgr.Exec(context.Background(), "test-session", "dev", []string{"echo", "hello"})
 	require.NoError(t, err)
 	assert.Equal(t, "hello world", string(output))
@@ -263,6 +272,31 @@ func TestManager_Exec(t *testing.T) {
 	assert.True(t, containsArg(calls[0], "dev"))
 	assert.True(t, containsArg(calls[0], "echo"))
 	assert.True(t, containsArg(calls[0], "hello"))
+}
+
+func TestManager_Exec_ServiceValidation(t *testing.T) {
+	executor := NewMockExecutor()
+	mgr := NewManager(executor, DefaultConfig())
+
+	// Register a stack with service "dev"
+	mgr.mu.Lock()
+	mgr.stacks["test-session"] = &Stack{
+		SessionID: "test-session",
+		Service:   "dev",
+		State:     StackStateRunning,
+	}
+	mgr.mu.Unlock()
+
+	// Try to exec into a different service - should fail
+	_, err := mgr.Exec(context.Background(), "test-session", "db", []string{"echo", "hello"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not allowed")
+	assert.Contains(t, err.Error(), "dev")
+
+	// Stack not found
+	_, err = mgr.Exec(context.Background(), "nonexistent-session", "dev", []string{"echo", "hello"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
 }
 
 func TestManager_CleanupOrphanedStacks(t *testing.T) {
@@ -319,6 +353,15 @@ func TestManager_ExecStream(t *testing.T) {
 	}
 
 	mgr := NewManager(executor, DefaultConfig())
+
+	// Register a stack first (required for ExecStream to work)
+	mgr.mu.Lock()
+	mgr.stacks["test-session"] = &Stack{
+		SessionID: "test-session",
+		Service:   "dev",
+		State:     StackStateRunning,
+	}
+	mgr.mu.Unlock()
 
 	stdout, stderr, start, wait, err := mgr.ExecStream(context.Background(), "test-session", "dev", []string{"claude", "-p", "hello"})
 	require.NoError(t, err)
