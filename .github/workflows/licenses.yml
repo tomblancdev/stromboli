@@ -1,0 +1,49 @@
+name: Licenses
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'go.mod'
+      - 'go.sum'
+
+permissions:
+  contents: write
+
+jobs:
+  update-licenses:
+    name: Update Third-Party Licenses
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Install go-licenses
+        run: go install github.com/google/go-licenses@latest
+
+      - name: Generate THIRD_PARTY_LICENSES
+        run: go-licenses report ./... --template licenses.tpl 2>/dev/null > THIRD_PARTY_LICENSES
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if [ -n "$(git diff --name-only THIRD_PARTY_LICENSES)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit updated licenses
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add THIRD_PARTY_LICENSES
+          git commit -m "docs: Update THIRD_PARTY_LICENSES [automated]"
+          git push

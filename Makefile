@@ -1,4 +1,4 @@
-.PHONY: build run test test-integration test-e2e test-all test-coverage lint dev clean claude-setup claude-check claude-status claude-logout secret-create secret-update secret-remove secret-status docs docs-swagger docs-godoc docs-serve docs-stop docs-logs build-claude-cli build-claude-cli-version
+.PHONY: build run test test-integration test-e2e test-all test-coverage lint dev clean claude-setup claude-check claude-status claude-logout secret-create secret-update secret-remove secret-status docs docs-swagger docs-godoc docs-serve docs-stop docs-logs build-claude-cli build-claude-cli-version licenses
 
 # Binary name
 BINARY=stromboli
@@ -354,6 +354,26 @@ container-setup: podman-socket-enable build-images secret-create container-start
 	@echo "  curl -X POST http://localhost:8080/run -H 'Content-Type: application/json' -d '{\"prompt\": \"Say hello\"}'"
 
 # ============================================================================
+# Licenses
+# ============================================================================
+
+# Generate THIRD_PARTY_LICENSES file from dependencies
+licenses:
+	@echo "📜 Generating third-party licenses..."
+	@$(GO_RUN) sh -c '\
+		go install github.com/google/go-licenses@latest && \
+		go-licenses report ./... --template /app/licenses.tpl 2>/dev/null > /app/THIRD_PARTY_LICENSES'
+	@echo "✅ THIRD_PARTY_LICENSES file generated"
+
+# Check if all dependency licenses are allowed
+licenses-check:
+	@echo "🔍 Checking dependency licenses..."
+	@$(GO_RUN) sh -c '\
+		go install github.com/google/go-licenses@latest && \
+		go-licenses check ./... 2>&1'
+	@echo "✅ All licenses OK"
+
+# ============================================================================
 # Help
 # ============================================================================
 
@@ -394,6 +414,10 @@ help:
 	@echo "  docs-serve       Serve docs locally (Swagger UI + Godoc)"
 	@echo "  docs-stop        Stop documentation servers"
 	@echo "  docs-logs        View documentation server logs"
+	@echo ""
+	@echo "Licenses:"
+	@echo "  licenses         Generate THIRD_PARTY_LICENSES file"
+	@echo "  licenses-check   Check if all dependency licenses are allowed"
 	@echo ""
 	@echo "Claude & Secrets:"
 	@echo "  claude-check     Verify Claude credentials exist"
