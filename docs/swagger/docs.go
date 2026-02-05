@@ -2110,6 +2110,32 @@ const docTemplate = `{
                 }
             }
         },
+        "stromboli_internal_types.EnvironmentConfig": {
+            "description": "Runtime environment configuration (single container or compose)",
+            "type": "object",
+            "properties": {
+                "build_timeout": {
+                    "description": "Optional build timeout override for compose (e.g., \"15m\")\nIf not specified, uses server default (10m)",
+                    "type": "string",
+                    "example": "15m"
+                },
+                "path": {
+                    "description": "Path to compose file (required when type=\"compose\")\nMust be an absolute path ending in .yml or .yaml",
+                    "type": "string",
+                    "example": "/home/user/project/docker-compose.yml"
+                },
+                "service": {
+                    "description": "Service name where Claude will run (required when type=\"compose\")",
+                    "type": "string",
+                    "example": "dev"
+                },
+                "type": {
+                    "description": "Type of environment: \"\" (default single container) or \"compose\"",
+                    "type": "string",
+                    "example": "compose"
+                }
+            }
+        },
         "stromboli_internal_types.LifecycleHooks": {
             "description": "Commands to run at specific container lifecycle stages",
             "type": "object",
@@ -2164,6 +2190,14 @@ const docTemplate = `{
                     "description": "CPU limit (e.g., \"0.5\", \"2\")",
                     "type": "string",
                     "example": "1"
+                },
+                "environment": {
+                    "description": "Environment specifies a compose-based multi-service environment.\nWhen set, the agent runs inside the specified service of the compose stack\ninstead of a standalone container.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stromboli_internal_types.EnvironmentConfig"
+                        }
+                    ]
                 },
                 "image": {
                     "description": "Container image override (must match allowed patterns)",

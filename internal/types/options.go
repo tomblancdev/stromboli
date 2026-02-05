@@ -149,6 +149,27 @@ type LifecycleHooks struct {
 	HooksTimeout string `json:"hooks_timeout,omitempty" example:"5m"`
 }
 
+// EnvironmentConfig specifies the runtime environment for Claude execution.
+// When type is "compose", the agent runs in a multi-service environment
+// defined by a Docker/Podman Compose file.
+//
+// @Description Runtime environment configuration (single container or compose)
+type EnvironmentConfig struct {
+	// Type of environment: "" (default single container) or "compose"
+	Type string `json:"type,omitempty" example:"compose"`
+
+	// Path to compose file (required when type="compose")
+	// Must be an absolute path ending in .yml or .yaml
+	Path string `json:"path,omitempty" example:"/home/user/project/docker-compose.yml"`
+
+	// Service name where Claude will run (required when type="compose")
+	Service string `json:"service,omitempty" example:"dev"`
+
+	// Optional build timeout override for compose (e.g., "15m")
+	// If not specified, uses server default (10m)
+	BuildTimeout string `json:"build_timeout,omitempty" example:"15m"`
+}
+
 // PodmanOptions contains Podman container configuration
 // @Description Podman container mount configuration
 type PodmanOptions struct {
@@ -177,4 +198,9 @@ type PodmanOptions struct {
 
 	// Lifecycle hooks for running commands at specific container events
 	Lifecycle LifecycleHooks `json:"lifecycle,omitempty"`
+
+	// Environment specifies a compose-based multi-service environment.
+	// When set, the agent runs inside the specified service of the compose stack
+	// instead of a standalone container.
+	Environment EnvironmentConfig `json:"environment,omitempty"`
 }

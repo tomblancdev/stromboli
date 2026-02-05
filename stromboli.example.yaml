@@ -60,6 +60,16 @@ tracing:
   endpoint: "localhost:4317" # OTLP collector endpoint (gRPC)
   insecure: true             # Use insecure connection (no TLS)
 
+# Compose Environment Configuration
+# Enables running Claude agents in multi-service environments defined by Docker/Podman Compose files
+compose:
+  allow_privileged: false    # Allow services with privileged: true (DANGEROUS)
+  allow_host_network: false  # Allow services with network_mode: host
+  allow_host_volumes: false  # Allow host volume mounts in compose files
+  build_timeout: "10m"       # Maximum time for compose build/up
+  health_timeout: "2m"       # Maximum time to wait for services to become healthy
+  stack_ttl: "1h"            # Maximum age for orphaned compose stacks before cleanup
+
 # =============================================================================
 # Container Deployment (Recommended)
 # =============================================================================

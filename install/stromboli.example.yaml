@@ -190,6 +190,37 @@ tracing:
   # Env: STROMBOLI_TRACING_INSECURE
   insecure: true
 
+# -----------------------------------------------------------------------------
+# Compose Environment Configuration
+# -----------------------------------------------------------------------------
+# Enables running Claude agents in multi-service environments defined by
+# Docker/Podman Compose files. This allows agents to work alongside databases,
+# caches, frontends, and other services.
+compose:
+  # Allow services with privileged: true (DANGEROUS - use with caution)
+  # Env: STROMBOLI_COMPOSE_ALLOW_PRIVILEGED
+  allow_privileged: false
+
+  # Allow services with network_mode: host
+  # Env: STROMBOLI_COMPOSE_ALLOW_HOST_NETWORK
+  allow_host_network: false
+
+  # Allow host volume mounts in compose files
+  # Env: STROMBOLI_COMPOSE_ALLOW_HOST_VOLUMES
+  allow_host_volumes: false
+
+  # Maximum time for compose build/up operations
+  # Env: STROMBOLI_COMPOSE_BUILD_TIMEOUT
+  build_timeout: "10m"
+
+  # Maximum time to wait for services to become healthy
+  # Env: STROMBOLI_COMPOSE_HEALTH_TIMEOUT
+  health_timeout: "2m"
+
+  # Maximum age for orphaned compose stacks before automatic cleanup
+  # Env: STROMBOLI_COMPOSE_STACK_TTL
+  stack_ttl: "1h"
+
 # =============================================================================
 # Production Configuration Example
 # =============================================================================
