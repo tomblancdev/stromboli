@@ -21,23 +21,14 @@ theme:
     - content.code.copy
     - content.code.annotate
     - content.action.edit
+  custom_dir: overrides
   palette:
-    # Light mode
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
-      primary: deep purple
-      accent: amber
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
-    # Dark mode
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
-      primary: deep purple
-      accent: amber
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
+    scheme: slate
+    primary: custom
+    accent: custom
+  font:
+    text: JetBrains Mono
+    code: JetBrains Mono
   icon:
     repo: fontawesome/brands/github
 
@@ -53,6 +44,9 @@ plugins:
   #     css_dir: css
   #     javascript_dir: js
   #     canonical_version: latest
+
+extra_css:
+  - stylesheets/brutalist.css
 
 extra:
   version:
