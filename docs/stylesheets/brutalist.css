@@ -679,13 +679,17 @@ body::after {
   color: #f97316;
 }
 
-/* Ensure header/tab bar above glow */
+/* Ensure header/tab bar above glow overlays —
+   position: relative is required for z-index to take effect */
 .md-header {
+  position: sticky;
   z-index: 4;
 }
 
 .md-tabs {
+  position: relative;
   z-index: 3;
+  pointer-events: auto;
 }
 
 /* Source link in header */
