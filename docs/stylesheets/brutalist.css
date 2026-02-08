@@ -490,7 +490,7 @@ body::before {
     linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
   background-size: 40px 40px;
   pointer-events: none;
-  z-index: 0;
+  z-index: -1;
 }
 
 /* --------------------------------------------------------------------------
@@ -507,7 +507,7 @@ body::after {
   filter: blur(120px);
   opacity: 0.12;
   pointer-events: none;
-  z-index: 0;
+  z-index: -1;
   animation: brutalist-float1 8s ease-in-out infinite;
 }
 
@@ -529,7 +529,7 @@ body::after {
   filter: blur(120px);
   opacity: 0.10;
   pointer-events: none;
-  z-index: 0;
+  z-index: -1;
   animation: brutalist-float2 10s ease-in-out infinite;
 }
 
@@ -596,17 +596,8 @@ body::after {
 }
 
 /* --------------------------------------------------------------------------
-   19. Content Area — Ensure z-index above overlays
+   19. Content Area
    -------------------------------------------------------------------------- */
-.md-container {
-  position: relative;
-  z-index: 1;
-}
-
-.md-main {
-  position: relative;
-  z-index: 1;
-}
 
 /* --------------------------------------------------------------------------
    20. Misc Overrides
