@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block extrahead %}
+  <!-- Preload JetBrains Mono for faster font rendering -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&display=swap"
+  >
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <!-- Inject brutalist glow blob #2 (red) directly into body -->
+  <script>
+    var g = document.createElement("div");
+    g.className = "brutalist-glow";
+    document.body.appendChild(g);
+  </script>
+{% endblock %}
