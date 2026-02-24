@@ -2140,7 +2140,7 @@
                     "example": "5m"
                 },
                 "on_create_command": {
-                    "description": "OnCreateCommand runs after container creation, before Claude starts (first run only)\nCommands are executed sequentially via \"podman exec\"",
+                    "description": "OnCreateCommand runs after container creation, before Claude starts (first run only).\nEach element is a complete shell command string (devcontainer-style).\nExample: [\"apt-get update \u0026\u0026 apt-get install -y git\", \"pip install -r requirements.txt\"]",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -2150,7 +2150,7 @@
                     ]
                 },
                 "post_create": {
-                    "description": "PostCreate runs after OnCreateCommand completes (first run only)\nCommands are executed sequentially via \"podman exec\"",
+                    "description": "PostCreate runs after OnCreateCommand completes (first run only).\nEach element is a complete shell command string (devcontainer-style).",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -2160,7 +2160,7 @@
                     ]
                 },
                 "post_start": {
-                    "description": "PostStart runs after container starts (every run, including continues)\nCommands are executed sequentially via \"podman exec\"",
+                    "description": "PostStart runs after container starts (every run, including continues).\nEach element is a complete shell command string (devcontainer-style).",
                     "type": "array",
                     "items": {
                         "type": "string"
