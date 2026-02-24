@@ -146,6 +146,7 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           path: binaries
+          pattern: stromboli-*
 
       - name: Prepare release assets
         run: |
