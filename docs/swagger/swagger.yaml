@@ -835,8 +835,9 @@ definitions:
         type: string
       on_create_command:
         description: |-
-          OnCreateCommand runs after container creation, before Claude starts (first run only)
-          Commands are executed sequentially via "podman exec"
+          OnCreateCommand runs after container creation, before Claude starts (first run only).
+          Each element is a complete shell command string (devcontainer-style).
+          Example: ["apt-get update && apt-get install -y git", "pip install -r requirements.txt"]
         example:
         - pip install -r requirements.txt
         items:
@@ -844,8 +845,8 @@ definitions:
         type: array
       post_create:
         description: |-
-          PostCreate runs after OnCreateCommand completes (first run only)
-          Commands are executed sequentially via "podman exec"
+          PostCreate runs after OnCreateCommand completes (first run only).
+          Each element is a complete shell command string (devcontainer-style).
         example:
         - npm run setup
         items:
@@ -853,8 +854,8 @@ definitions:
         type: array
       post_start:
         description: |-
-          PostStart runs after container starts (every run, including continues)
-          Commands are executed sequentially via "podman exec"
+          PostStart runs after container starts (every run, including continues).
+          Each element is a complete shell command string (devcontainer-style).
         example:
         - redis-server --daemonize yes
         items:

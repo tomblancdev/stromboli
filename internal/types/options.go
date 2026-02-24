@@ -131,16 +131,17 @@ type ClaudeOptions struct {
 //
 // @Description Commands to run at specific container lifecycle stages
 type LifecycleHooks struct {
-	// OnCreateCommand runs after container creation, before Claude starts (first run only)
-	// Commands are executed sequentially via "podman exec"
+	// OnCreateCommand runs after container creation, before Claude starts (first run only).
+	// Each element is a complete shell command string (devcontainer-style).
+	// Example: ["apt-get update && apt-get install -y git", "pip install -r requirements.txt"]
 	OnCreateCommand []string `json:"on_create_command,omitempty" example:"pip install -r requirements.txt"`
 
-	// PostCreate runs after OnCreateCommand completes (first run only)
-	// Commands are executed sequentially via "podman exec"
+	// PostCreate runs after OnCreateCommand completes (first run only).
+	// Each element is a complete shell command string (devcontainer-style).
 	PostCreate []string `json:"post_create,omitempty" example:"npm run setup"`
 
-	// PostStart runs after container starts (every run, including continues)
-	// Commands are executed sequentially via "podman exec"
+	// PostStart runs after container starts (every run, including continues).
+	// Each element is a complete shell command string (devcontainer-style).
 	PostStart []string `json:"post_start,omitempty" example:"redis-server --daemonize yes"`
 
 	// HooksTimeout is the maximum duration for all hooks combined (e.g., "5m", "30s").

@@ -1244,9 +1244,9 @@ func TestPodmanRunner_Run_WithLifecycleHooks(t *testing.T) {
 		Workdir: "/workspace",
 		Podman: types.PodmanOptions{
 			Lifecycle: types.LifecycleHooks{
-				OnCreateCommand: []string{"pip", "install", "requests"},
-				PostCreate:      []string{"npm", "run", "build"},
-				PostStart:       []string{"echo", "ready"},
+				OnCreateCommand: []string{"pip install requests"},
+				PostCreate:      []string{"npm run build"},
+				PostStart:       []string{"echo ready"},
 			},
 		},
 	})
@@ -1259,13 +1259,10 @@ func TestPodmanRunner_Run_WithLifecycleHooks(t *testing.T) {
 	cmdStr := strings.Join(calls[0], " ")
 	// Should be wrapped with sh -c
 	assert.Contains(t, cmdStr, "sh -c")
-	// Should contain all hooks
-	assert.Contains(t, cmdStr, "pip")
-	assert.Contains(t, cmdStr, "install")
-	assert.Contains(t, cmdStr, "npm")
-	assert.Contains(t, cmdStr, "build")
-	assert.Contains(t, cmdStr, "echo")
-	assert.Contains(t, cmdStr, "ready")
+	// Should contain all hooks as shell command strings
+	assert.Contains(t, cmdStr, "pip install requests")
+	assert.Contains(t, cmdStr, "npm run build")
+	assert.Contains(t, cmdStr, "echo ready")
 }
 
 // TestPodmanRunner_Run_InitHooksOnlyOnFirstRun tests init hooks run once
@@ -1284,8 +1281,8 @@ func TestPodmanRunner_Run_InitHooksOnlyOnFirstRun(t *testing.T) {
 	require.NoError(t, err)
 
 	hooks := types.LifecycleHooks{
-		OnCreateCommand: []string{"pip", "install"},
-		PostStart:       []string{"echo", "start"},
+		OnCreateCommand: []string{"pip install -r requirements.txt"},
+		PostStart:       []string{"echo starting"},
 	}
 
 	// First run - init hooks should be included
@@ -1300,7 +1297,7 @@ func TestPodmanRunner_Run_InitHooksOnlyOnFirstRun(t *testing.T) {
 
 	firstCall := mock.GetCalls()[0]
 	firstCmdStr := strings.Join(firstCall, " ")
-	assert.Contains(t, firstCmdStr, "pip", "first run should include onCreateCommand")
+	assert.Contains(t, firstCmdStr, "pip install", "first run should include onCreateCommand")
 
 	mock.Reset()
 
@@ -1320,9 +1317,9 @@ func TestPodmanRunner_Run_InitHooksOnlyOnFirstRun(t *testing.T) {
 	secondCall := mock.GetCalls()[0]
 	secondCmdStr := strings.Join(secondCall, " ")
 	// Should NOT contain init hooks
-	assert.NotContains(t, secondCmdStr, "pip", "second run should not include onCreateCommand")
+	assert.NotContains(t, secondCmdStr, "pip install", "second run should not include onCreateCommand")
 	// Should still contain postStart
-	assert.Contains(t, secondCmdStr, "echo", "second run should include postStart")
+	assert.Contains(t, secondCmdStr, "echo starting", "second run should include postStart")
 }
 
 // TestPodmanRunner_Run_PostStartEveryRun tests postStart runs on every execution
@@ -1341,7 +1338,7 @@ func TestPodmanRunner_Run_PostStartEveryRun(t *testing.T) {
 	require.NoError(t, err)
 
 	hooks := types.LifecycleHooks{
-		PostStart: []string{"redis-server", "--daemonize", "yes"},
+		PostStart: []string{"redis-server --daemonize yes"},
 	}
 
 	// First run
@@ -1434,8 +1431,8 @@ func TestPodmanRunner_RunStream_WithLifecycleHooks(t *testing.T) {
 		Prompt: "test",
 		Podman: types.PodmanOptions{
 			Lifecycle: types.LifecycleHooks{
-				OnCreateCommand: []string{"setup"},
-				PostStart:       []string{"start"},
+				OnCreateCommand: []string{"setup-script"},
+				PostStart:       []string{"start-service"},
 			},
 		},
 	}, output)
@@ -1450,8 +1447,8 @@ func TestPodmanRunner_RunStream_WithLifecycleHooks(t *testing.T) {
 	require.Len(t, calls, 1)
 
 	cmdStr := strings.Join(calls[0], " ")
-	assert.Contains(t, cmdStr, "setup")
-	assert.Contains(t, cmdStr, "start")
+	assert.Contains(t, cmdStr, "setup-script")
+	assert.Contains(t, cmdStr, "start-service")
 }
 
 // TestPodmanRunner_Run_SessionMarkedInitialized tests session is marked after first run
@@ -1474,7 +1471,7 @@ func TestPodmanRunner_Run_SessionMarkedInitialized(t *testing.T) {
 		Prompt: "test",
 		Podman: types.PodmanOptions{
 			Lifecycle: types.LifecycleHooks{
-				OnCreateCommand: []string{"init"},
+				OnCreateCommand: []string{"run-init-setup"},
 			},
 		},
 	})
@@ -1506,7 +1503,7 @@ func TestPodmanRunner_Run_LockContention_SessionInitialized(t *testing.T) {
 		Prompt: "first",
 		Podman: types.PodmanOptions{
 			Lifecycle: types.LifecycleHooks{
-				OnCreateCommand: []string{"init"},
+				OnCreateCommand: []string{"run-init-setup"},
 			},
 		},
 	})
@@ -1530,7 +1527,7 @@ func TestPodmanRunner_Run_LockContention_SessionInitialized(t *testing.T) {
 		},
 		Podman: types.PodmanOptions{
 			Lifecycle: types.LifecycleHooks{
-				OnCreateCommand: []string{"init"},
+				OnCreateCommand: []string{"run-init-setup"},
 			},
 		},
 	})
@@ -1538,7 +1535,7 @@ func TestPodmanRunner_Run_LockContention_SessionInitialized(t *testing.T) {
 
 	// Verify init hooks were NOT run again
 	secondCmd := strings.Join(mock.GetCalls()[0], " ")
-	assert.NotContains(t, secondCmd, "init", "init hooks should not run for initialized session")
+	assert.NotContains(t, secondCmd, "run-init-setup", "init hooks should not run for initialized session")
 }
 
 // TestPodmanRunner_Run_LifecycleHooksValidationFails tests that invalid hooks are rejected
@@ -1561,7 +1558,7 @@ func TestPodmanRunner_Run_LifecycleHooksValidationFails(t *testing.T) {
 		Prompt: "test",
 		Podman: types.PodmanOptions{
 			Lifecycle: types.LifecycleHooks{
-				PostStart:    []string{"echo", "ready"},
+				PostStart:    []string{"echo ready"},
 				HooksTimeout: "-5m",
 			},
 		},
@@ -1637,7 +1634,7 @@ func TestPodmanRunner_Run_HooksTimeoutExceedsMax(t *testing.T) {
 		Prompt: "test",
 		Podman: types.PodmanOptions{
 			Lifecycle: types.LifecycleHooks{
-				PostStart:    []string{"echo", "ready"},
+				PostStart:    []string{"echo ready"},
 				HooksTimeout: "2h", // Exceeds MaxHooksTimeout
 			},
 		},
