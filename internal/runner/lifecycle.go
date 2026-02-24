@@ -142,19 +142,14 @@ func WrapCommandWithHooks(mainCmd []string, hooks types.LifecycleHooks, runInit 
 	var hookCommands []string
 
 	// Add init hooks (only on first run)
+	// Each element is a complete shell command string (devcontainer-style)
 	if runInit {
-		if len(hooks.OnCreateCommand) > 0 {
-			hookCommands = append(hookCommands, escapeShellCommand(hooks.OnCreateCommand))
-		}
-		if len(hooks.PostCreate) > 0 {
-			hookCommands = append(hookCommands, escapeShellCommand(hooks.PostCreate))
-		}
+		hookCommands = append(hookCommands, hooks.OnCreateCommand...)
+		hookCommands = append(hookCommands, hooks.PostCreate...)
 	}
 
 	// Add postStart hook (every run)
-	if len(hooks.PostStart) > 0 {
-		hookCommands = append(hookCommands, escapeShellCommand(hooks.PostStart))
-	}
+	hookCommands = append(hookCommands, hooks.PostStart...)
 
 	// No hooks to run, return original command
 	if len(hookCommands) == 0 {

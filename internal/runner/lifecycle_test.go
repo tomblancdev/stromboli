@@ -225,39 +225,39 @@ func TestWrapCommandWithHooks(t *testing.T) {
 		{
 			name: "only postStart - wrap",
 			hooks: types.LifecycleHooks{
-				PostStart: []string{"echo", "starting"},
+				PostStart: []string{"echo starting"},
 			},
 			runInit:  true,
 			wantWrap: true,
-			contains: []string{"echo", "starting", "claude"},
+			contains: []string{"echo starting", "claude"},
 		},
 		{
 			name: "init hooks with runInit=true - all hooks run",
 			hooks: types.LifecycleHooks{
-				OnCreateCommand: []string{"pip", "install"},
-				PostCreate:      []string{"npm", "build"},
-				PostStart:       []string{"echo", "start"},
+				OnCreateCommand: []string{"pip install -r requirements.txt"},
+				PostCreate:      []string{"npm run build"},
+				PostStart:       []string{"echo start"},
 			},
 			runInit:  true,
 			wantWrap: true,
-			contains: []string{"pip", "install", "npm", "build", "echo", "start", "claude"},
+			contains: []string{"pip install", "npm run build", "echo start", "claude"},
 		},
 		{
 			name: "init hooks with runInit=false - only postStart runs",
 			hooks: types.LifecycleHooks{
-				OnCreateCommand: []string{"pip", "install"},
-				PostCreate:      []string{"npm", "build"},
-				PostStart:       []string{"echo", "start"},
+				OnCreateCommand: []string{"pip install -r requirements.txt"},
+				PostCreate:      []string{"npm run build"},
+				PostStart:       []string{"echo start"},
 			},
 			runInit:  false,
 			wantWrap: true,
-			contains: []string{"echo", "start", "claude"},
+			contains: []string{"echo start", "claude"},
 		},
 		{
 			name: "init hooks only with runInit=false - no wrap",
 			hooks: types.LifecycleHooks{
-				OnCreateCommand: []string{"pip", "install"},
-				PostCreate:      []string{"npm", "build"},
+				OnCreateCommand: []string{"pip install -r requirements.txt"},
+				PostCreate:      []string{"npm run build"},
 			},
 			runInit:  false,
 			wantWrap: false,
@@ -293,9 +293,9 @@ func TestWrapCommandWithHooks(t *testing.T) {
 func TestWrapCommandWithHooks_FailFast(t *testing.T) {
 	mainCmd := []string{"claude", "--prompt", "hello"}
 	hooks := types.LifecycleHooks{
-		OnCreateCommand: []string{"cmd1"},
-		PostCreate:      []string{"cmd2"},
-		PostStart:       []string{"cmd3"},
+		OnCreateCommand: []string{"apt-get update"},
+		PostCreate:      []string{"npm run setup"},
+		PostStart:       []string{"echo ready"},
 	}
 
 	result := WrapCommandWithHooks(mainCmd, hooks, true)
@@ -310,7 +310,7 @@ func TestWrapCommandWithHooks_FailFast(t *testing.T) {
 func TestWrapCommandWithHooks_PreservesMainCommand(t *testing.T) {
 	mainCmd := []string{"claude", "--prompt", "complex prompt with spaces"}
 	hooks := types.LifecycleHooks{
-		PostStart: []string{"echo", "ready"},
+		PostStart: []string{"echo ready"},
 	}
 
 	result := WrapCommandWithHooks(mainCmd, hooks, false)
@@ -340,8 +340,8 @@ func TestValidateLifecycleHooks(t *testing.T) {
 		{
 			name: "simple hooks - valid",
 			hooks: types.LifecycleHooks{
-				OnCreateCommand: []string{"pip", "install"},
-				PostStart:       []string{"echo", "ready"},
+				OnCreateCommand: []string{"pip install -r requirements.txt"},
+				PostStart:       []string{"echo ready"},
 			},
 			wantErr: false,
 		},
@@ -453,7 +453,7 @@ func TestValidateLifecycleHooks(t *testing.T) {
 		{
 			name: "empty argument in onCreateCommand",
 			hooks: types.LifecycleHooks{
-				OnCreateCommand: []string{"pip", "", "install"},
+				OnCreateCommand: []string{"pip install", "", "echo done"},
 			},
 			wantErr: true,
 			errMsg:  "is empty",
@@ -514,7 +514,7 @@ func TestValidateLifecycleHooks(t *testing.T) {
 		{
 			name: "valid hooks_timeout - 5 minutes",
 			hooks: types.LifecycleHooks{
-				OnCreateCommand: []string{"pip", "install"},
+				OnCreateCommand: []string{"pip install -r requirements.txt"},
 				HooksTimeout:    "5m",
 			},
 			wantErr: false,
@@ -522,7 +522,7 @@ func TestValidateLifecycleHooks(t *testing.T) {
 		{
 			name: "valid hooks_timeout - 30 seconds",
 			hooks: types.LifecycleHooks{
-				PostStart:    []string{"echo", "ready"},
+				PostStart:    []string{"echo ready"},
 				HooksTimeout: "30s",
 			},
 			wantErr: false,
@@ -537,7 +537,7 @@ func TestValidateLifecycleHooks(t *testing.T) {
 		{
 			name: "invalid hooks_timeout - bad format",
 			hooks: types.LifecycleHooks{
-				OnCreateCommand: []string{"pip", "install"},
+				OnCreateCommand: []string{"pip install -r requirements.txt"},
 				HooksTimeout:    "5 minutes",
 			},
 			wantErr: true,
@@ -546,7 +546,7 @@ func TestValidateLifecycleHooks(t *testing.T) {
 		{
 			name: "invalid hooks_timeout - empty string with hooks",
 			hooks: types.LifecycleHooks{
-				OnCreateCommand: []string{"pip", "install"},
+				OnCreateCommand: []string{"pip install -r requirements.txt"},
 				HooksTimeout:    "",
 			},
 			wantErr: false, // empty is valid (uses container timeout)
@@ -659,7 +659,7 @@ func TestWrapCommandWithHooks_WithTimeout(t *testing.T) {
 		{
 			name: "timeout with postStart hook",
 			hooks: types.LifecycleHooks{
-				PostStart:    []string{"echo", "ready"},
+				PostStart:    []string{"echo ready"},
 				HooksTimeout: "5m",
 			},
 			runInit:        false,
@@ -669,8 +669,8 @@ func TestWrapCommandWithHooks_WithTimeout(t *testing.T) {
 		{
 			name: "timeout with init hooks",
 			hooks: types.LifecycleHooks{
-				OnCreateCommand: []string{"pip", "install"},
-				PostCreate:      []string{"npm", "build"},
+				OnCreateCommand: []string{"pip install -r requirements.txt"},
+				PostCreate:      []string{"npm run build"},
 				HooksTimeout:    "10m",
 			},
 			runInit:        true,
@@ -690,7 +690,7 @@ func TestWrapCommandWithHooks_WithTimeout(t *testing.T) {
 		{
 			name: "no timeout specified",
 			hooks: types.LifecycleHooks{
-				PostStart: []string{"echo", "ready"},
+				PostStart: []string{"echo ready"},
 			},
 			runInit:     false,
 			wantTimeout: false,
@@ -725,7 +725,7 @@ func TestWrapCommandWithHooks_WithTimeout(t *testing.T) {
 func TestWrapCommandWithHooks_TimeoutOnlyWrapsHooks(t *testing.T) {
 	mainCmd := []string{"claude", "--prompt", "long running task"}
 	hooks := types.LifecycleHooks{
-		PostStart:    []string{"echo", "setup"},
+		PostStart:    []string{"echo setup"},
 		HooksTimeout: "1m",
 	}
 
@@ -738,6 +738,58 @@ func TestWrapCommandWithHooks_TimeoutOnlyWrapsHooks(t *testing.T) {
 
 	// Main command should appear after the timeout-wrapped hooks
 	assert.Contains(t, shellCmd, "&& 'claude'", "main command should be chained after timeout-wrapped hooks")
+}
+
+// TestWrapCommandWithHooks_ShellCommandParsing verifies that hook commands are treated as
+// complete shell command strings (devcontainer-style), not escaped as single arguments.
+// This is the regression test for https://github.com/tomblancdev/stromboli/issues/24
+func TestWrapCommandWithHooks_ShellCommandParsing(t *testing.T) {
+	mainCmd := []string{"claude", "--prompt", "hello"}
+
+	tests := []struct {
+		name        string
+		hooks       types.LifecycleHooks
+		wantContain string
+		wantNotIn   string
+	}{
+		{
+			name: "command with flags is not single-quoted",
+			hooks: types.LifecycleHooks{
+				OnCreateCommand: []string{"apk add --no-cache git"},
+			},
+			wantContain: "apk add --no-cache git",
+			wantNotIn:   "'apk add --no-cache git'",
+		},
+		{
+			name: "multiple commands chained with &&",
+			hooks: types.LifecycleHooks{
+				OnCreateCommand: []string{"apt-get update", "apt-get install -y git"},
+			},
+			wantContain: "apt-get update && apt-get install -y git",
+		},
+		{
+			name: "pipe and redirect in command preserved",
+			hooks: types.LifecycleHooks{
+				PostStart: []string{"echo hello | tee /tmp/log"},
+			},
+			wantContain: "echo hello | tee /tmp/log",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := WrapCommandWithHooks(mainCmd, tt.hooks, true)
+
+			assert.Equal(t, "sh", result[0])
+			assert.Equal(t, "-c", result[1])
+
+			shellCmd := result[2]
+			assert.Contains(t, shellCmd, tt.wantContain)
+			if tt.wantNotIn != "" {
+				assert.NotContains(t, shellCmd, tt.wantNotIn)
+			}
+		})
+	}
 }
 
 // TestWrapCommandWithHooks_FailFastBehavior verifies that hooks use && for fail-fast semantics
@@ -754,7 +806,7 @@ func TestWrapCommandWithHooks_FailFastBehavior(t *testing.T) {
 		{
 			name: "single init hook chains to main",
 			hooks: types.LifecycleHooks{
-				OnCreateCommand: []string{"init-cmd"},
+				OnCreateCommand: []string{"apt-get update"},
 			},
 			runInit:       true,
 			expectedChain: 1, // init && main
@@ -762,9 +814,9 @@ func TestWrapCommandWithHooks_FailFastBehavior(t *testing.T) {
 		{
 			name: "all hooks chain sequentially",
 			hooks: types.LifecycleHooks{
-				OnCreateCommand: []string{"init-1"},
-				PostCreate:      []string{"init-2"},
-				PostStart:       []string{"start"},
+				OnCreateCommand: []string{"apt-get update"},
+				PostCreate:      []string{"npm run setup"},
+				PostStart:       []string{"echo starting"},
 			},
 			runInit:       true,
 			expectedChain: 3, // init-1 && init-2 && start && main
@@ -772,9 +824,9 @@ func TestWrapCommandWithHooks_FailFastBehavior(t *testing.T) {
 		{
 			name: "only postStart when not running init",
 			hooks: types.LifecycleHooks{
-				OnCreateCommand: []string{"init-1"},
-				PostCreate:      []string{"init-2"},
-				PostStart:       []string{"start"},
+				OnCreateCommand: []string{"apt-get update"},
+				PostCreate:      []string{"npm run setup"},
+				PostStart:       []string{"echo starting"},
 			},
 			runInit:       false,
 			expectedChain: 1, // start && main
