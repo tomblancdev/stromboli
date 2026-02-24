@@ -37,9 +37,22 @@ updates:
         patterns:
           - "*"
 
-  # Docker (Containerfile)
+  # Docker (deployment images)
   - package-ecosystem: "docker"
-    directory: "/"
+    directory: "/deployments/docker"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "docker"
+
+  # Docker (devcontainer)
+  - package-ecosystem: "docker"
+    directory: "/.devcontainer"
     schedule:
       interval: "weekly"
       day: "monday"
