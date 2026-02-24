@@ -1,6 +1,6 @@
 # API Endpoints
 
-Complete reference for all Stromboli API endpoints.
+Complete reference for all Stromboli endpoints.
 
 ## POST /run
 
@@ -20,18 +20,13 @@ Run Claude synchronously.
     "fork_session": false,
     "no_persistence": false,
     "model": "sonnet",
-    "fallback_model": "haiku",
     "system_prompt": "...",
     "append_system_prompt": "...",
-    "tools": ["Bash", "Read"],
-    "allowed_tools": ["Bash(git:*)"],
+    "allowed_tools": ["Read", "Grep"],
     "disallowed_tools": ["Write"],
-    "permission_mode": "default",
-    "dangerously_skip_permissions": false,
-    "input_format": "text",
     "output_format": "json",
     "max_budget_usd": 5.00,
-    "verbose": false
+    "dangerously_skip_permissions": false
   },
   "podman": {
     "image": "python:3.12",
@@ -40,7 +35,6 @@ Run Claude synchronously.
     "timeout": "5m",
     "memory": "512m",
     "cpus": "1",
-    "cpu_shares": 512,
     "lifecycle": {
       "on_create_command": ["pip install -r requirements.txt"],
       "post_create": ["npm run build"],
@@ -68,13 +62,9 @@ Run Claude synchronously.
 }
 ```
 
-### Errors
-
-| Status | Error |
-|--------|-------|
-| 400 | Invalid request body |
-| 400 | Workspace validation failed |
-| 400 | Image validation failed |
+| Error Status | Cause |
+|---|---|
+| 400 | Invalid request, volume/image validation failed |
 | 503 | Claude not configured |
 | 500 | Execution failed |
 
@@ -82,13 +72,13 @@ Run Claude synchronously.
 
 ## GET /run/stream
 
-Run Claude with Server-Sent Events streaming.
+Stream Claude output via Server-Sent Events.
 
-### Query Parameters
+### Query parameters
 
 | Parameter | Type | Description |
-|-----------|------|-------------|
-| `prompt` | string | Required. The prompt |
+|---|---|---|
+| `prompt` | string | Required |
 | `workspace` | string | Workspace path |
 | `session_id` | string | Session to resume |
 | `resume` | bool | Resume session |
@@ -99,7 +89,6 @@ Run Claude with Server-Sent Events streaming.
 Content-Type: text/event-stream
 
 data: {"type":"output","content":"Hello..."}
-data: {"type":"output","content":"I found..."}
 data: {"type":"done","session_id":"...","id":"run-..."}
 ```
 
@@ -107,19 +96,12 @@ data: {"type":"done","session_id":"...","id":"run-..."}
 
 ## POST /run/async
 
-Run Claude asynchronously.
-
-### Request
-
-Same as `/run`.
+Run Claude asynchronously. Same request body as `/run`.
 
 ### Response
 
 ```json
-{
-  "job_id": "job-abc123",
-  "status": "pending"
-}
+{"job_id": "job-abc123", "status": "pending"}
 ```
 
 ---
@@ -128,16 +110,10 @@ Same as `/run`.
 
 List all jobs.
 
-### Response
-
 ```json
 {
   "jobs": [
-    {
-      "id": "job-abc123",
-      "status": "completed",
-      "created_at": "2024-01-01T00:00:00Z"
-    }
+    {"id": "job-abc123", "status": "completed", "created_at": "2024-01-01T00:00:00Z"}
   ]
 }
 ```
@@ -147,8 +123,6 @@ List all jobs.
 ## GET /jobs/:id
 
 Get job details.
-
-### Response
 
 ```json
 {
@@ -161,89 +135,48 @@ Get job details.
 }
 ```
 
-### Job Status Values
-
-| Status | Description |
-|--------|-------------|
-| `pending` | Queued, not started |
-| `running` | Currently executing |
-| `completed` | Finished successfully |
-| `failed` | Finished with error |
-| `cancelled` | Cancelled by user |
+Job statuses: `pending`, `running`, `completed`, `failed`, `cancelled`
 
 ---
 
 ## DELETE /jobs/:id
 
-Cancel a running or pending job.
-
-### Response
+Cancel a job.
 
 ```json
-{
-  "id": "job-abc123",
-  "status": "cancelled"
-}
+{"id": "job-abc123", "status": "cancelled"}
 ```
 
 ---
 
 ## GET /sessions
 
-List all session IDs.
-
-### Response
-
 ```json
-{
-  "sessions": [
-    "550e8400-e29b-41d4-a716-446655440000",
-    "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
-  ]
-}
+{"sessions": ["550e8400-...", "6ba7b810-..."]}
 ```
 
 ---
 
 ## DELETE /sessions/:id
 
-Delete a session and its data.
-
-### Response
-
 ```json
-{
-  "success": true,
-  "session_id": "550e8400..."
-}
+{"success": true, "session_id": "550e8400..."}
 ```
 
 ---
 
 ## GET /sessions/:id/messages
 
-Get conversation messages from a session.
-
-### Query Parameters
-
 | Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
+|---|---|---|---|
 | `limit` | int | 50 | Max messages |
 | `offset` | int | 0 | Skip messages |
-
-### Response
 
 ```json
 {
   "messages": [
-    {
-      "role": "user",
-      "content": "Hello"
-    },
-    {
-      "role": "assistant",
-      "content": "Hi there!"
-    }
+    {"role": "user", "content": "Hello"},
+    {"role": "assistant", "content": "Hi there!"}
   ],
   "total": 2
 }
@@ -253,15 +186,11 @@ Get conversation messages from a session.
 
 ## GET /health
 
-Health check with component status.
-
-### Response
-
 ```json
 {
   "status": "ok",
   "name": "stromboli",
-  "version": "0.1.5-alpha",
+  "version": "0.3.0-alpha",
   "components": [
     {"name": "podman", "status": "ok"},
     {"name": "claude-credentials-file", "status": "ok"},
@@ -274,217 +203,88 @@ Health check with component status.
 
 ## GET /secrets
 
-List available Podman secrets.
-
-### Response
-
 ```json
-{
-  "secrets": [
-    "claude-credentials",
-    "github-token",
-    "gitlab-token"
-  ]
-}
+{"secrets": ["claude-credentials", "github-token", "gitlab-token"]}
 ```
 
 ---
 
 ## GET /claude/status
 
-Check if Claude credentials are configured.
-
-### Response
-
 ```json
-{
-  "configured": true,
-  "message": "Claude is configured"
-}
+{"configured": true, "message": "Claude is configured"}
 ```
 
 ---
 
 ## GET /metrics
 
-Prometheus metrics endpoint.
-
-### Response
-
-```
-# HELP stromboli_active_containers Current number of running containers
-# TYPE stromboli_active_containers gauge
-stromboli_active_containers 2
-...
-```
-
----
-
-## Image Discovery API
-
-The Image Discovery API allows you to list, inspect, search, and pull container images.
+Prometheus-format metrics.
 
 ---
 
 ## GET /images
 
-List all local container images sorted by compatibility.
-
-### Response
+List local images sorted by compatibility.
 
 ```json
 {
   "images": [
     {
-      "id": "sha256:abc123...",
       "repository": "python",
       "tag": "3.12",
       "size": 1073741824,
-      "created": "2024-01-15T10:30:00Z",
       "compatibility_rank": 3,
       "compatible": true,
-      "tools": ["python", "pip"],
-      "has_claude_cli": false,
-      "description": "Python 3.12 runtime"
+      "tools": ["python", "pip"]
     }
   ]
 }
 ```
 
-### Compatibility Ranks
-
-| Rank | Description | Compatible |
-|------|-------------|------------|
-| 1 | Official Stromboli agent image | Yes |
-| 2 | Verified compatible (has Claude CLI) | Yes |
-| 3 | Standard glibc-based image | Yes |
-| 4 | Alpine/musl-based image | No |
+Compatibility ranks: 1 = official agent image, 2 = verified compatible, 3 = standard glibc, 4 = Alpine/musl (incompatible).
 
 ---
 
 ## GET /images/:name
 
-Get detailed information about a specific image.
-
-### Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `name` | path | Image name with optional tag (e.g., `python:3.12-slim`) |
-
-### Response
+Inspect a specific image (e.g., `python:3.12-slim`).
 
 ```json
 {
-  "id": "sha256:abc123...",
   "repository": "python",
   "tag": "3.12-slim",
-  "size": 536870912,
-  "created": "2024-01-15T10:30:00Z",
-  "labels": {
-    "org.opencontainers.image.source": "https://github.com/...",
-    "maintainer": "..."
-  },
   "compatibility_rank": 3,
-  "rank_description": "Standard glibc-based image (compatible)",
   "compatible": true,
-  "tools": ["python3", "pip"],
-  "has_claude_cli": false,
-  "description": "Python 3.12 slim runtime"
+  "tools": ["python3", "pip"]
 }
 ```
-
-### Errors
-
-| Status | Error |
-|--------|-------|
-| 400 | Invalid image name |
-| 404 | Image not found |
-| 500 | Internal server error |
 
 ---
 
 ## GET /images/search
 
-Search container registries for images.
-
-### Query Parameters
-
 | Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `q` | string | Required | Search query (e.g., `python`, `node`) |
-| `limit` | int | 25 | Maximum results (max 100) |
-| `no_trunc` | bool | false | Show full descriptions |
-
-### Response
+|---|---|---|---|
+| `q` | string | Required | Search query |
+| `limit` | int | 25 | Max results (max 100) |
 
 ```json
 {
   "results": [
-    {
-      "index": "docker.io",
-      "name": "python",
-      "description": "Python is an interpreted, interactive, object-oriented...",
-      "stars": 9500,
-      "official": true,
-      "automated": false
-    },
-    {
-      "index": "docker.io",
-      "name": "pypy",
-      "description": "PyPy is a fast, compliant Python implementation...",
-      "stars": 850,
-      "official": true,
-      "automated": false
-    }
+    {"name": "python", "description": "Python runtime", "stars": 9500, "official": true}
   ]
 }
 ```
-
-### Errors
-
-| Status | Error |
-|--------|-------|
-| 400 | Missing query parameter 'q' |
-| 400 | Invalid limit parameter |
-| 502 | Registry search failed |
 
 ---
 
 ## POST /images/pull
 
-Pull an image from a container registry.
-
-### Request
-
 ```json
-{
-  "image": "python:3.12",
-  "quiet": false,
-  "platform": "linux/amd64"
-}
+{"image": "python:3.12", "quiet": false, "platform": "linux/amd64"}
 ```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `image` | string | Yes | Image name with optional tag |
-| `quiet` | bool | No | Suppress pull output |
-| `platform` | string | No | Target platform (e.g., `linux/amd64`, `linux/arm64`) |
-
-### Response
-
 ```json
-{
-  "success": true,
-  "image_id": "sha256:abc123def456...",
-  "image": "python:3.12"
-}
+{"success": true, "image_id": "sha256:abc123...", "image": "python:3.12"}
 ```
-
-### Errors
-
-| Status | Error |
-|--------|-------|
-| 400 | Invalid request |
-| 400 | Invalid image name |
-| 500 | Failed to pull image |

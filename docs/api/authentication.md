@@ -2,17 +2,15 @@
 
 Stromboli supports JWT-based authentication for securing the API.
 
-## Enabling Authentication
-
-Set the required environment variables:
+## Setup
 
 ```bash
 export STROMBOLI_AUTH_ENABLED=true
-export STROMBOLI_AUTH_JWT_SECRET="your-secure-256-bit-secret"
-export STROMBOLI_AUTH_API_TOKEN="your-api-token-for-generating-jwts"
+export STROMBOLI_JWT_SECRET="$(openssl rand -base64 32)"
+export STROMBOLI_API_TOKENS="your-api-token"
 ```
 
-## Authentication Flow
+## Flow
 
 ```mermaid
 sequenceDiagram
@@ -28,158 +26,99 @@ sequenceDiagram
     Note over Client,Stromboli: When access token expires...
 
     Client->>Stromboli: POST /auth/refresh (refresh_token)
-    Stromboli->>Client: {new access_token, new refresh_token}
+    Stromboli->>Client: {new access_token}
 ```
 
-## Generating Tokens
+## Get tokens
 
 ### POST /auth/token
 
-Exchange your API token for JWT tokens.
+Exchange an API token for JWT tokens:
 
-**Request:**
 ```bash
-curl -X POST http://localhost:8080/auth/token \
+curl -X POST localhost:8080/auth/token \
   -H "Authorization: Bearer your-api-token" \
-  -H "Content-Type: application/json" \
   -d '{"client_id": "my-app"}'
 ```
 
-**Response:**
 ```json
 {
-  "access_token": "eyJhbGciOiJIUzI1NiIs...",
-  "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
+  "access_token": "eyJhbGciOi...",
+  "refresh_token": "eyJhbGciOi...",
   "token_type": "Bearer",
   "expires_in": 3600
 }
 ```
 
-## Using Tokens
-
-Include the access token in the `Authorization` header:
+## Use tokens
 
 ```bash
-curl -X POST http://localhost:8080/run \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
-  -H "Content-Type: application/json" \
+curl -X POST localhost:8080/run \
+  -H "Authorization: Bearer eyJhbGciOi..." \
   -d '{"prompt": "Hello"}'
 ```
 
-## Refreshing Tokens
+## Refresh tokens
 
 ### POST /auth/refresh
 
-Get new tokens using a refresh token.
-
-**Request:**
 ```bash
-curl -X POST http://localhost:8080/auth/refresh \
-  -H "Content-Type: application/json" \
-  -d '{"refresh_token": "eyJhbGciOiJIUzI1NiIs..."}'
+curl -X POST localhost:8080/auth/refresh \
+  -d '{"refresh_token": "eyJhbGciOi..."}'
 ```
 
-**Response:**
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIs...",
-  "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
-  "token_type": "Bearer",
-  "expires_in": 3600
-}
-```
-
-## Validating Tokens
+## Validate tokens
 
 ### POST /auth/validate
 
-Check if a token is valid.
-
-**Request:**
 ```bash
-curl -X POST http://localhost:8080/auth/validate \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+curl -X POST localhost:8080/auth/validate \
+  -H "Authorization: Bearer eyJhbGciOi..."
 ```
 
-**Response:**
 ```json
-{
-  "valid": true,
-  "claims": {
-    "sub": "my-app",
-    "exp": 1640000000,
-    "iat": 1639996400
-  }
-}
+{"valid": true, "claims": {"sub": "my-app", "exp": 1640000000}}
 ```
 
-## Logging Out
+## Logout
 
 ### POST /auth/logout
 
-Invalidate a token (adds to blacklist).
-
-**Request:**
-```bash
-curl -X POST http://localhost:8080/auth/logout \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Token invalidated"
-}
-```
-
-## Token Lifetimes
-
-| Token Type | Lifetime | Configurable |
-|------------|----------|--------------|
-| Access Token | 1 hour | Not yet |
-| Refresh Token | 7 days | Not yet |
-
-## Security Best Practices
-
-### 1. Use Strong Secrets
+Adds the token to a blacklist:
 
 ```bash
-# Generate a secure secret
-openssl rand -base64 32
+curl -X POST localhost:8080/auth/logout \
+  -H "Authorization: Bearer eyJhbGciOi..."
 ```
 
-### 2. Store Tokens Securely
+## Token lifetimes
 
-- Never log tokens
-- Don't store in localStorage for web apps
-- Use secure, HTTP-only cookies when possible
+| Token | Default lifetime | Configurable |
+|---|---|---|
+| Access | 24 hours | `STROMBOLI_JWT_EXPIRY` |
+| Refresh | 7 days | `STROMBOLI_JWT_REFRESH_EXPIRY` |
 
-### 3. Rotate Secrets Periodically
+## Public endpoints
 
-Change `STROMBOLI_AUTH_JWT_SECRET` periodically:
-1. Add new secret
-2. Accept both old and new
-3. Remove old secret
+These don't require authentication:
 
-### 4. Use HTTPS in Production
+- `GET /health`
+- `GET /metrics`
+- `POST /auth/token` (requires API token in header)
+- `POST /auth/refresh`
 
-Always use TLS/SSL to protect tokens in transit.
+## Error responses
 
-## Public Endpoints
+| Status | Error |
+|---|---|
+| 401 | `token required` — no token provided |
+| 401 | `invalid token` — malformed or invalid |
+| 401 | `token expired` — expired token |
+| 401 | `token blacklisted` — logged out token |
 
-These endpoints don't require authentication:
+## Security tips
 
-- `GET /health` - Health check
-- `GET /metrics` - Prometheus metrics
-- `POST /auth/token` - Token generation (requires API token)
-- `POST /auth/refresh` - Token refresh
-
-## Error Responses
-
-| Status | Error | Description |
-|--------|-------|-------------|
-| 401 | `token required` | No token provided |
-| 401 | `invalid token` | Token is malformed or invalid |
-| 401 | `token expired` | Token has expired |
-| 401 | `token blacklisted` | Token was invalidated |
+- Generate strong secrets: `openssl rand -base64 32`
+- Don't store tokens in localStorage — use httpOnly cookies
+- Rotate JWT secrets periodically
+- Always use HTTPS in production

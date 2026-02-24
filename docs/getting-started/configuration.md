@@ -1,211 +1,170 @@
 # Configuration
 
-Stromboli is configured via environment variables or a YAML config file. Environment variables take precedence over config file values.
+Stromboli is configured via environment variables or a YAML config file. Environment variables take precedence.
 
-## Quick Start
+## Essentials
 
-For most users, the default configuration works out of the box. You only need:
+For most setups, you only need two things:
 
 1. Claude credentials at `~/.claude/.credentials.json` (created by `claude` CLI)
 2. Podman socket enabled: `systemctl --user enable --now podman.socket`
 
-## Environment Variables
+Everything else has sensible defaults.
 
-All environment variables use the `STROMBOLI_` prefix.
+## Common settings
 
-### Server Settings
+These are the settings you'll most likely want to change:
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `STROMBOLI_SERVER_ADDRESS` | `:8080` | HTTP server listen address |
+### Volume allowlist
 
-### Agent Container Settings
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `STROMBOLI_AGENT_IMAGE` | `ghcr.io/tomblancdev/stromboli-agent` | Default base container image |
-| `STROMBOLI_AGENT_IMAGE_TAG` | `latest` | Default base image tag |
-| `STROMBOLI_AGENT_CREDENTIALS_FILE` | `~/.claude/.credentials.json` | Path to Claude credentials |
-| `STROMBOLI_AGENT_SESSIONS_DIR` | `.stromboli/sessions` | Session storage directory (internal path) |
-| `STROMBOLI_AGENT_SESSIONS_HOST_DIR` | (same as SESSIONS_DIR) | Host path for sessions (for containerized deployment) |
-| `STROMBOLI_AGENT_ALLOWED_VOLUMES` | (empty) | Comma-separated allowed volume host paths |
-| `STROMBOLI_AGENT_WORKDIR_AUTO_CREATE` | `true` | Auto-create workdir if it doesn't exist |
-
-### Volume Security
-
-Control which host directories can be mounted via `volumes`:
+Controls which host directories agents can mount. **Empty = all mounts denied** (secure default).
 
 ```bash
-# Only allow mounting from these directories (REQUIRED for production)
 STROMBOLI_AGENT_ALLOWED_VOLUMES="/home/user/projects,/data/workspaces"
 ```
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `STROMBOLI_AGENT_ALLOWED_VOLUMES` | (empty) | Comma-separated allowed volume host paths |
-| `STROMBOLI_AGENT_ALLOW_ALL_VOLUMES` | `false` | ⚠️ DANGEROUS: Allow all paths when allowlist empty |
+### Resource limits
 
-!!! danger "Secure Default"
-    When `allowed_volumes` is empty (default), **all volume mounts are DENIED**.
-    This is a secure default for production.
-
-    Only set `STROMBOLI_AGENT_ALLOW_ALL_VOLUMES=true` for local development!
-
-**Security Features:**
-
-- **Symlink Resolution**: Paths are resolved before validation to prevent bypass
-- **Container Path Blocklist**: Sensitive container paths (`/etc`, `~/.claude`, etc.) are blocked
-- **Mount Options Validation**: Only safe options (`ro`, `rw`, `z`, `Z`, etc.) allowed
-
-### Workdir Auto-Creation
-
-By default, Stromboli auto-creates the `workdir` inside the container if it doesn't exist:
+Default limits for agent containers (overridable per-request):
 
 ```bash
-# Disable workdir auto-creation (container will fail if path doesn't exist)
-STROMBOLI_AGENT_WORKDIR_AUTO_CREATE=false
+STROMBOLI_RESOURCES_MEMORY=512m     # Memory limit
+STROMBOLI_RESOURCES_CPUS=1          # CPU limit
+STROMBOLI_RESOURCES_TIMEOUT=30m     # Execution timeout
 ```
 
-### Claude CLI Image Settings
+### Custom images
 
-The Claude CLI is mounted into containers at runtime. This allows using any glibc-based image (Python, Node, Go, etc.) with Claude.
+Allow users to specify container images in API requests:
+
+```bash
+STROMBOLI_AGENT_ALLOWED_IMAGE_PATTERNS="python:*,node:*,golang:*,ubuntu:*"
+```
+
+### Authentication
+
+```bash
+STROMBOLI_AUTH_ENABLED=true
+STROMBOLI_JWT_SECRET="$(openssl rand -base64 32)"
+```
+
+### Rate limiting
+
+```bash
+STROMBOLI_RATE_LIMIT_ENABLED=true
+STROMBOLI_RATE_LIMIT_RPS=10
+STROMBOLI_RATE_LIMIT_BURST=20
+```
+
+## All environment variables
+
+### Server
 
 | Variable | Default | Description |
-|----------|---------|-------------|
+|---|---|---|
+| `STROMBOLI_SERVER_ADDRESS` | `:8080` | Listen address |
+
+### Agent
+
+| Variable | Default | Description |
+|---|---|---|
+| `STROMBOLI_AGENT_IMAGE` | `ghcr.io/tomblancdev/stromboli-agent` | Default base image |
+| `STROMBOLI_AGENT_IMAGE_TAG` | `latest` | Default base image tag |
+| `STROMBOLI_AGENT_CREDENTIALS_FILE` | `~/.claude/.credentials.json` | Claude credentials path |
+| `STROMBOLI_AGENT_SESSIONS_DIR` | `.stromboli/sessions` | Session storage (internal) |
+| `STROMBOLI_AGENT_SESSIONS_HOST_DIR` | (same as SESSIONS_DIR) | Session storage (host path, for containerized deployment) |
+| `STROMBOLI_AGENT_ALLOWED_VOLUMES` | (empty) | Allowed volume host paths (comma-separated) |
+| `STROMBOLI_AGENT_ALLOW_ALL_VOLUMES` | `false` | Allow all paths (DANGEROUS — dev only) |
+| `STROMBOLI_AGENT_WORKDIR_AUTO_CREATE` | `true` | Auto-create workdir inside container |
+| `STROMBOLI_AGENT_ALLOWED_IMAGE_PATTERNS` | (empty) | Allowed image patterns (glob, comma-separated) |
+
+### CLI image
+
+| Variable | Default | Description |
+|---|---|---|
 | `STROMBOLI_AGENT_MOUNT_CLAUDE_CLI` | `true` | Mount Claude CLI into containers |
-| `STROMBOLI_AGENT_CLI_IMAGE` | `ghcr.io/tomblancdev/stromboli-agent` | Image containing Claude CLI |
-| `STROMBOLI_AGENT_CLI_IMAGE_TAG` | `latest` | Claude CLI image tag |
-| `STROMBOLI_AGENT_AUTO_PULL_CLI` | `true` | Auto-pull CLI image on startup if missing |
+| `STROMBOLI_AGENT_CLI_IMAGE` | `ghcr.io/tomblancdev/stromboli-agent` | CLI source image |
+| `STROMBOLI_AGENT_CLI_IMAGE_TAG` | `latest` | CLI image tag |
+| `STROMBOLI_AGENT_AUTO_PULL_CLI` | `true` | Auto-pull CLI image on startup |
 
-### Dynamic Images
-
-Allow users to specify custom container images in API requests.
+### Resources
 
 | Variable | Default | Description |
-|----------|---------|-------------|
-| `STROMBOLI_AGENT_ALLOWED_IMAGE_PATTERNS` | (empty) | Comma-separated allowed image patterns (glob syntax) |
-
-Example patterns:
-```bash
-STROMBOLI_AGENT_ALLOWED_IMAGE_PATTERNS="python:*,node:*,golang:*,ubuntu:*,debian:*"
-```
-
-!!! warning "Image Compatibility"
-    Alpine and musl-based images are **not supported**. Use glibc-based images:
-
-    - ✅ `python:3.12` (Debian-based)
-    - ✅ `node:20` (Debian-based)
-    - ✅ `golang:1.22` (Debian-based)
-    - ❌ `python:3.12-alpine`
-    - ❌ `node:20-alpine`
-
-### Resource Limits
-
-Default limits for agent containers. Can be overridden per-request.
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `STROMBOLI_RESOURCES_MEMORY` | `512m` | Memory limit (e.g., `512m`, `2g`) |
-| `STROMBOLI_RESOURCES_CPUS` | `1` | CPU limit (e.g., `0.5`, `2`) |
-| `STROMBOLI_RESOURCES_TIMEOUT` | `30m` | Execution timeout (e.g., `5m`, `1h`) |
-
-### Token Cache
-
-Reduce file reads by caching credentials in memory.
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `STROMBOLI_TOKEN_CACHE_ENABLED` | `true` | Enable token caching |
-| `STROMBOLI_TOKEN_CACHE_TTL` | `5m` | Cache time-to-live |
+|---|---|---|
+| `STROMBOLI_RESOURCES_MEMORY` | `512m` | Memory limit |
+| `STROMBOLI_RESOURCES_CPUS` | `1` | CPU limit |
+| `STROMBOLI_RESOURCES_TIMEOUT` | `30m` | Execution timeout |
 
 ### Authentication
 
 | Variable | Default | Description |
-|----------|---------|-------------|
+|---|---|---|
 | `STROMBOLI_AUTH_ENABLED` | `false` | Enable authentication |
-| `STROMBOLI_API_TOKENS` | (none) | Comma-separated static API tokens |
-
-### JWT Authentication
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `STROMBOLI_JWT_SECRET` | (none) | JWT signing secret (generate with `openssl rand -base64 32`) |
+| `STROMBOLI_API_TOKENS` | (none) | Static API tokens (comma-separated) |
+| `STROMBOLI_JWT_SECRET` | (none) | JWT signing secret |
 | `STROMBOLI_JWT_EXPIRY` | `24h` | Access token lifetime |
-| `STROMBOLI_JWT_REFRESH_EXPIRY` | `168h` | Refresh token lifetime (7 days) |
+| `STROMBOLI_JWT_REFRESH_EXPIRY` | `168h` | Refresh token lifetime |
 
-### Rate Limiting
+### Rate limiting
 
 | Variable | Default | Description |
-|----------|---------|-------------|
+|---|---|---|
 | `STROMBOLI_RATE_LIMIT_ENABLED` | `false` | Enable rate limiting |
 | `STROMBOLI_RATE_LIMIT_RPS` | `10` | Requests per second |
 | `STROMBOLI_RATE_LIMIT_BURST` | `20` | Burst allowance |
 
-### Job Management
+### Jobs
 
 | Variable | Default | Description |
-|----------|---------|-------------|
-| `STROMBOLI_JOBS_CLEANUP_TTL` | `1h` | How long to keep completed jobs |
+|---|---|---|
+| `STROMBOLI_JOBS_CLEANUP_TTL` | `1h` | Keep completed jobs for |
 | `STROMBOLI_JOBS_CLEANUP_INTERVAL` | `5m` | Cleanup check interval |
 
 ### Observability
 
 | Variable | Default | Description |
-|----------|---------|-------------|
+|---|---|---|
 | `STROMBOLI_TRACING_ENABLED` | `false` | Enable OpenTelemetry tracing |
 | `STROMBOLI_TRACING_ENDPOINT` | `localhost:4317` | OTLP gRPC endpoint |
 | `STROMBOLI_TRACING_SERVICE_NAME` | `stromboli` | Service name in traces |
-| `STROMBOLI_TRACING_INSECURE` | `true` | Use insecure connection (no TLS) |
+| `STROMBOLI_TRACING_INSECURE` | `true` | Use insecure connection |
+| `STROMBOLI_TOKEN_CACHE_ENABLED` | `true` | Cache credentials in memory |
+| `STROMBOLI_TOKEN_CACHE_TTL` | `5m` | Cache TTL |
 
-### Compose Environments
-
-Control behavior for multi-service compose environments.
+### Compose environments
 
 | Variable | Default | Description |
-|----------|---------|-------------|
-| `STROMBOLI_COMPOSE_ALLOW_PRIVILEGED` | `false` | Allow services with `privileged: true` |
-| `STROMBOLI_COMPOSE_ALLOW_HOST_NETWORK` | `false` | Allow services with `network_mode: host` |
-| `STROMBOLI_COMPOSE_ALLOW_HOST_VOLUMES` | `false` | Allow host volume mounts in compose files |
-| `STROMBOLI_COMPOSE_BUILD_TIMEOUT` | `10m` | Maximum time for compose build/up |
-| `STROMBOLI_COMPOSE_HEALTH_TIMEOUT` | `2m` | Maximum time to wait for healthy services |
-| `STROMBOLI_COMPOSE_STACK_TTL` | `1h` | Maximum age for orphaned stacks before cleanup |
+|---|---|---|
+| `STROMBOLI_COMPOSE_ALLOW_PRIVILEGED` | `false` | Allow privileged containers |
+| `STROMBOLI_COMPOSE_ALLOW_HOST_NETWORK` | `false` | Allow host network mode |
+| `STROMBOLI_COMPOSE_ALLOW_HOST_VOLUMES` | `false` | Allow host volume mounts |
+| `STROMBOLI_COMPOSE_BUILD_TIMEOUT` | `10m` | Max compose build/up time |
+| `STROMBOLI_COMPOSE_HEALTH_TIMEOUT` | `2m` | Max health check wait time |
+| `STROMBOLI_COMPOSE_STACK_TTL` | `1h` | Orphaned stack max age |
 
-!!! danger "Security Settings"
-    All compose `allow_*` settings are `false` by default for security. Only enable them if you trust the compose files being used. See [Compose Environments](../guide/compose-environments.md) for details.
+## YAML config file
 
-## Config File
-
-Use a YAML config file for cleaner configuration:
+For a cleaner setup, use a YAML file:
 
 ```yaml
 # stromboli.yaml
-
 server:
   address: ":8080"
 
 agent:
-  # Base container image
   image: "ghcr.io/tomblancdev/stromboli-agent"
   image_tag: "latest"
-
-  # Claude CLI mounting (for dynamic images)
   mount_claude_cli: true
   cli_image: "ghcr.io/tomblancdev/stromboli-agent"
-  cli_image_tag: "latest"
   auto_pull_cli: true
-
-  # Credentials and sessions
   credentials_file: "~/.claude/.credentials.json"
   sessions_dir: ".stromboli/sessions"
-  sessions_host_dir: ""  # Set for containerized deployment (defaults to sessions_dir)
-
-  # Dynamic images (glob patterns)
   allowed_image_patterns:
     - "python:*"
     - "node:*"
     - "golang:*"
-
-  # Token cache
+  allowed_volumes:
+    - "/home/user/projects"
   token_cache:
     enabled: true
     ttl: "5m"
@@ -217,7 +176,6 @@ resources:
 
 auth:
   enabled: false
-  valid_tokens: []
 
 jwt:
   secret: ""
@@ -233,132 +191,43 @@ jobs:
   cleanup_ttl: "1h"
   cleanup_interval: "5m"
 
-tracing:
-  enabled: false
-  service_name: "stromboli"
-  endpoint: "localhost:4317"
-  insecure: true
-
-# Compose environment settings
 compose:
-  allow_privileged: false    # Allow privileged containers (DANGEROUS)
-  allow_host_network: false  # Allow host network mode
-  allow_host_volumes: false  # Allow host volume mounts
-  build_timeout: "10m"       # Max time for compose build/up
-  health_timeout: "2m"       # Max time to wait for healthy services
-  stack_ttl: "1h"            # Max age for orphaned stacks
+  allow_privileged: false
+  allow_host_network: false
+  allow_host_volumes: false
+  build_timeout: "10m"
+  health_timeout: "2m"
+  stack_ttl: "1h"
 ```
 
 Load with:
+
 ```bash
 stromboli --config stromboli.yaml
 ```
 
-## Example Configurations
-
-### Development (Minimal)
+## Example: production
 
 ```bash
-# Just ensure Claude credentials exist
-# ~/.claude/.credentials.json (created by 'claude' CLI)
-
-# Start with defaults
-stromboli
-```
-
-### Development with Dynamic Images
-
-```bash
-export STROMBOLI_AGENT_ALLOWED_IMAGE_PATTERNS="python:*,node:*,golang:*"
-stromboli
-```
-
-### Production
-
-```bash
-# Authentication
 export STROMBOLI_AUTH_ENABLED=true
 export STROMBOLI_JWT_SECRET="$(openssl rand -base64 32)"
-export STROMBOLI_JWT_EXPIRY=24h
-
-# Rate limiting
 export STROMBOLI_RATE_LIMIT_ENABLED=true
 export STROMBOLI_RATE_LIMIT_RPS=50
-export STROMBOLI_RATE_LIMIT_BURST=100
-
-# Resources
 export STROMBOLI_RESOURCES_MEMORY=2g
 export STROMBOLI_RESOURCES_CPUS=2
 export STROMBOLI_RESOURCES_TIMEOUT=1h
-
-# Allowed images
-export STROMBOLI_AGENT_ALLOWED_IMAGE_PATTERNS="python:*,node:*,golang:*,ubuntu:*,debian:*"
-
-# Volume security (REQUIRED in production!)
+export STROMBOLI_AGENT_ALLOWED_IMAGE_PATTERNS="python:*,node:*,golang:*"
 export STROMBOLI_AGENT_ALLOWED_VOLUMES="/data/projects,/home/user/workspaces"
-
-stromboli
 ```
 
-### Docker Compose
+See [production hardening](../security/production.md) for the full checklist.
 
-See the full example in `install/docker-compose.yml`:
-
-```yaml
-services:
-  stromboli:
-    image: ghcr.io/tomblancdev/stromboli:latest
-    ports:
-      - "8080:8080"
-    volumes:
-      # Podman socket (required for container orchestration)
-      - ${XDG_RUNTIME_DIR:-/run/user/${UID:-1000}}/podman/podman.sock:/run/podman/podman.sock
-      # Claude credentials (read-only)
-      - ${HOME}/.claude:/home/stromboli/.claude:ro
-      # Session persistence (bind mount for nested container access)
-      - ${HOME}/.stromboli/sessions:/app/sessions
-    environment:
-      # Podman socket location for podman-remote
-      CONTAINER_HOST: "unix:///run/podman/podman.sock"
-
-      STROMBOLI_SERVER_ADDRESS: ":8080"
-      STROMBOLI_AGENT_IMAGE: "ghcr.io/tomblancdev/stromboli-agent"
-      STROMBOLI_AGENT_MOUNT_CLAUDE_CLI: "true"
-      STROMBOLI_AGENT_AUTO_PULL_CLI: "true"
-      STROMBOLI_AGENT_CREDENTIALS_FILE: "/home/stromboli/.claude/.credentials.json"
-
-      # Session paths for nested container mounts
-      STROMBOLI_AGENT_SESSIONS_DIR: "/app/sessions"
-      STROMBOLI_AGENT_SESSIONS_HOST_DIR: "${HOME}/.stromboli/sessions"
-
-      # Volume security (add sessions path to allowlist)
-      STROMBOLI_AGENT_ALLOWED_VOLUMES: "/home/user/projects,${HOME}/.stromboli/sessions"
-    userns_mode: keep-id  # For rootless Podman
-```
-
-!!! note "Containerized Deployment"
-    When running Stromboli in a container, you need **two session paths**:
-
-    - `SESSIONS_DIR`: Path inside the Stromboli container (`/app/sessions`)
-    - `SESSIONS_HOST_DIR`: Path on the host machine (for mounting into agent containers)
-
-    Both must point to the same data via bind mount.
-
-## Startup Behavior
+## Startup behavior
 
 On startup, Stromboli:
 
-1. **Loads configuration** from environment variables and/or config file
-2. **Checks Claude CLI image** (if `mount_claude_cli: true`):
-   - If image exists locally → uses it
-   - If missing and `auto_pull_cli: true` → pulls from registry
-   - If missing and `auto_pull_cli: false` → logs warning
-3. **Validates Claude credentials** → warns if not found
-4. **Cleans up orphaned containers** from previous runs
-5. **Starts HTTP server**
-
-## Next Steps
-
-- [Running Agents](../guide/running-agents.md) - Learn how to run agents
-- [Authentication](../api/authentication.md) - Set up JWT auth for production
-- [API Reference](../api/overview.md) - Full API documentation
+1. Loads config from environment variables and/or config file
+2. Checks for the CLI image (pulls if missing and `auto_pull_cli: true`)
+3. Validates Claude credentials (warns if not found)
+4. Cleans up orphaned containers from previous runs
+5. Starts the HTTP server

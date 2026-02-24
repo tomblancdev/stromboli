@@ -1,53 +1,43 @@
 # Quick Start
 
-Get Stromboli running in 5 minutes.
+Get Stromboli running and spawn your first agent in 5 minutes.
 
 ## Prerequisites
 
-- [Podman](https://podman.io/) v4.0+ installed
-- Claude CLI authenticated (`claude` command works)
-- Docker Compose (optional, for easy deployment)
+- [Docker](https://docs.docker.com/get-docker/) or [Podman](https://podman.io/) with Compose support
+- Claude CLI authenticated (`claude` command works in your terminal)
 
-## Step 1: Clone & Start
+## 1. Install & start Stromboli
+
+=== "Install Script"
+
+    ```bash
+    curl -sL https://raw.githubusercontent.com/tomblancdev/stromboli/main/install.sh | bash
+    cd stromboli
+    docker compose up -d
+    ```
 
 === "Docker Compose"
 
     ```bash
     git clone https://github.com/tomblancdev/stromboli
     cd stromboli
-
-    # Start Stromboli
     docker compose up -d
-
-    # Check health
-    curl http://localhost:8080/health
     ```
 
-=== "From Source"
+See [installation](installation.md) for all options.
 
-    ```bash
-    git clone https://github.com/tomblancdev/stromboli
-    cd stromboli
-
-    # Build
-    make build
-
-    # Run
-    ./stromboli --port 8080
-    ```
-
-## Step 2: Verify Installation
+## 2. Check health
 
 ```bash
-curl -s http://localhost:8080/health | jq
+curl -s localhost:8080/health | jq
 ```
 
-Expected output:
 ```json
 {
   "status": "ok",
   "name": "stromboli",
-  "version": "0.2.0-alpha",
+  "version": "0.3.0-alpha",
   "components": [
     {"name": "podman", "status": "ok"},
     {"name": "claude-credentials-file", "status": "ok"},
@@ -56,17 +46,14 @@ Expected output:
 }
 ```
 
-## Step 3: Run Your First Agent
+## 3. Run your first agent
 
 ```bash
-curl -X POST http://localhost:8080/run \
+curl -X POST localhost:8080/run \
   -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "What is 2 + 2? Reply with just the number."
-  }'
+  -d '{"prompt": "What is 2 + 2? Reply with just the number."}'
 ```
 
-Response:
 ```json
 {
   "id": "run-abc123def456",
@@ -76,15 +63,15 @@ Response:
 }
 ```
 
-## Step 4: Run with a Project Directory
+## 4. Mount a project directory
 
-Mount a host directory and work within it:
+Give the agent access to your code:
 
 ```bash
-curl -X POST http://localhost:8080/run \
+curl -X POST localhost:8080/run \
   -H "Content-Type: application/json" \
   -d '{
-    "prompt": "List the files in this directory",
+    "prompt": "List the files in this directory and describe what they do",
     "workdir": "/workspace",
     "podman": {
       "volumes": ["/home/user/myproject:/workspace"]
@@ -92,18 +79,15 @@ curl -X POST http://localhost:8080/run \
   }'
 ```
 
-- `workdir`: The working directory inside the container
-- `volumes`: Mount host paths into the container (`host:container` format)
+## 5. Continue the conversation
 
-## Step 5: Continue a Conversation
-
-Use the `session_id` from the previous response:
+Use the `session_id` from the previous response to resume:
 
 ```bash
-curl -X POST http://localhost:8080/run \
+curl -X POST localhost:8080/run \
   -H "Content-Type: application/json" \
   -d '{
-    "prompt": "Now explain what each file does",
+    "prompt": "Now explain the main entry point in detail",
     "workdir": "/workspace",
     "podman": {
       "volumes": ["/home/user/myproject:/workspace"]
@@ -115,35 +99,17 @@ curl -X POST http://localhost:8080/run \
   }'
 ```
 
-## Next Steps
+## What's next
 
-- [Configuration](configuration.md) - Customize settings
-- [Working Directory Guide](../guide/workspaces.md) - Volume mounting and working directories
-- [Secrets Guide](../guide/secrets.md) - Inject GitHub/GitLab tokens
-- [API Reference](../api/overview.md) - Full API documentation
+- [Configuration](configuration.md) — Customize resource limits, auth, and more
+- [Running agents](../guides/running-agents.md) — All the options for spawning agents
+- [Secrets](../guides/secrets.md) — Inject GitHub/GitLab tokens
+- [API reference](../api/overview.md) — Full endpoint documentation
 
 ## Troubleshooting
 
-### "Claude not configured"
+**"Claude not configured"** — Run `claude` in your terminal to authenticate, then restart Stromboli.
 
-Run `claude` in your terminal to authenticate, then restart Stromboli.
+**Container fails to start** — Check Podman is running: `podman version && podman ps`
 
-### Container fails to start
-
-Check Podman is running:
-```bash
-podman version
-podman ps
-```
-
-### Files not visible to agent
-
-Make sure you're mounting the correct volume:
-```json
-{
-  "workdir": "/workspace",
-  "podman": {
-    "volumes": ["/your/host/path:/workspace"]
-  }
-}
-```
+**Files not visible** — Make sure the volume mount path is correct: `"volumes": ["/your/actual/path:/workspace"]`

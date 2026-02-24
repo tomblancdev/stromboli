@@ -13,7 +13,7 @@ All notable changes to Stromboli will be documented here.
 - **Hooks Timeout**: Configurable timeout for hook execution (`hooks_timeout`)
 - Hooks are chained with fail-fast behavior - if any hook fails, execution stops
 - Shell escaping for all hook arguments to prevent injection attacks
-- Documentation: [Lifecycle Hooks Guide](guide/lifecycle-hooks.md)
+- Documentation: [Lifecycle Hooks Guide](guides/lifecycle-hooks.md)
 
 #### Compose Environments
 - **Multi-service environments**: Run Claude agents in Docker/Podman Compose stacks
@@ -23,7 +23,7 @@ All notable changes to Stromboli will be documented here.
 - **Security validation**: Blocks privileged containers, host network, and dangerous configurations
 - Configuration options: `allow_privileged`, `allow_host_network`, `allow_host_volumes`
 - Timeout configuration: `build_timeout`, `health_timeout`, `stack_ttl`
-- Documentation: [Compose Environments Guide](guide/compose-environments.md)
+- Documentation: [Compose Environments Guide](guides/compose-environments.md)
 
 #### Image Discovery API
 - **GET /images**: List all local images sorted by compatibility rank

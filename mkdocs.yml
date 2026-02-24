@@ -99,29 +99,32 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Why Stromboli:
+    - Benefits: concepts/containers-vs-worktrees.md
+    - How It Works: concepts/how-it-works.md
   - Getting Started:
     - Quick Start: getting-started/quickstart.md
     - Installation: getting-started/installation.md
     - Configuration: getting-started/configuration.md
-  - User Guide:
-    - Running Agents: guide/running-agents.md
-    - Examples & Use Cases: guide/examples.md
-    - Sessions: guide/sessions.md
-    - Secrets: guide/secrets.md
-    - Working Directory: guide/workspaces.md
-    - Lifecycle Hooks: guide/lifecycle-hooks.md
-    - Compose Environments: guide/compose-environments.md
-    - Security: guide/security.md
-    - Troubleshooting: guide/troubleshooting.md
+  - Guides:
+    - Running Agents: guides/running-agents.md
+    - Sessions: guides/sessions.md
+    - Secrets: guides/secrets.md
+    - Custom Images: guides/custom-images.md
+    - Lifecycle Hooks: guides/lifecycle-hooks.md
+    - Compose Environments: guides/compose-environments.md
+    - Client Examples: guides/client-examples.md
+  - Security:
+    - Overview: security/overview.md
+    - Production Hardening: security/production.md
   - API Reference:
     - Overview: api/overview.md
     - Endpoints: api/endpoints.md
     - Authentication: api/authentication.md
     - OpenAPI Spec: api/openapi.md
-  - Deployment:
-    - Docker: deployment/docker.md
-    - Docker Compose: deployment/compose.md
-    - Production: deployment/production.md
+  - Self-Hosting:
+    - Docker: self-hosting/docker.md
+    - Troubleshooting: self-hosting/troubleshooting.md
   - Development:
     - Contributing: development/contributing.md
     - Architecture: development/architecture.md

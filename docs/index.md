@@ -6,6 +6,7 @@
 
 <p align="center">
   <a href="getting-started/quickstart/">Get Started</a> •
+  <a href="concepts/how-it-works/">How It Works</a> •
   <a href="api/overview/">API Reference</a> •
   <a href="https://github.com/tomblancdev/stromboli">GitHub</a>
 </p>
@@ -14,58 +15,29 @@
 
 ## What is Stromboli?
 
-Stromboli is a **container orchestration API** that spawns and manages isolated [Claude Code](https://claude.ai/claude-code) agents in Podman containers. It's the Podman-based alternative to Pinocchio.
+Stromboli wraps [Claude Code](https://claude.ai/claude-code) in isolated Podman containers and exposes a REST API to spawn, manage, and orchestrate agents. You send a prompt over HTTP, Stromboli runs Claude in a sandboxed container with your code mounted, and returns the result.
 
 ```mermaid
 graph LR
-    A[API Request] --> B[Stromboli]
+    A[Your Code] --> B[Stromboli API]
     B --> C[Podman]
     C --> D[Claude Agent Container]
     D --> E[Your Workspace]
 ```
 
-## Key Features
+## Why Stromboli?
 
-<div class="grid cards" markdown>
+**Isolation.** Each agent runs in its own container with resource limits, volume allowlists, and network isolation. A runaway agent can't touch your host.
 
-- :material-docker: **Container Isolation**
+**Any runtime.** Use Python, Node, Go, or any Docker image as the agent's environment. Need a database? Use [compose environments](guides/compose-environments.md).
 
-    Each agent runs in its own isolated Podman container with resource limits.
+**API-driven.** Spawn agents from CI/CD pipelines, webhooks, scripts, or any HTTP client. No CLI needed.
 
-- :material-key: **Secrets Management**
+Want the full picture? Read [why Stromboli](concepts/containers-vs-worktrees.md).
 
-    Securely inject tokens (GitHub, GitLab, etc.) as environment variables.
-
-- :material-history: **Session Persistence**
-
-    Continue conversations across requests with session management.
-
-- :material-api: **REST API**
-
-    Simple HTTP API for spawning agents, managing jobs, and streaming output.
-
-- :material-shield-check: **Security First**
-
-    Input validation, workspace allowlists, and credential isolation.
-
-- :material-cog: **Configurable**
-
-    Resource limits, timeouts, custom images, and more.
-
-- :material-play-circle: **Lifecycle Hooks**
-
-    Run setup commands at container creation and startup (install deps, start services).
-
-- :material-layers: **Compose Environments**
-
-    Run Claude in multi-service environments with databases, caches, and more.
-
-</div>
-
-## Quick Example
+## Quick example
 
 ```bash
-# Run a Claude agent with a mounted project
 curl -X POST http://localhost:8080/run \
   -H "Content-Type: application/json" \
   -d '{
@@ -77,7 +49,6 @@ curl -X POST http://localhost:8080/run \
   }'
 ```
 
-Response:
 ```json
 {
   "id": "run-abc123",
@@ -87,33 +58,46 @@ Response:
 }
 ```
 
-## Installation
+## Features
 
-=== "Docker Compose (Recommended)"
+<div class="grid cards" markdown>
 
-    ```bash
-    git clone https://github.com/tomblancdev/stromboli
-    cd stromboli
-    docker compose up -d
-    ```
+- :material-docker: **Container Isolation**
 
-=== "From Source"
+    Each agent runs in its own Podman container with resource limits.
 
-    ```bash
-    git clone https://github.com/tomblancdev/stromboli
-    cd stromboli
-    make build
-    ./stromboli
-    ```
+- :material-key: **Secrets Management**
 
-## Next Steps
+    Inject tokens (GitHub, GitLab, etc.) via Podman's native secret store.
 
-- [Quick Start Guide](getting-started/quickstart.md) - Get up and running in 5 minutes
-- [Configuration](getting-started/configuration.md) - Customize Stromboli for your needs
-- [API Reference](api/overview.md) - Complete API documentation
-- [Secrets Guide](guide/secrets.md) - Inject tokens securely
-- [Lifecycle Hooks](guide/lifecycle-hooks.md) - Run setup commands at container lifecycle stages
-- [Compose Environments](guide/compose-environments.md) - Multi-service environments
+- :material-history: **Session Persistence**
+
+    Continue conversations across requests with session management.
+
+- :material-api: **REST API**
+
+    HTTP API for spawning agents, managing jobs, and streaming output.
+
+- :material-play-circle: **Lifecycle Hooks**
+
+    Install dependencies and start services before Claude runs.
+
+- :material-layers: **Compose Environments**
+
+    Multi-service stacks with databases, caches, and more.
+
+</div>
+
+## Get started
+
+```bash
+curl -sL https://raw.githubusercontent.com/tomblancdev/stromboli/main/install.sh | bash
+cd stromboli
+docker compose up -d
+curl http://localhost:8080/health
+```
+
+Then head to the [quick start guide](getting-started/quickstart.md) to run your first agent.
 
 ## License
 

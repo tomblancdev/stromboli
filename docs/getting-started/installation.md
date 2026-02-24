@@ -1,18 +1,30 @@
 # Installation
 
-## Requirements
+## One-line install (recommended)
 
-| Component | Version | Notes |
-|-----------|---------|-------|
-| Podman | 4.0+ | Container runtime |
-| Claude CLI | Latest | Authenticated with `claude` |
-| Go | 1.22+ | Only for building from source |
+The install script detects Docker or Podman, downloads the compose file and config, and gets you ready to start:
 
-## Installation Methods
+```bash
+curl -sL https://raw.githubusercontent.com/tomblancdev/stromboli/main/install.sh | bash
+```
 
-### Docker Compose (Recommended)
+Then start Stromboli:
 
-The easiest way to run Stromboli:
+```bash
+cd stromboli
+docker compose up -d    # or: podman-compose up -d
+```
+
+The script creates a `stromboli/` directory with:
+
+| File | Purpose |
+|------|---------|
+| `docker-compose.yml` | Pre-configured compose stack |
+| `stromboli.example.yaml` | Full config file with all options documented |
+
+## Docker Compose (manual)
+
+If you prefer to set things up yourself:
 
 ```bash
 git clone https://github.com/tomblancdev/stromboli
@@ -20,78 +32,60 @@ cd stromboli
 docker compose up -d
 ```
 
-This starts:
+This starts Stromboli on port 8080 with automatic credential sync and persistent session storage. See [Docker deployment](../self-hosting/docker.md) for the full compose file breakdown.
 
-- Stromboli API on port 8080
-- Automatic credential sync
-- Persistent session storage
+## Docker image
 
-### Pre-built Binary
-
-Download from [GitHub Releases](https://github.com/tomblancdev/stromboli/releases):
+Pull and run the image directly:
 
 ```bash
-# Linux amd64
-curl -LO https://github.com/tomblancdev/stromboli/releases/latest/download/stromboli-linux-amd64
-chmod +x stromboli-linux-amd64
-./stromboli-linux-amd64
+docker pull ghcr.io/tomblancdev/stromboli:latest
+
+docker run -d \
+  -p 8080:8080 \
+  -v ${XDG_RUNTIME_DIR}/podman/podman.sock:/run/podman/podman.sock \
+  -v ~/.claude:/home/stromboli/.claude:ro \
+  -v ~/.stromboli/sessions:/app/sessions \
+  ghcr.io/tomblancdev/stromboli:latest
 ```
 
-### From Source
+See [Docker deployment](../self-hosting/docker.md) for volume mounts, environment variables, and production setup.
+
+## Requirements
+
+| Component | Version | Notes |
+|---|---|---|
+| Docker or Podman | 4.0+ | Container runtime — the install script detects which you have |
+| Claude CLI | Latest | Authenticated — run `claude` in your terminal first |
+
+!!! tip "Don't have Claude CLI?"
+    ```bash
+    npm install -g @anthropic-ai/claude-code
+    claude    # authenticate
+    ```
+    Credentials are stored at `~/.claude/.credentials.json`. Stromboli mounts this file read-only into containers.
+
+## Verify
+
+```bash
+curl localhost:8080/health
+curl localhost:8080/claude/status
+```
+
+## Advanced: build from source
+
+If you want to build the binary or image yourself:
 
 ```bash
 git clone https://github.com/tomblancdev/stromboli
 cd stromboli
-
-# Build
-make build
-
-# Or with Go directly
-go build -o stromboli ./cmd/stromboli
+make build          # binary at ./stromboli
+make build-server-image  # container image
 ```
 
-### Docker Image
+Requires Go 1.24+.
 
-```bash
-# Pull the image
-docker pull ghcr.io/tomblancdev/stromboli:latest
+## What's next
 
-# Run with Podman socket
-docker run -d \
-  -p 8080:8080 \
-  -v /run/podman/podman.sock:/run/podman/podman.sock \
-  -v ~/.claude:/app/.claude:ro \
-  ghcr.io/tomblancdev/stromboli:latest
-```
-
-## Verify Installation
-
-```bash
-# Check health
-curl http://localhost:8080/health
-
-# Check Claude status
-curl http://localhost:8080/claude/status
-```
-
-## Claude CLI Setup
-
-Stromboli requires an authenticated Claude CLI:
-
-```bash
-# Install Claude CLI
-npm install -g @anthropic-ai/claude-code
-
-# Authenticate
-claude
-
-# Verify
-claude --version
-```
-
-The credentials are stored in `~/.claude/.credentials.json`.
-
-## Next Steps
-
-- [Configuration](configuration.md) - Customize Stromboli
-- [Quick Start](quickstart.md) - Run your first agent
+- [Quick start](quickstart.md) — Run your first agent
+- [Configuration](configuration.md) — Customize Stromboli
