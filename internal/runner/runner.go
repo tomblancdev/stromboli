@@ -345,6 +345,10 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	metrics.IncActiveContainers()
 	defer metrics.DecActiveContainers()
 
+	// Ensure container is removed after execution, even if --rm fails
+	// (e.g. after SIGKILL from timeout or OOM kill)
+	defer removeContainer(containerName)
+
 	// Execute command using executor
 	output, err := r.executor.Run(ctx, fullCmd)
 	if err != nil {
@@ -532,6 +536,10 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	// Track active container
 	metrics.IncActiveContainers()
 	defer metrics.DecActiveContainers()
+
+	// Ensure container is removed after execution, even if --rm fails
+	// (e.g. after SIGKILL from timeout or OOM kill)
+	defer removeContainer(containerName)
 
 	// Execute command with streaming using executor
 	stdoutPipe, stderrPipe, start, wait, err := r.executor.RunStream(ctx, fullCmd)

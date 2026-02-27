@@ -9,6 +9,23 @@ import (
 	"time"
 )
 
+// removeContainer force-removes a container by name.
+// Called via defer after execution to ensure cleanup even when --rm fails
+// (e.g. after SIGKILL from timeout or OOM). Errors are logged but not returned
+// because this runs in a defer and the primary result is already captured.
+func removeContainer(containerName string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "podman", "rm", "-f", containerName)
+	if err := cmd.Run(); err != nil {
+		// Ignore "no such container" — means --rm already cleaned it up
+		if !strings.Contains(err.Error(), "no such") {
+			slog.Warn("Failed to remove container after execution", "name", containerName, "error", err)
+		}
+	}
+}
+
 // CleanupOrphanedContainers removes any stromboli-agent containers that are still running
 // This should be called on server startup to clean up containers from previous runs
 func CleanupOrphanedContainers(ctx context.Context) error {
