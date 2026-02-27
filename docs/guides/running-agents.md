@@ -72,6 +72,7 @@ curl -X POST localhost:8080/run \
 | `system_prompt` | string | Replace the default system prompt |
 | `append_system_prompt` | string | Append to the system prompt |
 | `max_budget_usd` | float | Max API cost for this run |
+| `max_turns` | int | Max agentic turns (0 = unlimited) |
 | `allowed_tools` | []string | Whitelist specific tools |
 | `disallowed_tools` | []string | Blacklist specific tools |
 | `output_format` | string | `text`, `json`, `stream-json` |
@@ -98,6 +99,7 @@ curl -X POST localhost:8080/run \
 | `memory` | string | Memory limit (`512m`, `2g`) |
 | `cpus` | string | CPU limit (`0.5`, `2`) |
 | `timeout` | string | Max runtime (`5m`, `1h`) |
+| `cpu_shares` | int | CPU shares (relative weight, default 1024) |
 | `image` | string | [Custom container image](custom-images.md) |
 | `volumes` | []string | Volume mounts (`host:container[:options]`) |
 | `secrets_env` | map | [Secrets](secrets.md) as env vars |
@@ -110,7 +112,7 @@ For long-running tasks, use async mode to avoid HTTP timeouts:
 # Start the job
 curl -X POST localhost:8080/run/async \
   -d '{"prompt": "Refactor the entire codebase", "workdir": "/workspace"}'
-# {"job_id": "job-abc123", "status": "pending"}
+# {"job_id": "job-abc123", "session_id": "550e8400-..."}
 
 # Check status
 curl localhost:8080/jobs/job-abc123

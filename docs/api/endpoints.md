@@ -26,6 +26,7 @@ Run Claude synchronously.
     "disallowed_tools": ["Write"],
     "output_format": "json",
     "max_budget_usd": 5.00,
+    "max_turns": 30,
     "dangerously_skip_permissions": false
   },
   "podman": {
@@ -35,6 +36,7 @@ Run Claude synchronously.
     "timeout": "5m",
     "memory": "512m",
     "cpus": "1",
+    "cpu_shares": 512,
     "lifecycle": {
       "on_create_command": ["pip install -r requirements.txt"],
       "post_create": ["npm run build"],
@@ -58,9 +60,12 @@ Run Claude synchronously.
   "id": "run-abc123def456",
   "status": "completed",
   "output": "Claude's response...",
+  "structured_output": {"key": "value"},
   "session_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
+
+`structured_output` is populated when using `output_format: "json"` with a `json_schema`. It extracts the parsed JSON from Claude's response envelope.
 
 | Error Status | Cause |
 |---|---|
@@ -79,7 +84,7 @@ Stream Claude output via Server-Sent Events.
 | Parameter | Type | Description |
 |---|---|---|
 | `prompt` | string | Required |
-| `workspace` | string | Workspace path |
+| `workdir` | string | Working directory inside container |
 | `session_id` | string | Session to resume |
 | `resume` | bool | Resume session |
 
@@ -101,8 +106,10 @@ Run Claude asynchronously. Same request body as `/run`.
 ### Response
 
 ```json
-{"job_id": "job-abc123", "status": "pending"}
+{"job_id": "job-abc123", "session_id": "550e8400-e29b-41d4-a716-446655440000"}
 ```
+
+The `session_id` is returned immediately so you can use it for tracking or session resume even before the job completes.
 
 ---
 
@@ -129,13 +136,28 @@ Get job details.
   "id": "job-abc123",
   "status": "completed",
   "output": "...",
+  "structured_output": {"key": "value"},
   "session_id": "...",
+  "crash_info": null,
   "created_at": "...",
-  "completed_at": "..."
+  "updated_at": "..."
 }
 ```
 
-Job statuses: `pending`, `running`, `completed`, `failed`, `cancelled`
+Job statuses: `pending`, `running`, `completed`, `failed`, `crashed`, `cancelled`
+
+When a job crashes (e.g. OOM, timeout), `status` is `crashed` and `crash_info` contains details:
+
+```json
+{
+  "crash_info": {
+    "exit_code": 137,
+    "signal": "killed",
+    "partial_output": "last output before crash...",
+    "task_completed": false
+  }
+}
+```
 
 ---
 

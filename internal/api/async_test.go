@@ -260,6 +260,54 @@ func TestRunAsyncWithWebhook(t *testing.T) {
 		server.router.ServeHTTP(rec, req)
 
 		assert.Equal(t, http.StatusAccepted, rec.Code)
+
+		var response AsyncRunResponse
+		err = json.Unmarshal(rec.Body.Bytes(), &response)
+		require.NoError(t, err)
+		assert.NotEmpty(t, response.SessionID, "session_id should be returned for real-time tracking")
+	})
+
+	t.Run("async returns session_id immediately and matches running job", func(t *testing.T) {
+		var capturedSessionID string
+		mockRunner := &runner.MockRunner{
+			RunAsyncFunc: func(ctx context.Context, req runner.Request, jobID string, onComplete func(*runner.Result, error)) {
+				capturedSessionID = req.Claude.SessionID
+				go func() {
+					time.Sleep(10 * time.Millisecond)
+					onComplete(&runner.Result{ID: "run-123", Output: "test", SessionID: capturedSessionID}, nil)
+				}()
+			},
+		}
+
+		server := newTestServer(t, mockRunner, true)
+
+		reqBody := map[string]interface{}{
+			"prompt": "test",
+		}
+		body, _ := json.Marshal(reqBody)
+
+		req, err := http.NewRequest(http.MethodPost, "/run/async", bytes.NewReader(body))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+
+		rec := httptest.NewRecorder()
+		server.router.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusAccepted, rec.Code)
+
+		var response AsyncRunResponse
+		err = json.Unmarshal(rec.Body.Bytes(), &response)
+		require.NoError(t, err)
+
+		// session_id should be returned immediately
+		assert.NotEmpty(t, response.SessionID)
+		// session_id passed to runner should match the one returned
+		assert.Equal(t, response.SessionID, capturedSessionID)
+
+		// Running job should already have session_id
+		j, ok := server.jobMgr.Get(response.JobID)
+		require.True(t, ok)
+		assert.Equal(t, response.SessionID, j.SessionID)
 	})
 
 	t.Run("webhook failure does not affect job", func(t *testing.T) {

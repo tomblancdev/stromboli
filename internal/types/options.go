@@ -64,10 +64,12 @@ type ClaudeOptions struct {
 	// JSON Schema for structured output validation
 	JSONSchema string `json:"json_schema,omitempty" example:"{\"type\":\"object\"}"`
 
-	// --- Budget Control ---
+	// --- Budget & Limits ---
 
-	// Maximum dollar amount for API calls
-	MaxBudgetUSD float64 `json:"max_budget_usd,omitempty" example:"5.00"`
+	// Maximum dollar amount for API calls (pointer to distinguish 0 from unset)
+	MaxBudgetUSD *float64 `json:"max_budget_usd,omitempty" example:"5.00"`
+	// Maximum number of agentic turns (0 = unlimited, nil = use CLI default)
+	MaxTurns *int `json:"max_turns,omitempty" example:"30"`
 
 	// --- MCP Configuration ---
 
@@ -194,8 +196,8 @@ type PodmanOptions struct {
 	// CPU limit (e.g., "0.5", "2")
 	CPUs string `json:"cpus,omitempty" example:"1"`
 
-	// CPU shares (relative weight, default 1024)
-	CPUShares int `json:"cpu_shares,omitempty" example:"512"`
+	// CPU shares (relative weight, default 1024; pointer to distinguish 0 from unset)
+	CPUShares *int `json:"cpu_shares,omitempty" example:"512"`
 
 	// Lifecycle hooks for running commands at specific container events
 	Lifecycle LifecycleHooks `json:"lifecycle,omitempty"`

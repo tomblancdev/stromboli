@@ -209,11 +209,20 @@ func (s *Server) runClaude(c *gin.Context) {
 		return
 	}
 
+	status := "completed"
+	var crashInfo *job.CrashInfo
+	if result.CrashInfo != nil {
+		status = "crashed"
+		crashInfo = result.CrashInfo
+	}
+
 	c.JSON(http.StatusOK, RunResponse{
-		ID:        result.ID,
-		Status:    "completed",
-		Output:    result.Output,
-		SessionID: result.SessionID,
+		ID:               result.ID,
+		Status:           status,
+		Output:           result.Output,
+		StructuredOutput: extractStructuredOutput(result.Output),
+		SessionID:        result.SessionID,
+		CrashInfo:        crashInfo,
 	})
 }
 

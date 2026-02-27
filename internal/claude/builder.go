@@ -46,8 +46,9 @@ type CommandBuilder struct {
 	// Structured output
 	jsonSchema string // --json-schema
 
-	// Budget control
-	maxBudgetUSD float64 // --max-budget-usd
+	// Budget & limits
+	maxBudgetUSD *float64 // --max-budget-usd
+	maxTurns     *int     // --max-turns
 
 	// MCP configuration
 	mcpConfigs      []string // --mcp-config
@@ -228,11 +229,17 @@ func (b *CommandBuilder) WithJSONSchema(schema string) *CommandBuilder {
 	return b
 }
 
-// --- Budget Control ---
+// --- Budget & Limits ---
 
 // WithMaxBudgetUSD sets maximum dollar amount for API calls
 func (b *CommandBuilder) WithMaxBudgetUSD(amount float64) *CommandBuilder {
-	b.maxBudgetUSD = amount
+	b.maxBudgetUSD = &amount
+	return b
+}
+
+// WithMaxTurns sets the maximum number of agentic turns (0 = unlimited)
+func (b *CommandBuilder) WithMaxTurns(turns int) *CommandBuilder {
+	b.maxTurns = &turns
 	return b
 }
 
@@ -418,9 +425,12 @@ func (b *CommandBuilder) Build() []string {
 		args = append(args, "--json-schema", b.jsonSchema)
 	}
 
-	// Budget control
-	if b.maxBudgetUSD > 0 {
-		args = append(args, "--max-budget-usd", fmt.Sprintf("%.2f", b.maxBudgetUSD))
+	// Budget & limits
+	if b.maxBudgetUSD != nil {
+		args = append(args, "--max-budget-usd", fmt.Sprintf("%.2f", *b.maxBudgetUSD))
+	}
+	if b.maxTurns != nil {
+		args = append(args, "--max-turns", fmt.Sprintf("%d", *b.maxTurns))
 	}
 
 	// MCP configuration

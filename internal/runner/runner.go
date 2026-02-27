@@ -345,6 +345,10 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	metrics.IncActiveContainers()
 	defer metrics.DecActiveContainers()
 
+	// Ensure container is removed after execution, even if --rm fails
+	// (e.g. after SIGKILL from timeout or OOM kill)
+	defer removeContainer(containerName)
+
 	// Execute command using executor
 	output, err := r.executor.Run(ctx, fullCmd)
 	if err != nil {
@@ -352,7 +356,14 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 
 		// Check if this is a crash (signal termination)
 		if IsCrash(err) {
-			crashInfo := ExtractCrashInfo(err, string(output))
+			// Fallback: if output is empty (SIGKILL broke the stdout relay),
+			// try fetching container logs directly from Podman
+			crashOutput := string(output)
+			if strings.TrimSpace(crashOutput) == "" {
+				crashOutput = fetchContainerLogs(containerName, 4000)
+			}
+
+			crashInfo := ExtractCrashInfo(err, crashOutput)
 			tracing.AddSpanAttributes(ctx,
 				"runner.crash", true,
 				"runner.crash_signal", crashInfo.Signal,
@@ -365,7 +376,7 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 			// This allows the caller to handle crashes differently
 			return &Result{
 				ID:        generateRunID(),
-				Output:    strings.TrimSpace(string(output)),
+				Output:    strings.TrimSpace(crashOutput),
 				SessionID: sessionID,
 				CrashInfo: crashInfo,
 			}, nil
@@ -533,6 +544,10 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	metrics.IncActiveContainers()
 	defer metrics.DecActiveContainers()
 
+	// Ensure container is removed after execution, even if --rm fails
+	// (e.g. after SIGKILL from timeout or OOM kill)
+	defer removeContainer(containerName)
+
 	// Execute command with streaming using executor
 	stdoutPipe, stderrPipe, start, wait, err := r.executor.RunStream(ctx, fullCmd)
 	if err != nil {
@@ -588,7 +603,14 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 
 		// Check if this is a crash (signal termination)
 		if IsCrash(cmdErr) {
-			crashInfo := ExtractCrashInfo(cmdErr, allOutput.String())
+			// Fallback: if streamed output is empty (SIGKILL broke pipes),
+			// try fetching container logs directly from Podman
+			crashOutput := allOutput.String()
+			if strings.TrimSpace(crashOutput) == "" {
+				crashOutput = fetchContainerLogs(containerName, 4000)
+			}
+
+			crashInfo := ExtractCrashInfo(cmdErr, crashOutput)
 			tracing.AddSpanAttributes(ctx,
 				"runner.crash", true,
 				"runner.crash_signal", crashInfo.Signal,
@@ -600,7 +622,7 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 			// Return result with crash info instead of error
 			return &Result{
 				ID:        generateRunID(),
-				Output:    strings.TrimSpace(allOutput.String()),
+				Output:    strings.TrimSpace(crashOutput),
 				SessionID: sessionID,
 				CrashInfo: crashInfo,
 			}, nil
@@ -700,8 +722,8 @@ func (r *PodmanRunner) applyRequestConfig(req Request, podmanBuilder *podman.Com
 	if req.Podman.CPUs != "" {
 		podmanBuilder.WithCPUs(req.Podman.CPUs)
 	}
-	if req.Podman.CPUShares > 0 {
-		podmanBuilder.WithCPUShares(req.Podman.CPUShares)
+	if req.Podman.CPUShares != nil {
+		podmanBuilder.WithCPUShares(*req.Podman.CPUShares)
 	}
 
 	return nil
@@ -822,8 +844,11 @@ func (r *PodmanRunner) applyIOOptions(b *claude.CommandBuilder, opts types.Claud
 
 // applyResourceOptions handles MaxBudgetUSD, MCPConfigs, StrictMCPConfig, Agent, Agents, AddDirs, PluginDirs, Files, Settings, SettingSources, Betas options
 func (r *PodmanRunner) applyResourceOptions(b *claude.CommandBuilder, opts types.ClaudeOptions) {
-	if opts.MaxBudgetUSD > 0 {
-		b.WithMaxBudgetUSD(opts.MaxBudgetUSD)
+	if opts.MaxBudgetUSD != nil {
+		b.WithMaxBudgetUSD(*opts.MaxBudgetUSD)
+	}
+	if opts.MaxTurns != nil {
+		b.WithMaxTurns(*opts.MaxTurns)
 	}
 	if len(opts.MCPConfigs) > 0 {
 		b.WithMCPConfig(opts.MCPConfigs...)

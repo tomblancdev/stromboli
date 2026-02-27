@@ -136,7 +136,7 @@ curl -X POST http://localhost:8080/run \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "Analyze this Go code for bugs",
-    "workspace": "/home/user/myproject",
+    "workdir": "/home/user/myproject",
     "claude": {
       "model": "sonnet",
       "dangerously_skip_permissions": true
@@ -159,7 +159,7 @@ curl -X POST http://localhost:8080/run/async \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "Refactor this entire codebase for better maintainability",
-    "workspace": "/home/user/large-project",
+    "workdir": "/home/user/large-project",
     "webhook_url": "https://myapp.com/webhook",
     "claude": {
       "model": "opus",
@@ -167,7 +167,7 @@ curl -X POST http://localhost:8080/run/async \
     }
   }'
 
-# Response: {"job_id": "job-abc123def456"}
+# Response: {"job_id": "job-abc123def456", "session_id": "550e8400-..."}
 
 # Poll for status
 curl http://localhost:8080/jobs/job-abc123def456
@@ -194,7 +194,7 @@ curl -X POST http://localhost:8080/run \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "Create a new Go project structure",
-    "workspace": "/home/user/newproject"
+    "workdir": "/home/user/newproject"
   }'
 
 # Response includes: "session_id": "sess-abc123"
@@ -204,7 +204,7 @@ curl -X POST http://localhost:8080/run \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "Now add unit tests for the main package",
-    "workspace": "/home/user/newproject",
+    "workdir": "/home/user/newproject",
     "claude": {
       "session_id": "sess-abc123",
       "resume": true
@@ -327,6 +327,7 @@ Stromboli exposes all Claude CLI options. See [docs/API.md](docs/API.md) for com
     "permission_mode": "bypassPermissions",    // Permission mode
     "system_prompt": "You are a senior dev",   // Custom system prompt
     "max_budget_usd": 10.0,                    // Budget limit
+    "max_turns": 30,                           // Max agentic turns (0 = unlimited)
     "timeout": "30m"                           // Claude timeout
   }
 }
@@ -374,7 +375,7 @@ Key components:
 - **API Layer**: HTTP handlers, authentication, request validation
 - **Runner Layer**: Orchestration logic, execution modes (sync/async/stream)
 - **Command Builders**: Construct Podman and Claude CLI commands
-- **Job Manager**: Track async jobs, cleanup, webhook notifications
+- **Job Manager**: Track async jobs, cleanup, crash detection, webhook notifications
 - **Session Manager**: Persistent session state across calls
 - **Secrets Manager**: Secure Claude token handling via Podman secrets
 

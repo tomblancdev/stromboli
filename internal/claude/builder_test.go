@@ -210,6 +210,35 @@ func TestWithMaxBudgetUSD(t *testing.T) {
 	assert.Contains(t, cmd, "5.00")
 }
 
+func TestWithMaxBudgetUSD_Zero(t *testing.T) {
+	// Zero budget is a valid explicit value — must still be passed to CLI
+	cmd := NewCommandBuilder().
+		WithPrompt("hello").
+		WithMaxBudgetUSD(0.0).
+		Build()
+	assert.Contains(t, cmd, "--max-budget-usd")
+	assert.Contains(t, cmd, "0.00")
+}
+
+func TestWithMaxTurns(t *testing.T) {
+	cmd := NewCommandBuilder().
+		WithPrompt("hello").
+		WithMaxTurns(30).
+		Build()
+	assert.Contains(t, cmd, "--max-turns")
+	assert.Contains(t, cmd, "30")
+}
+
+func TestWithMaxTurns_Zero(t *testing.T) {
+	// Zero means unlimited — must still be passed to CLI
+	cmd := NewCommandBuilder().
+		WithPrompt("hello").
+		WithMaxTurns(0).
+		Build()
+	assert.Contains(t, cmd, "--max-turns")
+	assert.Contains(t, cmd, "0")
+}
+
 func TestWithMCPConfig(t *testing.T) {
 	cmd := NewCommandBuilder().
 		WithPrompt("test").

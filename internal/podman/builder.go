@@ -16,7 +16,7 @@ type CommandBuilder struct {
 	command     []string
 	memory      string // memory limit (e.g., "512m", "1g")
 	cpus        string // CPU limit (e.g., "0.5", "2")
-	cpuShares   int    // CPU shares (relative weight)
+	cpuShares   *int   // CPU shares (relative weight)
 	user        string // user to run as (e.g., "1000:1000")
 	keepID      bool   // use --userns=keep-id for host user mapping
 }
@@ -162,7 +162,7 @@ func (b *CommandBuilder) WithCPUs(cpus string) *CommandBuilder {
 
 // WithCPUShares sets the CPU shares (relative weight, default 1024)
 func (b *CommandBuilder) WithCPUShares(shares int) *CommandBuilder {
-	b.cpuShares = shares
+	b.cpuShares = &shares
 	return b
 }
 
@@ -232,8 +232,8 @@ func (b *CommandBuilder) Build() []string {
 		args = append(args, "--cpus", b.cpus)
 	}
 
-	if b.cpuShares > 0 {
-		args = append(args, "--cpu-shares", fmt.Sprintf("%d", b.cpuShares))
+	if b.cpuShares != nil {
+		args = append(args, "--cpu-shares", fmt.Sprintf("%d", *b.cpuShares))
 	}
 
 	if b.image != "" {

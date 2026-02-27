@@ -61,19 +61,20 @@ type rawUsage struct {
 	CacheReadInputTokens     int `json:"cache_read_input_tokens"`
 }
 
-// findSessionFile locates the JSONL file for a session
+// findSessionFile locates the JSONL file for a session.
+// Claude Code names the project folder based on the container's workdir
+// (e.g. /workspace → -workspace, /project → -project), so we glob
+// for any folder name under .claude/projects/.
 func (r *Reader) findSessionFile(sessionID string) (string, error) {
-	// Session files are stored at: sessions/<sessionID>/.claude/projects/-workspace/<sessionID>.jsonl
-	sessionPath := filepath.Join(r.sessionsDir, sessionID, ".claude", "projects", "-workspace", sessionID+".jsonl")
-
-	if _, err := os.Stat(sessionPath); err != nil {
-		if os.IsNotExist(err) {
-			return "", fmt.Errorf("session history not found: %s", sessionID)
-		}
-		return "", fmt.Errorf("failed to access session file: %w", err)
+	pattern := filepath.Join(r.sessionsDir, sessionID, ".claude", "projects", "*", sessionID+".jsonl")
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return "", fmt.Errorf("failed to search for session file: %w", err)
 	}
-
-	return sessionPath, nil
+	if len(matches) == 0 {
+		return "", fmt.Errorf("session history not found: %s", sessionID)
+	}
+	return matches[0], nil
 }
 
 // ListMessages returns a paginated list of messages for a session

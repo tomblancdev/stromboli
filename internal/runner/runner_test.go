@@ -110,7 +110,7 @@ func TestRun_WithClaudeOptions(t *testing.T) {
 	// but it verifies the options are processed
 	_, err = runner.Run(context.Background(), Request{
 		Prompt:    "hello",
-		Workspace: "/project",
+		Workdir: "/project",
 		Claude: types.ClaudeOptions{
 			SessionID:                  "sess-123",
 			Model:                      "opus",
@@ -120,7 +120,7 @@ func TestRun_WithClaudeOptions(t *testing.T) {
 			PermissionMode:             "bypassPermissions",
 			DangerouslySkipPermissions: true,
 			OutputFormat:               "json",
-			MaxBudgetUSD:               5.00,
+			MaxBudgetUSD:               ptrFloat64(5.00),
 			Verbose:                    true,
 		},
 		Podman: types.PodmanOptions{
@@ -396,7 +396,7 @@ func TestRun_WithResourceLimits(t *testing.T) {
 		Podman: types.PodmanOptions{
 			Memory:    "512m",
 			CPUs:      "1.5",
-			CPUShares: 1024,
+			CPUShares: ptrInt(1024),
 		},
 	})
 
@@ -460,7 +460,7 @@ func TestRunStream_WithResourceLimits(t *testing.T) {
 		Podman: types.PodmanOptions{
 			Memory:    "1g",
 			CPUs:      "2",
-			CPUShares: 512,
+			CPUShares: ptrInt(512),
 		},
 	}, output)
 
@@ -618,3 +618,7 @@ func TestDefaultResourceLimits_StreamingAppliesDefaults(t *testing.T) {
 	// Expected to fail due to no podman container execution
 	assert.Error(t, err)
 }
+
+// Pointer helpers for test literals
+func ptrFloat64(v float64) *float64 { return &v }
+func ptrInt(v int) *int             { return &v }

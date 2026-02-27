@@ -4,32 +4,36 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"stromboli/internal/job"
 	"stromboli/internal/runner"
+	"stromboli/internal/session"
 	"stromboli/internal/webhook"
 )
 
 // AsyncRunResponse represents the response from starting an async run
 // @Description Response from starting an async Claude execution
 type AsyncRunResponse struct {
-	JobID string `json:"job_id" example:"job-abc123def456"`
+	JobID     string `json:"job_id" example:"job-abc123def456"`
+	SessionID string `json:"session_id" example:"550e8400-e29b-41d4-a716-446655440000"`
 }
 
 // JobResponse represents a job status response
 // @Description Job status and result
 type JobResponse struct {
-	ID        string          `json:"id" example:"job-abc123def456"`
-	Status    job.Status      `json:"status" example:"running"`
-	Output    string          `json:"output,omitempty" example:"Hello!"`
-	Error     string          `json:"error,omitempty"`
-	SessionID string          `json:"session_id,omitempty" example:"sess-abc123def456"`
-	CrashInfo *job.CrashInfo  `json:"crash_info,omitempty"`
-	CreatedAt string          `json:"created_at" example:"2024-01-15T10:30:00Z"`
-	UpdatedAt string          `json:"updated_at" example:"2024-01-15T10:31:00Z"`
+	ID               string          `json:"id" example:"job-abc123def456"`
+	Status           job.Status      `json:"status" example:"running"`
+	Output           string          `json:"output,omitempty" example:"Hello!"`
+	StructuredOutput json.RawMessage `json:"structured_output,omitempty" swaggertype:"object"`
+	Error            string          `json:"error,omitempty"`
+	SessionID        string          `json:"session_id,omitempty" example:"sess-abc123def456"`
+	CrashInfo        *job.CrashInfo  `json:"crash_info,omitempty"`
+	CreatedAt        string          `json:"created_at" example:"2024-01-15T10:30:00Z"`
+	UpdatedAt        string          `json:"updated_at" example:"2024-01-15T10:31:00Z"`
 }
 
 // JobListResponse represents a list of jobs
@@ -61,8 +65,17 @@ func (s *Server) runAsync(c *gin.Context) {
 	}
 
 	jobID := generateJobID()
+
+	// Pre-generate session_id so it can be returned immediately for real-time tracking.
+	// If the caller provided one, use it; otherwise generate a new UUID.
+	sessionID := req.Claude.SessionID
+	if sessionID == "" {
+		sessionID = session.GenerateID()
+		req.Claude.SessionID = sessionID
+	}
+
 	s.jobMgr.Create(jobID)
-	s.jobMgr.Update(jobID, job.StatusRunning, "", "", "")
+	s.jobMgr.Update(jobID, job.StatusRunning, "", "", sessionID)
 
 	runnerReq := buildRunnerRequest(req)
 	webhookURL := req.WebhookURL
@@ -124,7 +137,8 @@ func (s *Server) runAsync(c *gin.Context) {
 	})
 
 	c.JSON(http.StatusAccepted, AsyncRunResponse{
-		JobID: jobID,
+		JobID:     jobID,
+		SessionID: sessionID,
 	})
 }
 
@@ -150,14 +164,15 @@ func (s *Server) getJob(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, JobResponse{
-		ID:        j.ID,
-		Status:    j.Status,
-		Output:    j.Output,
-		Error:     j.Error,
-		SessionID: j.SessionID,
-		CrashInfo: j.CrashInfo,
-		CreatedAt: j.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt: j.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		ID:               j.ID,
+		Status:           j.Status,
+		Output:           j.Output,
+		StructuredOutput: extractStructuredOutput(j.Output),
+		Error:            j.Error,
+		SessionID:        j.SessionID,
+		CrashInfo:        j.CrashInfo,
+		CreatedAt:        j.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:        j.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	})
 }
 
@@ -176,14 +191,15 @@ func (s *Server) listJobs(c *gin.Context) {
 	}
 	for _, j := range jobs {
 		resp.Jobs = append(resp.Jobs, &JobResponse{
-			ID:        j.ID,
-			Status:    j.Status,
-			Output:    j.Output,
-			Error:     j.Error,
-			SessionID: j.SessionID,
-			CrashInfo: j.CrashInfo,
-			CreatedAt: j.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-			UpdatedAt: j.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			ID:               j.ID,
+			Status:           j.Status,
+			Output:           j.Output,
+			StructuredOutput: extractStructuredOutput(j.Output),
+			Error:            j.Error,
+			SessionID:        j.SessionID,
+			CrashInfo:        j.CrashInfo,
+			CreatedAt:        j.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			UpdatedAt:        j.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		})
 	}
 
