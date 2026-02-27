@@ -356,7 +356,14 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 
 		// Check if this is a crash (signal termination)
 		if IsCrash(err) {
-			crashInfo := ExtractCrashInfo(err, string(output))
+			// Fallback: if output is empty (SIGKILL broke the stdout relay),
+			// try fetching container logs directly from Podman
+			crashOutput := string(output)
+			if strings.TrimSpace(crashOutput) == "" {
+				crashOutput = fetchContainerLogs(containerName, 4000)
+			}
+
+			crashInfo := ExtractCrashInfo(err, crashOutput)
 			tracing.AddSpanAttributes(ctx,
 				"runner.crash", true,
 				"runner.crash_signal", crashInfo.Signal,
@@ -369,7 +376,7 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 			// This allows the caller to handle crashes differently
 			return &Result{
 				ID:        generateRunID(),
-				Output:    strings.TrimSpace(string(output)),
+				Output:    strings.TrimSpace(crashOutput),
 				SessionID: sessionID,
 				CrashInfo: crashInfo,
 			}, nil
@@ -596,7 +603,14 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 
 		// Check if this is a crash (signal termination)
 		if IsCrash(cmdErr) {
-			crashInfo := ExtractCrashInfo(cmdErr, allOutput.String())
+			// Fallback: if streamed output is empty (SIGKILL broke pipes),
+			// try fetching container logs directly from Podman
+			crashOutput := allOutput.String()
+			if strings.TrimSpace(crashOutput) == "" {
+				crashOutput = fetchContainerLogs(containerName, 4000)
+			}
+
+			crashInfo := ExtractCrashInfo(cmdErr, crashOutput)
 			tracing.AddSpanAttributes(ctx,
 				"runner.crash", true,
 				"runner.crash_signal", crashInfo.Signal,
@@ -608,7 +622,7 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 			// Return result with crash info instead of error
 			return &Result{
 				ID:        generateRunID(),
-				Output:    strings.TrimSpace(allOutput.String()),
+				Output:    strings.TrimSpace(crashOutput),
 				SessionID: sessionID,
 				CrashInfo: crashInfo,
 			}, nil

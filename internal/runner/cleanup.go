@@ -9,6 +9,27 @@ import (
 	"time"
 )
 
+// fetchContainerLogs retrieves the last maxBytes of logs from a container.
+// Used as a fallback when CombinedOutput() returns empty after a crash/timeout
+// (SIGKILL on the podman process can break the stdout relay before output is captured).
+func fetchContainerLogs(containerName string, maxBytes int) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "podman", "logs", "--tail", "200", containerName)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		slog.Debug("Failed to fetch container logs as crash output fallback", "name", containerName, "error", err)
+		return ""
+	}
+
+	logs := strings.TrimSpace(string(out))
+	if len(logs) > maxBytes {
+		return "..." + logs[len(logs)-maxBytes:]
+	}
+	return logs
+}
+
 // removeContainer force-removes a container by name.
 // Called via defer after execution to ensure cleanup even when --rm fails
 // (e.g. after SIGKILL from timeout or OOM). Errors are logged but not returned
