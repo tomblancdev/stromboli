@@ -10,13 +10,15 @@ import (
 	"github.com/gin-gonic/gin"
 	"stromboli/internal/job"
 	"stromboli/internal/runner"
+	"stromboli/internal/session"
 	"stromboli/internal/webhook"
 )
 
 // AsyncRunResponse represents the response from starting an async run
 // @Description Response from starting an async Claude execution
 type AsyncRunResponse struct {
-	JobID string `json:"job_id" example:"job-abc123def456"`
+	JobID     string `json:"job_id" example:"job-abc123def456"`
+	SessionID string `json:"session_id" example:"550e8400-e29b-41d4-a716-446655440000"`
 }
 
 // JobResponse represents a job status response
@@ -61,8 +63,17 @@ func (s *Server) runAsync(c *gin.Context) {
 	}
 
 	jobID := generateJobID()
+
+	// Pre-generate session_id so it can be returned immediately for real-time tracking.
+	// If the caller provided one, use it; otherwise generate a new UUID.
+	sessionID := req.Claude.SessionID
+	if sessionID == "" {
+		sessionID = session.GenerateID()
+		req.Claude.SessionID = sessionID
+	}
+
 	s.jobMgr.Create(jobID)
-	s.jobMgr.Update(jobID, job.StatusRunning, "", "", "")
+	s.jobMgr.Update(jobID, job.StatusRunning, "", "", sessionID)
 
 	runnerReq := buildRunnerRequest(req)
 	webhookURL := req.WebhookURL
@@ -124,7 +135,8 @@ func (s *Server) runAsync(c *gin.Context) {
 	})
 
 	c.JSON(http.StatusAccepted, AsyncRunResponse{
-		JobID: jobID,
+		JobID:     jobID,
+		SessionID: sessionID,
 	})
 }
 
