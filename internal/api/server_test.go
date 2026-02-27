@@ -278,6 +278,66 @@ func TestRun_Success(t *testing.T) {
 	assert.Equal(t, "session-456", response.SessionID)
 }
 
+func TestRun_WithStructuredOutput(t *testing.T) {
+	// Claude CLI envelope with json_schema: result is empty, data in structured_output
+	envelopeOutput := `{"type":"result","subtype":"success","result":"","structured_output":{"answer":4}}`
+
+	mockRunner := &runner.MockRunner{
+		RunFunc: func(ctx context.Context, req runner.Request) (*runner.Result, error) {
+			return &runner.Result{ID: "run-so", Output: envelopeOutput, SessionID: "sess-so"}, nil
+		},
+	}
+
+	server := newTestServer(t, mockRunner, true)
+
+	body := bytes.NewBufferString(`{"prompt": "what is 2+2?", "claude": {"output_format": "json", "json_schema": "{}"}}`)
+	req, err := http.NewRequest(http.MethodPost, "/run", body)
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+
+	rec := httptest.NewRecorder()
+	server.router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response map[string]interface{}
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	// Raw output should still be present
+	assert.Equal(t, envelopeOutput, response["output"])
+	// Structured output should be extracted from the envelope
+	so, ok := response["structured_output"].(map[string]interface{})
+	require.True(t, ok, "structured_output should be a JSON object")
+	assert.Equal(t, float64(4), so["answer"])
+}
+
+func TestExtractStructuredOutput(t *testing.T) {
+	tests := []struct {
+		name     string
+		output   string
+		wantNil  bool
+		wantJSON string
+	}{
+		{"with structured_output", `{"result":"","structured_output":{"answer":4}}`, false, `{"answer":4}`},
+		{"without structured_output", `{"result":"hello"}`, true, ""},
+		{"plain text output", "Hello world", true, ""},
+		{"null structured_output", `{"result":"ok","structured_output":null}`, true, ""},
+		{"empty string", "", true, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractStructuredOutput(tt.output)
+			if tt.wantNil {
+				assert.Nil(t, result)
+			} else {
+				assert.JSONEq(t, tt.wantJSON, string(result))
+			}
+		})
+	}
+}
+
 func TestRun_WithWorkdir(t *testing.T) {
 	var capturedReq runner.Request
 	mockRunner := &runner.MockRunner{

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 
@@ -24,14 +25,15 @@ type AsyncRunResponse struct {
 // JobResponse represents a job status response
 // @Description Job status and result
 type JobResponse struct {
-	ID        string          `json:"id" example:"job-abc123def456"`
-	Status    job.Status      `json:"status" example:"running"`
-	Output    string          `json:"output,omitempty" example:"Hello!"`
-	Error     string          `json:"error,omitempty"`
-	SessionID string          `json:"session_id,omitempty" example:"sess-abc123def456"`
-	CrashInfo *job.CrashInfo  `json:"crash_info,omitempty"`
-	CreatedAt string          `json:"created_at" example:"2024-01-15T10:30:00Z"`
-	UpdatedAt string          `json:"updated_at" example:"2024-01-15T10:31:00Z"`
+	ID               string          `json:"id" example:"job-abc123def456"`
+	Status           job.Status      `json:"status" example:"running"`
+	Output           string          `json:"output,omitempty" example:"Hello!"`
+	StructuredOutput json.RawMessage `json:"structured_output,omitempty"`
+	Error            string          `json:"error,omitempty"`
+	SessionID        string          `json:"session_id,omitempty" example:"sess-abc123def456"`
+	CrashInfo        *job.CrashInfo  `json:"crash_info,omitempty"`
+	CreatedAt        string          `json:"created_at" example:"2024-01-15T10:30:00Z"`
+	UpdatedAt        string          `json:"updated_at" example:"2024-01-15T10:31:00Z"`
 }
 
 // JobListResponse represents a list of jobs
@@ -162,14 +164,15 @@ func (s *Server) getJob(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, JobResponse{
-		ID:        j.ID,
-		Status:    j.Status,
-		Output:    j.Output,
-		Error:     j.Error,
-		SessionID: j.SessionID,
-		CrashInfo: j.CrashInfo,
-		CreatedAt: j.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt: j.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		ID:               j.ID,
+		Status:           j.Status,
+		Output:           j.Output,
+		StructuredOutput: extractStructuredOutput(j.Output),
+		Error:            j.Error,
+		SessionID:        j.SessionID,
+		CrashInfo:        j.CrashInfo,
+		CreatedAt:        j.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:        j.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	})
 }
 
@@ -188,14 +191,15 @@ func (s *Server) listJobs(c *gin.Context) {
 	}
 	for _, j := range jobs {
 		resp.Jobs = append(resp.Jobs, &JobResponse{
-			ID:        j.ID,
-			Status:    j.Status,
-			Output:    j.Output,
-			Error:     j.Error,
-			SessionID: j.SessionID,
-			CrashInfo: j.CrashInfo,
-			CreatedAt: j.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-			UpdatedAt: j.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			ID:               j.ID,
+			Status:           j.Status,
+			Output:           j.Output,
+			StructuredOutput: extractStructuredOutput(j.Output),
+			Error:            j.Error,
+			SessionID:        j.SessionID,
+			CrashInfo:        j.CrashInfo,
+			CreatedAt:        j.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			UpdatedAt:        j.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		})
 	}
 

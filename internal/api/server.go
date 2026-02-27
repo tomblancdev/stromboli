@@ -210,10 +210,11 @@ func (s *Server) runClaude(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, RunResponse{
-		ID:        result.ID,
-		Status:    "completed",
-		Output:    result.Output,
-		SessionID: result.SessionID,
+		ID:               result.ID,
+		Status:           "completed",
+		Output:           result.Output,
+		StructuredOutput: extractStructuredOutput(result.Output),
+		SessionID:        result.SessionID,
 	})
 }
 
