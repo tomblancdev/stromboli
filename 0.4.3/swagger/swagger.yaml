@@ -1,0 +1,1618 @@
+basePath: /
+definitions:
+  internal_api.AsyncRunResponse:
+    description: Response from starting an async Claude execution
+    properties:
+      job_id:
+        example: job-abc123def456
+        type: string
+      session_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+    type: object
+  internal_api.ClaudeStatusResponse:
+    description: Claude configuration status
+    properties:
+      configured:
+        example: true
+        type: boolean
+      message:
+        example: Claude is configured
+        type: string
+    type: object
+  internal_api.ComponentHealth:
+    properties:
+      error:
+        description: Error message if status is "error"
+        example: ""
+        type: string
+      name:
+        description: Name of the component
+        example: podman
+        type: string
+      status:
+        description: Status is "ok" or "error"
+        example: ok
+        type: string
+    type: object
+  internal_api.CreateSecretRequest:
+    description: Request to create a new Podman secret
+    properties:
+      name:
+        example: github-token
+        type: string
+      value:
+        example: ghp_xxxxxxxxxxxx
+        type: string
+    required:
+    - name
+    - value
+    type: object
+  internal_api.CreateSecretResponse:
+    description: Result of secret creation
+    properties:
+      error:
+        type: string
+      name:
+        example: github-token
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  internal_api.DeleteSecretResponse:
+    description: Result of secret deletion
+    properties:
+      error:
+        type: string
+      name:
+        example: github-token
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  internal_api.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  internal_api.HealthResponse:
+    description: Health check response
+    properties:
+      components:
+        items:
+          $ref: '#/definitions/internal_api.ComponentHealth'
+        type: array
+      name:
+        example: stromboli
+        type: string
+      status:
+        example: ok
+        type: string
+      version:
+        example: 0.1.4
+        type: string
+    type: object
+  internal_api.ImageDetailResponse:
+    description: Detailed container image information including labels
+    properties:
+      compatibility_rank:
+        example: 3
+        type: integer
+      compatible:
+        example: true
+        type: boolean
+      created:
+        example: "2024-01-15T10:30:00Z"
+        type: string
+      description:
+        example: Python development image
+        type: string
+      has_claude_cli:
+        example: false
+        type: boolean
+      id:
+        example: sha256:abc123def456
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      rank_description:
+        example: Standard glibc-based (compatible)
+        type: string
+      repository:
+        example: python
+        type: string
+      size:
+        example: 125000000
+        type: integer
+      tag:
+        example: 3.12-slim
+        type: string
+      tools:
+        example:
+        - python
+        - pip
+        items:
+          type: string
+        type: array
+    type: object
+  internal_api.ImageInfoResponse:
+    description: Container image metadata with compatibility information
+    properties:
+      compatibility_rank:
+        example: 3
+        type: integer
+      compatible:
+        example: true
+        type: boolean
+      created:
+        example: "2024-01-15T10:30:00Z"
+        type: string
+      description:
+        example: Python development image
+        type: string
+      has_claude_cli:
+        example: false
+        type: boolean
+      id:
+        example: sha256:abc123def456
+        type: string
+      repository:
+        example: python
+        type: string
+      size:
+        example: 125000000
+        type: integer
+      tag:
+        example: 3.12-slim
+        type: string
+      tools:
+        example:
+        - python
+        - pip
+        items:
+          type: string
+        type: array
+    type: object
+  internal_api.ImagePullRequest:
+    description: Request to pull a container image from a registry
+    properties:
+      image:
+        example: python:3.12-slim
+        type: string
+      platform:
+        example: linux/amd64
+        type: string
+      quiet:
+        example: true
+        type: boolean
+    required:
+    - image
+    type: object
+  internal_api.ImagePullResponse:
+    description: Result of image pull operation
+    properties:
+      image:
+        example: python:3.12-slim
+        type: string
+      image_id:
+        example: sha256:abc123def456
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  internal_api.ImageSearchResponse:
+    description: Search results from container registries
+    properties:
+      results:
+        items:
+          $ref: '#/definitions/internal_api.SearchResultResponse'
+        type: array
+    type: object
+  internal_api.ImagesListResponse:
+    description: List of local container images sorted by compatibility
+    properties:
+      images:
+        items:
+          $ref: '#/definitions/internal_api.ImageInfoResponse'
+        type: array
+    type: object
+  internal_api.JobListResponse:
+    description: List of async jobs
+    properties:
+      jobs:
+        items:
+          $ref: '#/definitions/internal_api.JobResponse'
+        type: array
+    type: object
+  internal_api.JobResponse:
+    description: Job status and result
+    properties:
+      crash_info:
+        $ref: '#/definitions/stromboli_internal_job.CrashInfo'
+      created_at:
+        example: "2024-01-15T10:30:00Z"
+        type: string
+      error:
+        type: string
+      id:
+        example: job-abc123def456
+        type: string
+      output:
+        example: Hello!
+        type: string
+      session_id:
+        example: sess-abc123def456
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/stromboli_internal_job.Status'
+        example: running
+      structured_output:
+        type: object
+      updated_at:
+        example: "2024-01-15T10:31:00Z"
+        type: string
+    type: object
+  internal_api.LogoutResponse:
+    properties:
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  internal_api.RefreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  internal_api.RunRequest:
+    description: Request to execute Claude Code in an isolated container
+    properties:
+      claude:
+        allOf:
+        - $ref: '#/definitions/stromboli_internal_types.ClaudeOptions'
+        description: Claude configuration - all CLI options exposed
+      podman:
+        allOf:
+        - $ref: '#/definitions/stromboli_internal_types.PodmanOptions'
+        description: Podman configuration
+      prompt:
+        description: 'Required: the prompt to send to Claude'
+        example: Analyze this code and suggest improvements
+        type: string
+      webhook_url:
+        description: Webhook URL to notify when job completes (async only)
+        example: https://example.com/webhook
+        type: string
+      workdir:
+        description: |-
+          Working directory inside the container where Claude will spawn
+          Use podman.volumes to mount host paths into the container
+        example: /workspace
+        type: string
+    required:
+    - prompt
+    type: object
+  internal_api.RunResponse:
+    description: Response from Claude execution
+    properties:
+      crash_info:
+        allOf:
+        - $ref: '#/definitions/stromboli_internal_job.CrashInfo'
+        description: Crash details (when status is "crashed")
+      error:
+        description: Error message (when failed)
+        example: ""
+        type: string
+      id:
+        description: Unique run identifier
+        example: run-abc123def456
+        type: string
+      output:
+        description: Claude's raw output (full CLI output, including JSON envelope
+          when output_format=json)
+        example: Here is my analysis...
+        type: string
+      session_id:
+        description: Session ID for conversation continuation
+        example: sess-abc123def456
+        type: string
+      status:
+        description: 'Execution status: completed, crashed, error'
+        example: completed
+        type: string
+      structured_output:
+        description: |-
+          Extracted structured_output from Claude's JSON envelope (when json_schema is used).
+          Convenience field so callers don't need to parse the envelope themselves.
+        type: object
+    type: object
+  internal_api.SearchResultResponse:
+    description: Search result from a container registry
+    properties:
+      automated:
+        example: false
+        type: boolean
+      description:
+        example: Python is an interpreted programming language
+        type: string
+      index:
+        example: docker.io
+        type: string
+      name:
+        example: python
+        type: string
+      official:
+        example: true
+        type: boolean
+      stars:
+        example: 8500
+        type: integer
+    type: object
+  internal_api.SecretInfoResponse:
+    description: Secret metadata (never contains the actual secret value)
+    properties:
+      created_at:
+        example: "2024-01-15T10:30:00Z"
+        type: string
+      id:
+        example: abc123def456
+        type: string
+      name:
+        example: github-token
+        type: string
+    type: object
+  internal_api.SecretsListResponse:
+    description: List of available secrets that can be injected into agents
+    properties:
+      error:
+        type: string
+      secrets:
+        items:
+          $ref: '#/definitions/internal_api.SecretInfoResponse'
+        type: array
+    type: object
+  internal_api.SessionDestroyResponse:
+    description: Result of session destruction
+    properties:
+      error:
+        type: string
+      session_id:
+        example: sess-abc123
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  internal_api.SessionListResponse:
+    description: List of existing sessions
+    properties:
+      error:
+        type: string
+      sessions:
+        example:
+        - sess-abc123
+        - sess-def456
+        items:
+          type: string
+        type: array
+    type: object
+  internal_api.SessionMessageResponse:
+    description: A single message from session history
+    properties:
+      error:
+        type: string
+      message:
+        $ref: '#/definitions/stromboli_internal_history.Message'
+    type: object
+  internal_api.SessionMessagesResponse:
+    description: Paginated list of session messages
+    properties:
+      has_more:
+        type: boolean
+      limit:
+        type: integer
+      messages:
+        items:
+          $ref: '#/definitions/stromboli_internal_history.Message'
+        type: array
+      offset:
+        type: integer
+      total:
+        type: integer
+    type: object
+  internal_api.TokenRequest:
+    properties:
+      client_id:
+        type: string
+    required:
+    - client_id
+    type: object
+  internal_api.TokenResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+      token_type:
+        type: string
+    type: object
+  internal_api.ValidateResponse:
+    properties:
+      expires_at:
+        type: integer
+      subject:
+        type: string
+      valid:
+        type: boolean
+    type: object
+  stromboli_internal_history.ContentBlock:
+    description: A content block (text, tool_use, or tool_result)
+    properties:
+      content:
+        description: Tool result content (for tool_result)
+        example: |-
+          file1.txt
+          file2.txt
+        type: string
+      id:
+        description: Tool use ID (for tool_use and tool_result)
+        example: toolu_01G5uAJ4YZ26yyJbXNnG2byM
+        type: string
+      input:
+        additionalProperties: {}
+        description: Tool input (for tool_use)
+        type: object
+      is_error:
+        description: Whether tool execution errored
+        example: false
+        type: boolean
+      name:
+        description: Tool name (for tool_use)
+        example: Bash
+        type: string
+      text:
+        description: Text content (for text blocks)
+        example: I'll help you with that.
+        type: string
+      tool_use_id:
+        description: Tool use ID reference (for tool_result)
+        example: toolu_01G5uAJ4YZ26yyJbXNnG2byM
+        type: string
+      type:
+        description: 'Block type: text, tool_use, tool_result'
+        example: tool_use
+        type: string
+    type: object
+  stromboli_internal_history.Message:
+    description: A message in the conversation history
+    properties:
+      content:
+        allOf:
+        - $ref: '#/definitions/stromboli_internal_history.MessageContent'
+        description: The actual message content
+      cwd:
+        description: Working directory at time of message
+        example: /workspace
+        type: string
+      git_branch:
+        description: Git branch at time of message
+        example: main
+        type: string
+      parent_uuid:
+        description: Parent message UUID for threading
+        example: 92242819-b7d1-48d4-b023-6134c3e9f63a
+        type: string
+      permission_mode:
+        description: Permission mode active for this message
+        example: bypassPermissions
+        type: string
+      session_id:
+        description: Session ID this message belongs to
+        example: c7518652-f0ea-436e-9143-327085022abd
+        type: string
+      timestamp:
+        description: Timestamp when the message was created
+        example: "2026-01-24T10:06:42.906Z"
+        type: string
+      tool_result:
+        allOf:
+        - $ref: '#/definitions/stromboli_internal_history.ToolResult'
+        description: Tool use result (for tool_result messages)
+      type:
+        allOf:
+        - $ref: '#/definitions/stromboli_internal_history.MessageType'
+        description: 'Message type: user, assistant, queue-operation'
+        example: assistant
+      uuid:
+        description: Unique identifier for this message
+        example: 40adde19-546a-43e8-ad25-31ef4faa4112
+        type: string
+      version:
+        description: Claude Code version
+        example: 2.1.19
+        type: string
+    type: object
+  stromboli_internal_history.MessageContent:
+    description: Message content with role and content blocks
+    properties:
+      content:
+        description: Content blocks (text, tool_use, tool_result)
+        items:
+          $ref: '#/definitions/stromboli_internal_history.ContentBlock'
+        type: array
+      message_id:
+        description: Message ID from API
+        example: msg_017ETE4Wk32ZXAQJp3GXP1Bo
+        type: string
+      model:
+        description: Model used (for assistant messages)
+        example: claude-opus-4-5-20251101
+        type: string
+      role:
+        description: 'Role: user or assistant'
+        example: assistant
+        type: string
+      stop_reason:
+        description: Stop reason (for assistant messages)
+        example: end_turn
+        type: string
+      usage:
+        allOf:
+        - $ref: '#/definitions/stromboli_internal_history.Usage'
+        description: Token usage
+    type: object
+  stromboli_internal_history.MessageType:
+    enum:
+    - user
+    - assistant
+    - queue-operation
+    type: string
+    x-enum-varnames:
+    - MessageTypeUser
+    - MessageTypeAssistant
+    - MessageTypeSystem
+  stromboli_internal_history.ToolResult:
+    description: Detailed result of a tool execution
+    properties:
+      interrupted:
+        description: Whether execution was interrupted
+        example: false
+        type: boolean
+      is_image:
+        description: Whether result is an image
+        example: false
+        type: boolean
+      stderr:
+        description: Standard error
+        example: ""
+        type: string
+      stdout:
+        description: Standard output
+        example: |-
+          file1.txt
+          file2.txt
+        type: string
+    type: object
+  stromboli_internal_history.Usage:
+    description: Token usage statistics
+    properties:
+      cache_creation_input_tokens:
+        example: 336
+        type: integer
+      cache_read_input_tokens:
+        example: 18121
+        type: integer
+      input_tokens:
+        example: 150
+        type: integer
+      output_tokens:
+        example: 42
+        type: integer
+    type: object
+  stromboli_internal_job.CrashInfo:
+    properties:
+      exit_code:
+        description: Exit code (if available)
+        type: integer
+      partial_output:
+        description: Partial output captured before crash
+        type: string
+      reason:
+        description: Human-readable crash reason
+        type: string
+      signal:
+        description: Signal that killed the process (SIGSEGV, SIGKILL, etc.)
+        type: string
+      task_completed:
+        description: Whether the task appeared to complete before crashing
+        type: boolean
+    type: object
+  stromboli_internal_job.Status:
+    enum:
+    - pending
+    - running
+    - completed
+    - failed
+    - crashed
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - StatusPending
+    - StatusRunning
+    - StatusCompleted
+    - StatusFailed
+    - StatusCrashed
+    - StatusCancelled
+  stromboli_internal_types.ClaudeOptions:
+    description: All available Claude CLI options for headless execution
+    properties:
+      add_dirs:
+        description: Additional directories for tool access
+        items:
+          type: string
+        type: array
+      agent:
+        description: Agent for current session
+        example: reviewer
+        type: string
+      agents:
+        additionalProperties: {}
+        description: Custom agents definition (JSON object)
+        type: object
+      allow_dangerously_skip_permissions:
+        description: Enable bypass as an option without enabling by default
+        example: false
+        type: boolean
+      allowed_tools:
+        description: Allowed tools with patterns (e.g., "Bash(git:*)")
+        example:
+        - Bash(git:*)
+        - Read
+        items:
+          type: string
+        type: array
+      append_system_prompt:
+        description: Append to default system prompt
+        example: Focus on security best practices
+        type: string
+      betas:
+        description: Beta headers for API requests
+        items:
+          type: string
+        type: array
+      continue:
+        description: Continue most recent conversation in workspace (ignores session_id)
+        example: false
+        type: boolean
+      dangerously_skip_permissions:
+        description: Bypass all permission checks (use in sandboxed environments only)
+        example: true
+        type: boolean
+      debug:
+        description: Debug mode with optional category filter
+        example: api,hooks
+        type: string
+      disable_slash_commands:
+        description: Disable all slash commands/skills
+        example: false
+        type: boolean
+      disallowed_tools:
+        description: Denied tools
+        example:
+        - Write
+        items:
+          type: string
+        type: array
+      fallback_model:
+        description: Fallback model when default is overloaded
+        example: haiku
+        type: string
+      files:
+        description: 'File resources (format: file_id:path)'
+        items:
+          type: string
+        type: array
+      fork_session:
+        description: Create new session ID when resuming
+        example: false
+        type: boolean
+      include_partial_messages:
+        description: Include partial message chunks (stream-json only)
+        example: false
+        type: boolean
+      input_format:
+        description: 'Input format: text, stream-json'
+        example: text
+        type: string
+      json_schema:
+        description: JSON Schema for structured output validation
+        example: '{"type":"object"}'
+        type: string
+      max_budget_usd:
+        description: Maximum dollar amount for API calls (pointer to distinguish 0
+          from unset)
+        example: 5
+        type: number
+      max_turns:
+        description: Maximum number of agentic turns (0 = unlimited, nil = use CLI
+          default)
+        example: 30
+        type: integer
+      mcp_configs:
+        description: MCP server config files or JSON strings
+        items:
+          type: string
+        type: array
+      model:
+        description: Model alias (sonnet, opus, haiku) or full name
+        example: sonnet
+        type: string
+      no_persistence:
+        description: Don't save session to disk
+        example: false
+        type: boolean
+      output_format:
+        description: 'Output format: text, json, stream-json'
+        example: json
+        type: string
+      permission_mode:
+        description: 'Permission mode: acceptEdits, bypassPermissions, default, delegate,
+          dontAsk, plan'
+        example: bypassPermissions
+        type: string
+      plugin_dirs:
+        description: Plugin directories
+        items:
+          type: string
+        type: array
+      replay_user_messages:
+        description: Re-emit user messages on stdout
+        example: false
+        type: boolean
+      resume:
+        description: Resume an existing session (requires session_id)
+        example: true
+        type: boolean
+      session_id:
+        description: Session ID (UUID) - used for both new and resumed sessions
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      setting_sources:
+        description: 'Setting sources to load: user, project, local'
+        example:
+        - user
+        - project
+        items:
+          type: string
+        type: array
+      settings:
+        description: Path to settings JSON file or JSON string
+        type: string
+      strict_mcp_config:
+        description: Only use MCP servers from mcp_configs
+        example: false
+        type: boolean
+      system_prompt:
+        description: Replace default system prompt
+        example: You are a senior Go developer
+        type: string
+      tools:
+        description: Built-in tools ("", "default", or specific names)
+        example:
+        - Bash
+        - Read
+        - Edit
+        items:
+          type: string
+        type: array
+      verbose:
+        description: Enable verbose mode
+        example: false
+        type: boolean
+    type: object
+  stromboli_internal_types.EnvironmentConfig:
+    description: Runtime environment configuration (single container or compose)
+    properties:
+      build_timeout:
+        description: |-
+          Optional build timeout override for compose (e.g., "15m")
+          If not specified, uses server default (10m)
+        example: 15m
+        type: string
+      path:
+        description: |-
+          Path to compose file (required when type="compose")
+          Must be an absolute path ending in .yml or .yaml
+        example: /home/user/project/docker-compose.yml
+        type: string
+      service:
+        description: Service name where Claude will run (required when type="compose")
+        example: dev
+        type: string
+      type:
+        description: 'Type of environment: "" (default single container) or "compose"'
+        example: compose
+        type: string
+    type: object
+  stromboli_internal_types.LifecycleHooks:
+    description: Commands to run at specific container lifecycle stages
+    properties:
+      hooks_timeout:
+        description: |-
+          HooksTimeout is the maximum duration for all hooks combined (e.g., "5m", "30s").
+          If not specified, hooks run with the container's timeout.
+          This is useful to prevent long-running hooks from blocking the main command.
+        example: 5m
+        type: string
+      on_create_command:
+        description: |-
+          OnCreateCommand runs after container creation, before Claude starts (first run only).
+          Each element is a complete shell command string (devcontainer-style).
+          Example: ["apt-get update && apt-get install -y git", "pip install -r requirements.txt"]
+        example:
+        - pip install -r requirements.txt
+        items:
+          type: string
+        type: array
+      post_create:
+        description: |-
+          PostCreate runs after OnCreateCommand completes (first run only).
+          Each element is a complete shell command string (devcontainer-style).
+        example:
+        - npm run setup
+        items:
+          type: string
+        type: array
+      post_start:
+        description: |-
+          PostStart runs after container starts (every run, including continues).
+          Each element is a complete shell command string (devcontainer-style).
+        example:
+        - redis-server --daemonize yes
+        items:
+          type: string
+        type: array
+    type: object
+  stromboli_internal_types.PodmanOptions:
+    description: Podman container mount configuration
+    properties:
+      cpu_shares:
+        description: CPU shares (relative weight, default 1024; pointer to distinguish
+          0 from unset)
+        example: 512
+        type: integer
+      cpus:
+        description: CPU limit (e.g., "0.5", "2")
+        example: "1"
+        type: string
+      environment:
+        allOf:
+        - $ref: '#/definitions/stromboli_internal_types.EnvironmentConfig'
+        description: |-
+          Environment specifies a compose-based multi-service environment.
+          When set, the agent runs inside the specified service of the compose stack
+          instead of a standalone container.
+      image:
+        description: Container image override (must match allowed patterns)
+        example: python:3.12
+        type: string
+      lifecycle:
+        allOf:
+        - $ref: '#/definitions/stromboli_internal_types.LifecycleHooks'
+        description: Lifecycle hooks for running commands at specific container events
+      memory:
+        description: Memory limit (e.g., "512m", "1g")
+        example: 512m
+        type: string
+      secrets_env:
+        additionalProperties:
+          type: string
+        description: |-
+          Secrets to inject as environment variables (env_var_name -> podman_secret_name)
+          The Podman secret must exist beforehand (created via `podman secret create`)
+          Example: {"GH_TOKEN": "github-token"} mounts secret "github-token" as env var GH_TOKEN
+        type: object
+      timeout:
+        description: Container timeout (e.g., "5m", "1h", "30s")
+        example: 5m
+        type: string
+      volumes:
+        description: Volume mounts (host:container or host:container:options format)
+        example:
+        - /data:/data:ro
+        items:
+          type: string
+        type: array
+    type: object
+host: localhost:8080
+info:
+  contact:
+    name: API Support
+    url: https://stromboli/issues
+  description: Claude Code container orchestration API - secure, isolated AI execution
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: https://github.com/tomblanc/stromboli
+  title: Stromboli API
+  version: "1.0"
+paths:
+  /auth/logout:
+    post:
+      description: Invalidates a JWT token by adding it to the blacklist
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.LogoutResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Logout (invalidate token)
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Generate a new access token using a valid refresh token
+      parameters:
+      - description: Refresh request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.TokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      summary: Refresh access token
+      tags:
+      - auth
+  /auth/token:
+    post:
+      consumes:
+      - application/json
+      description: Generate new JWT access and refresh tokens using API credentials
+      parameters:
+      - description: Token request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.TokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.TokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Generate JWT tokens
+      tags:
+      - auth
+  /auth/validate:
+    get:
+      description: Validate a JWT token and return its claims
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.ValidateResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Validate JWT token
+      tags:
+      - auth
+  /claude/status:
+    get:
+      description: Checks if Claude credentials are configured
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.ClaudeStatusResponse'
+      summary: Claude status
+      tags:
+      - system
+  /health:
+    get:
+      description: Returns the health status of the API with component checks
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.HealthResponse'
+      summary: Health check
+      tags:
+      - system
+  /images:
+    get:
+      description: Returns all local container images sorted by compatibility rank.
+        Images with rank 1-2 are verified compatible, rank 3 is standard glibc (compatible),
+        rank 4 is incompatible (Alpine/musl).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of images (empty array if none exist)
+          schema:
+            $ref: '#/definitions/internal_api.ImagesListResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      summary: List images
+      tags:
+      - images
+  /images/{name}:
+    get:
+      description: Returns detailed information about a specific container image including
+        all labels and compatibility information.
+      parameters:
+      - description: Image name with optional tag
+        example: python:3.12-slim
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Image details
+          schema:
+            $ref: '#/definitions/internal_api.ImageDetailResponse'
+        "400":
+          description: Invalid image name
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "404":
+          description: Image not found
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      summary: Inspect image
+      tags:
+      - images
+  /images/pull:
+    post:
+      consumes:
+      - application/json
+      description: Pulls a container image from a registry. This operation may take
+        some time for large images.
+      parameters:
+      - description: Pull request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.ImagePullRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Image pulled successfully
+          schema:
+            $ref: '#/definitions/internal_api.ImagePullResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "500":
+          description: Pull failed
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      summary: Pull image
+      tags:
+      - images
+  /images/search:
+    get:
+      description: Searches container registries for images matching the query. Returns
+        results from Docker Hub and other configured registries.
+      parameters:
+      - description: Search query
+        example: python
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: Maximum number of results (default 25, max 100)
+        example: 10
+        in: query
+        name: limit
+        type: integer
+      - description: Don't truncate output (show full descriptions)
+        example: true
+        in: query
+        name: no_trunc
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Search results
+          schema:
+            $ref: '#/definitions/internal_api.ImageSearchResponse'
+        "400":
+          description: Invalid request (missing query)
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "502":
+          description: Registry search failed
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      summary: Search images
+      tags:
+      - images
+  /jobs:
+    get:
+      description: Returns all async jobs
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.JobListResponse'
+      summary: List jobs
+      tags:
+      - jobs
+  /jobs/{id}:
+    delete:
+      description: Cancels a pending or running job
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Job not found
+          schema:
+            $ref: '#/definitions/internal_api.RunResponse'
+        "409":
+          description: Job cannot be cancelled
+          schema:
+            $ref: '#/definitions/internal_api.RunResponse'
+      summary: Cancel job
+      tags:
+      - jobs
+    get:
+      description: Returns the status and result of an async job
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.JobResponse'
+        "404":
+          description: Job not found
+          schema:
+            $ref: '#/definitions/internal_api.RunResponse'
+      summary: Get job status
+      tags:
+      - jobs
+  /run:
+    post:
+      consumes:
+      - application/json
+      description: Executes Claude Code in an isolated Podman container
+      parameters:
+      - description: Run request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.RunRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.RunResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_api.RunResponse'
+        "500":
+          description: Execution failed
+          schema:
+            $ref: '#/definitions/internal_api.RunResponse'
+        "503":
+          description: Claude not configured
+          schema:
+            $ref: '#/definitions/internal_api.RunResponse'
+      summary: Run Claude
+      tags:
+      - execution
+  /run/async:
+    post:
+      consumes:
+      - application/json
+      description: Starts Claude Code execution asynchronously and returns a job ID
+      parameters:
+      - description: Run request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.RunRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/internal_api.AsyncRunResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_api.RunResponse'
+        "503":
+          description: Claude not configured
+          schema:
+            $ref: '#/definitions/internal_api.RunResponse'
+      summary: Run Claude async
+      tags:
+      - execution
+  /run/stream:
+    get:
+      consumes:
+      - application/json
+      description: Executes Claude and streams output in real-time using SSE
+      parameters:
+      - description: The prompt to send to Claude
+        in: query
+        name: prompt
+        required: true
+        type: string
+      - description: Working directory inside container
+        in: query
+        name: workdir
+        type: string
+      - description: Session ID for conversation continuation
+        in: query
+        name: session_id
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: Event stream of output lines
+          schema:
+            type: string
+        "400":
+          description: Invalid request
+          schema:
+            type: string
+        "503":
+          description: Claude not configured
+          schema:
+            type: string
+      summary: Stream Claude output
+      tags:
+      - execution
+  /secrets:
+    get:
+      description: Returns metadata for all available Podman secrets that can be injected
+        into agents. Secret values are never returned - only IDs, names, and creation
+        times.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of secrets (empty array if none exist)
+          schema:
+            $ref: '#/definitions/internal_api.SecretsListResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_api.SecretsListResponse'
+      summary: List secrets
+      tags:
+      - secrets
+    post:
+      consumes:
+      - application/json
+      description: Creates a new Podman secret that can be injected into agents. Secret
+        names must be alphanumeric (with dashes and underscores), max 253 characters.
+        Values are limited to 1MB.
+      parameters:
+      - description: Create secret request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.CreateSecretRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Secret created successfully
+          schema:
+            $ref: '#/definitions/internal_api.CreateSecretResponse'
+        "400":
+          description: Invalid request (missing/invalid name or value)
+          schema:
+            $ref: '#/definitions/internal_api.CreateSecretResponse'
+        "409":
+          description: Secret with this name already exists
+          schema:
+            $ref: '#/definitions/internal_api.CreateSecretResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_api.CreateSecretResponse'
+      summary: Create secret
+      tags:
+      - secrets
+  /secrets/{name}:
+    delete:
+      description: Permanently deletes a Podman secret. This action cannot be undone.
+        Secrets currently in use by running containers may cause those containers
+        to fail.
+      parameters:
+      - description: Secret name
+        example: github-token
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Secret deleted successfully
+          schema:
+            $ref: '#/definitions/internal_api.DeleteSecretResponse'
+        "400":
+          description: Invalid secret name
+          schema:
+            $ref: '#/definitions/internal_api.DeleteSecretResponse'
+        "404":
+          description: Secret not found
+          schema:
+            $ref: '#/definitions/internal_api.DeleteSecretResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_api.DeleteSecretResponse'
+      summary: Delete secret
+      tags:
+      - secrets
+    get:
+      description: Returns metadata about a specific Podman secret. For security,
+        the actual secret value is never returned - only the ID, name, and creation
+        time.
+      parameters:
+      - description: Secret name
+        example: github-token
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Secret metadata
+          schema:
+            $ref: '#/definitions/internal_api.SecretInfoResponse'
+        "400":
+          description: Invalid secret name
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "404":
+          description: Secret not found
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_api.ErrorResponse'
+      summary: Get secret metadata
+      tags:
+      - secrets
+  /sessions:
+    get:
+      description: Returns all existing session IDs
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.SessionListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_api.SessionListResponse'
+      summary: List sessions
+      tags:
+      - sessions
+  /sessions/{id}:
+    delete:
+      description: Removes a session and all its stored data
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.SessionDestroyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_api.SessionDestroyResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_api.SessionDestroyResponse'
+      summary: Destroy session
+      tags:
+      - sessions
+  /sessions/{id}/messages:
+    get:
+      description: Returns paginated conversation history for a session including
+        all messages, tool calls, and results
+      parameters:
+      - description: Session ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 'Offset for pagination (default: 0)'
+        in: query
+        name: offset
+        type: integer
+      - description: 'Number of messages to return (default: 50, max: 200)'
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.SessionMessagesResponse'
+        "400":
+          description: Invalid parameters
+          schema:
+            $ref: '#/definitions/internal_api.SessionMessagesResponse'
+        "404":
+          description: Session not found
+          schema:
+            $ref: '#/definitions/internal_api.SessionMessagesResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/internal_api.SessionMessagesResponse'
+      summary: List session messages
+      tags:
+      - sessions
+  /sessions/{id}/messages/{message_id}:
+    get:
+      description: Returns a specific message from session history by UUID, including
+        full content, tool calls, and results
+      parameters:
+      - description: Session ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Message UUID
+        in: path
+        name: message_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.SessionMessageResponse'
+        "400":
+          description: Invalid parameters
+          schema:
+            $ref: '#/definitions/internal_api.SessionMessageResponse'
+        "404":
+          description: Message not found
+          schema:
+            $ref: '#/definitions/internal_api.SessionMessageResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/internal_api.SessionMessageResponse'
+      summary: Get session message
+      tags:
+      - sessions
+securityDefinitions:
+  BearerAuth:
+    description: OAuth2 Bearer token (future)
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
