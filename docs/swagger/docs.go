@@ -1018,6 +1018,10 @@ const docTemplate = `{
                 "job_id": {
                     "type": "string",
                     "example": "job-abc123def456"
+                },
+                "session_id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
                 }
             }
         },
@@ -1362,6 +1366,12 @@ const docTemplate = `{
                     ],
                     "example": "running"
                 },
+                "structured_output": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "updated_at": {
                     "type": "string",
                     "example": "2024-01-15T10:31:00Z"
@@ -1445,7 +1455,7 @@ const docTemplate = `{
                     "example": "run-abc123def456"
                 },
                 "output": {
-                    "description": "Claude's output (when successful)",
+                    "description": "Claude's raw output (full CLI output, including JSON envelope when output_format=json)",
                     "type": "string",
                     "example": "Here is my analysis..."
                 },
@@ -1458,6 +1468,13 @@ const docTemplate = `{
                     "description": "Execution status: completed, error",
                     "type": "string",
                     "example": "completed"
+                },
+                "structured_output": {
+                    "description": "Extracted structured_output from Claude's JSON envelope (when json_schema is used).\nConvenience field so callers don't need to parse the envelope themselves.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 }
             }
         },
@@ -2013,9 +2030,14 @@ const docTemplate = `{
                     "example": "{\"type\":\"object\"}"
                 },
                 "max_budget_usd": {
-                    "description": "Maximum dollar amount for API calls",
+                    "description": "Maximum dollar amount for API calls (pointer to distinguish 0 from unset)",
                     "type": "number",
                     "example": 5
+                },
+                "max_turns": {
+                    "description": "Maximum number of agentic turns (0 = unlimited, nil = use CLI default)",
+                    "type": "integer",
+                    "example": 30
                 },
                 "mcp_configs": {
                     "description": "MCP server config files or JSON strings",
@@ -2182,7 +2204,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "cpu_shares": {
-                    "description": "CPU shares (relative weight, default 1024)",
+                    "description": "CPU shares (relative weight, default 1024; pointer to distinguish 0 from unset)",
                     "type": "integer",
                     "example": 512
                 },

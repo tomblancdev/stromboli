@@ -28,6 +28,7 @@ sequenceDiagram
 4. **Claude CLI gets mounted** into the container from a separate CLI image. This means any glibc-based image works as a base.
 5. **Claude runs your prompt** inside the container, with access to whatever volumes you mounted.
 6. **Output comes back** as JSON, including a `session_id` you can use to continue the conversation later.
+7. **Container is cleaned up** — force-removed after execution even if `--rm` fails (e.g. after OOM kill or timeout).
 
 ## The two-image architecture
 

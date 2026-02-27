@@ -102,7 +102,7 @@ sequenceDiagram
     C->>A: POST /run/async
     A->>J: CreateJob()
     J-->>A: job_id
-    A-->>C: {job_id, status: pending}
+    A-->>C: {job_id, session_id}
 
     J->>R: Run(ctx, request)
     Note over R: Runs in background

@@ -6,6 +6,9 @@ definitions:
       job_id:
         example: job-abc123def456
         type: string
+      session_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
     type: object
   internal_api.ClaudeStatusResponse:
     description: Claude configuration status
@@ -249,6 +252,10 @@ definitions:
         allOf:
         - $ref: '#/definitions/stromboli_internal_job.Status'
         example: running
+      structured_output:
+        items:
+          type: integer
+        type: array
       updated_at:
         example: "2024-01-15T10:31:00Z"
         type: string
@@ -307,7 +314,8 @@ definitions:
         example: run-abc123def456
         type: string
       output:
-        description: Claude's output (when successful)
+        description: Claude's raw output (full CLI output, including JSON envelope
+          when output_format=json)
         example: Here is my analysis...
         type: string
       session_id:
@@ -318,6 +326,13 @@ definitions:
         description: 'Execution status: completed, error'
         example: completed
         type: string
+      structured_output:
+        description: |-
+          Extracted structured_output from Claude's JSON envelope (when json_schema is used).
+          Convenience field so callers don't need to parse the envelope themselves.
+        items:
+          type: integer
+        type: array
     type: object
   internal_api.SearchResultResponse:
     description: Search result from a container registry
@@ -724,9 +739,15 @@ definitions:
         example: '{"type":"object"}'
         type: string
       max_budget_usd:
-        description: Maximum dollar amount for API calls
+        description: Maximum dollar amount for API calls (pointer to distinguish 0
+          from unset)
         example: 5
         type: number
+      max_turns:
+        description: Maximum number of agentic turns (0 = unlimited, nil = use CLI
+          default)
+        example: 30
+        type: integer
       mcp_configs:
         description: MCP server config files or JSON strings
         items:
@@ -866,7 +887,8 @@ definitions:
     description: Podman container mount configuration
     properties:
       cpu_shares:
-        description: CPU shares (relative weight, default 1024)
+        description: CPU shares (relative weight, default 1024; pointer to distinguish
+          0 from unset)
         example: 512
         type: integer
       cpus:

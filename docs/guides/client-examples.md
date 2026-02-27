@@ -182,8 +182,9 @@ type PodmanOptions struct {
 }
 
 type RunResponse struct {
-	Output    string `json:"output"`
-	SessionID string `json:"session_id"`
+	Output           string          `json:"output"`
+	StructuredOutput json.RawMessage `json:"structured_output,omitempty"`
+	SessionID        string          `json:"session_id"`
 }
 
 func (c *Client) Run(ctx context.Context, req *RunRequest) (*RunResponse, error) {
@@ -214,6 +215,12 @@ func (c *Client) Run(ctx context.Context, req *RunRequest) (*RunResponse, error)
 //     Workdir: "/workspace",
 //     Podman:  &PodmanOptions{Volumes: []string{"/home/user/project:/workspace"}},
 // })
+//
+// // When using json_schema, check structured_output:
+// if result.StructuredOutput != nil {
+//     var data MyStruct
+//     json.Unmarshal(result.StructuredOutput, &data)
+// }
 ```
 
 ## CI/CD code review
