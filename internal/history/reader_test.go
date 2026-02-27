@@ -195,6 +195,43 @@ func TestReader_ListMessages_WithToolUse(t *testing.T) {
 	assert.Equal(t, "file1.txt\nfile2.txt", resultMsg.ToolResult.Stdout)
 }
 
+func TestReader_FindSessionFile_DifferentWorkdirs(t *testing.T) {
+	tmpDir := t.TempDir()
+	reader := NewReader(tmpDir)
+
+	tests := []struct {
+		name       string
+		workdirDir string // the Claude-generated project folder name
+	}{
+		{"default workspace", "-workspace"},
+		{"custom project dir", "-project"},
+		{"tmp workdir", "-tmp"},
+		{"nested workdir", "-home-user-code"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sessionID := "session-" + tt.workdirDir
+
+			// Create session directory with the workdir-specific path
+			sessionDir := filepath.Join(tmpDir, sessionID, ".claude", "projects", tt.workdirDir)
+			require.NoError(t, os.MkdirAll(sessionDir, 0755))
+
+			// Write a JSONL file
+			jsonlFile := filepath.Join(sessionDir, sessionID+".jsonl")
+			testData := `{"type":"user","uuid":"uuid-1","sessionId":"` + sessionID + `","timestamp":"2026-01-24T10:00:00.000Z","message":{"role":"user","content":"Hello"}}
+`
+			require.NoError(t, os.WriteFile(jsonlFile, []byte(testData), 0644))
+
+			// Should find the session regardless of workdir folder name
+			result, err := reader.ListMessages(sessionID, 0, 50)
+			require.NoError(t, err)
+			assert.Equal(t, 1, result.Total)
+			assert.Equal(t, "uuid-1", result.Messages[0].UUID)
+		})
+	}
+}
+
 func TestReader_ListMessages_LimitEnforcement(t *testing.T) {
 	tmpDir := t.TempDir()
 	reader := NewReader(tmpDir)
