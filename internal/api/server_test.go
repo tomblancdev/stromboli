@@ -319,7 +319,9 @@ func TestExtractStructuredOutput(t *testing.T) {
 		wantNil  bool
 		wantJSON string
 	}{
-		{"with structured_output", `{"result":"","structured_output":{"answer":4}}`, false, `{"answer":4}`},
+		{"with structured_output object", `{"result":"","structured_output":{"answer":4}}`, false, `{"answer":4}`},
+		{"with structured_output array", `{"result":"","structured_output":[1,2,3]}`, false, `[1,2,3]`},
+		{"with structured_output string", `{"result":"","structured_output":"hello"}`, false, `"hello"`},
 		{"without structured_output", `{"result":"hello"}`, true, ""},
 		{"plain text output", "Hello world", true, ""},
 		{"null structured_output", `{"result":"ok","structured_output":null}`, true, ""},
