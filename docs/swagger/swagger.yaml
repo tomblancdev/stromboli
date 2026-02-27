@@ -253,9 +253,7 @@ definitions:
         - $ref: '#/definitions/stromboli_internal_job.Status'
         example: running
       structured_output:
-        items:
-          type: integer
-        type: array
+        type: object
       updated_at:
         example: "2024-01-15T10:31:00Z"
         type: string
@@ -305,6 +303,10 @@ definitions:
   internal_api.RunResponse:
     description: Response from Claude execution
     properties:
+      crash_info:
+        allOf:
+        - $ref: '#/definitions/stromboli_internal_job.CrashInfo'
+        description: Crash details (when status is "crashed")
       error:
         description: Error message (when failed)
         example: ""
@@ -323,16 +325,14 @@ definitions:
         example: sess-abc123def456
         type: string
       status:
-        description: 'Execution status: completed, error'
+        description: 'Execution status: completed, crashed, error'
         example: completed
         type: string
       structured_output:
         description: |-
           Extracted structured_output from Claude's JSON envelope (when json_schema is used).
           Convenience field so callers don't need to parse the envelope themselves.
-        items:
-          type: integer
-        type: array
+        type: object
     type: object
   internal_api.SearchResultResponse:
     description: Search result from a container registry

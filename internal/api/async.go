@@ -28,7 +28,7 @@ type JobResponse struct {
 	ID               string          `json:"id" example:"job-abc123def456"`
 	Status           job.Status      `json:"status" example:"running"`
 	Output           string          `json:"output,omitempty" example:"Hello!"`
-	StructuredOutput json.RawMessage `json:"structured_output,omitempty"`
+	StructuredOutput json.RawMessage `json:"structured_output,omitempty" swaggertype:"object"`
 	Error            string          `json:"error,omitempty"`
 	SessionID        string          `json:"session_id,omitempty" example:"sess-abc123def456"`
 	CrashInfo        *job.CrashInfo  `json:"crash_info,omitempty"`

@@ -1367,10 +1367,7 @@ const docTemplate = `{
                     "example": "running"
                 },
                 "structured_output": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "object"
                 },
                 "updated_at": {
                     "type": "string",
@@ -1444,6 +1441,14 @@ const docTemplate = `{
             "description": "Response from Claude execution",
             "type": "object",
             "properties": {
+                "crash_info": {
+                    "description": "Crash details (when status is \"crashed\")",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stromboli_internal_job.CrashInfo"
+                        }
+                    ]
+                },
                 "error": {
                     "description": "Error message (when failed)",
                     "type": "string",
@@ -1465,16 +1470,13 @@ const docTemplate = `{
                     "example": "sess-abc123def456"
                 },
                 "status": {
-                    "description": "Execution status: completed, error",
+                    "description": "Execution status: completed, crashed, error",
                     "type": "string",
                     "example": "completed"
                 },
                 "structured_output": {
                     "description": "Extracted structured_output from Claude's JSON envelope (when json_schema is used).\nConvenience field so callers don't need to parse the envelope themselves.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "object"
                 }
             }
         },

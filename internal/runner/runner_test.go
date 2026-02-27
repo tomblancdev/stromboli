@@ -110,7 +110,7 @@ func TestRun_WithClaudeOptions(t *testing.T) {
 	// but it verifies the options are processed
 	_, err = runner.Run(context.Background(), Request{
 		Prompt:    "hello",
-		Workspace: "/project",
+		Workdir: "/project",
 		Claude: types.ClaudeOptions{
 			SessionID:                  "sess-123",
 			Model:                      "opus",

@@ -7,15 +7,18 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"stromboli/internal/job"
 	"stromboli/internal/runner"
 	"stromboli/internal/types"
 )
 
 // StreamResponse represents the final SSE event with result metadata
 type StreamResponse struct {
-	ID        string `json:"id"`
-	SessionID string `json:"session_id"`
-	Status    string `json:"status"`
+	ID               string          `json:"id"`
+	SessionID        string          `json:"session_id"`
+	Status           string          `json:"status"`
+	StructuredOutput json.RawMessage `json:"structured_output,omitempty" swaggertype:"object"`
+	CrashInfo        *job.CrashInfo  `json:"crash_info,omitempty"`
 }
 
 // runStream handles streaming Claude output via Server-Sent Events
@@ -112,10 +115,18 @@ waitForResult:
 	select {
 	case result := <-resultChan:
 		// Send final event with metadata
+		status := "completed"
+		var crashInfo *job.CrashInfo
+		if result.CrashInfo != nil {
+			status = "crashed"
+			crashInfo = result.CrashInfo
+		}
 		response := StreamResponse{
-			ID:        result.ID,
-			SessionID: result.SessionID,
-			Status:    "completed",
+			ID:               result.ID,
+			SessionID:        result.SessionID,
+			Status:           status,
+			StructuredOutput: extractStructuredOutput(result.Output),
+			CrashInfo:        crashInfo,
 		}
 
 		data, err := json.Marshal(response)

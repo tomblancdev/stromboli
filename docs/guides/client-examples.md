@@ -173,8 +173,9 @@ type RunRequest struct {
 }
 
 type ClaudeOptions struct {
-	Model        string  `json:"model,omitempty"`
-	MaxBudgetUSD float64 `json:"max_budget_usd,omitempty"`
+	Model        string   `json:"model,omitempty"`
+	MaxBudgetUSD *float64 `json:"max_budget_usd,omitempty"`
+	MaxTurns     *int     `json:"max_turns,omitempty"`
 }
 
 type PodmanOptions struct {

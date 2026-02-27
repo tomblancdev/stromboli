@@ -84,7 +84,7 @@ Stream Claude output via Server-Sent Events.
 | Parameter | Type | Description |
 |---|---|---|
 | `prompt` | string | Required |
-| `workspace` | string | Workspace path |
+| `workdir` | string | Working directory inside container |
 | `session_id` | string | Session to resume |
 | `resume` | bool | Resume session |
 

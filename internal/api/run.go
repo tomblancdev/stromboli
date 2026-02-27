@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 
+	"stromboli/internal/job"
 	"stromboli/internal/types"
 )
 
@@ -47,17 +48,19 @@ type RunRequest struct {
 type RunResponse struct {
 	// Unique run identifier
 	ID string `json:"id" example:"run-abc123def456"`
-	// Execution status: completed, error
+	// Execution status: completed, crashed, error
 	Status string `json:"status" example:"completed"`
 	// Claude's raw output (full CLI output, including JSON envelope when output_format=json)
 	Output string `json:"output,omitempty" example:"Here is my analysis..."`
 	// Extracted structured_output from Claude's JSON envelope (when json_schema is used).
 	// Convenience field so callers don't need to parse the envelope themselves.
-	StructuredOutput json.RawMessage `json:"structured_output,omitempty"`
+	StructuredOutput json.RawMessage `json:"structured_output,omitempty" swaggertype:"object"`
 	// Error message (when failed)
 	Error string `json:"error,omitempty" example:""`
 	// Session ID for conversation continuation
 	SessionID string `json:"session_id,omitempty" example:"sess-abc123def456"`
+	// Crash details (when status is "crashed")
+	CrashInfo *job.CrashInfo `json:"crash_info,omitempty"`
 }
 
 // extractStructuredOutput parses Claude's JSON envelope and returns the

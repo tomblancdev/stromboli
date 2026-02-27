@@ -312,6 +312,48 @@ func TestRun_WithStructuredOutput(t *testing.T) {
 	assert.Equal(t, float64(4), so["answer"])
 }
 
+func TestRun_WithCrashInfo(t *testing.T) {
+	mockRunner := &runner.MockRunner{
+		RunFunc: func(ctx context.Context, req runner.Request) (*runner.Result, error) {
+			return &runner.Result{
+				ID:        "run-crash",
+				Output:    "partial output before crash",
+				SessionID: "sess-crash",
+				CrashInfo: &job.CrashInfo{
+					ExitCode:      137,
+					Signal:        "killed",
+					Reason:        "OOM killed",
+					PartialOutput: "partial output before crash",
+					TaskCompleted: false,
+				},
+			}, nil
+		},
+	}
+
+	server := newTestServer(t, mockRunner, true)
+
+	body := bytes.NewBufferString(`{"prompt": "heavy task"}`)
+	req, err := http.NewRequest(http.MethodPost, "/run", body)
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+
+	rec := httptest.NewRecorder()
+	server.router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response RunResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	assert.Equal(t, "crashed", response.Status)
+	assert.Equal(t, "partial output before crash", response.Output)
+	assert.NotNil(t, response.CrashInfo)
+	assert.Equal(t, 137, response.CrashInfo.ExitCode)
+	assert.Equal(t, "killed", response.CrashInfo.Signal)
+	assert.False(t, response.CrashInfo.TaskCompleted)
+}
+
 func TestExtractStructuredOutput(t *testing.T) {
 	tests := []struct {
 		name     string

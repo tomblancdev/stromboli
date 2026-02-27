@@ -194,7 +194,7 @@ curl -X POST http://localhost:8080/run \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "Create a new Go project structure",
-    "workspace": "/home/user/newproject"
+    "workdir": "/home/user/newproject"
   }'
 
 # Response includes: "session_id": "sess-abc123"
@@ -204,7 +204,7 @@ curl -X POST http://localhost:8080/run \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "Now add unit tests for the main package",
-    "workspace": "/home/user/newproject",
+    "workdir": "/home/user/newproject",
     "claude": {
       "session_id": "sess-abc123",
       "resume": true
