@@ -700,8 +700,8 @@ func (r *PodmanRunner) applyRequestConfig(req Request, podmanBuilder *podman.Com
 	if req.Podman.CPUs != "" {
 		podmanBuilder.WithCPUs(req.Podman.CPUs)
 	}
-	if req.Podman.CPUShares > 0 {
-		podmanBuilder.WithCPUShares(req.Podman.CPUShares)
+	if req.Podman.CPUShares != nil {
+		podmanBuilder.WithCPUShares(*req.Podman.CPUShares)
 	}
 
 	return nil
@@ -822,8 +822,11 @@ func (r *PodmanRunner) applyIOOptions(b *claude.CommandBuilder, opts types.Claud
 
 // applyResourceOptions handles MaxBudgetUSD, MCPConfigs, StrictMCPConfig, Agent, Agents, AddDirs, PluginDirs, Files, Settings, SettingSources, Betas options
 func (r *PodmanRunner) applyResourceOptions(b *claude.CommandBuilder, opts types.ClaudeOptions) {
-	if opts.MaxBudgetUSD > 0 {
-		b.WithMaxBudgetUSD(opts.MaxBudgetUSD)
+	if opts.MaxBudgetUSD != nil {
+		b.WithMaxBudgetUSD(*opts.MaxBudgetUSD)
+	}
+	if opts.MaxTurns != nil {
+		b.WithMaxTurns(*opts.MaxTurns)
 	}
 	if len(opts.MCPConfigs) > 0 {
 		b.WithMCPConfig(opts.MCPConfigs...)

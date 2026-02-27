@@ -371,7 +371,8 @@ func TestRun_WithAllClaudeOptions(t *testing.T) {
 	assert.Equal(t, []string{"Write"}, capturedReq.Claude.DisallowedTools)
 	assert.Equal(t, "bypassPermissions", capturedReq.Claude.PermissionMode)
 	assert.Equal(t, "json", capturedReq.Claude.OutputFormat)
-	assert.Equal(t, 5.00, capturedReq.Claude.MaxBudgetUSD)
+	require.NotNil(t, capturedReq.Claude.MaxBudgetUSD)
+	assert.Equal(t, 5.00, *capturedReq.Claude.MaxBudgetUSD)
 	assert.True(t, capturedReq.Claude.Verbose)
 	assert.Equal(t, []string{"/data:/data:ro"}, capturedReq.Podman.Volumes)
 }
