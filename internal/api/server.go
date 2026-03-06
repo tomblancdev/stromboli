@@ -216,6 +216,8 @@ func (s *Server) runClaude(c *gin.Context) {
 		crashInfo = result.CrashInfo
 	}
 
+	usage := s.historyHandler.SumUsage(result.SessionID)
+
 	c.JSON(http.StatusOK, RunResponse{
 		ID:               result.ID,
 		Status:           status,
@@ -223,6 +225,7 @@ func (s *Server) runClaude(c *gin.Context) {
 		StructuredOutput: extractStructuredOutput(result.Output),
 		SessionID:        result.SessionID,
 		CrashInfo:        crashInfo,
+		Usage:            usage,
 	})
 }
 

@@ -98,6 +98,17 @@ type Usage struct {
 	CacheReadInputTokens     int `json:"cache_read_input_tokens,omitempty" example:"18121"`
 }
 
+// UsageSummary contains aggregated token usage across all messages in a session
+// @Description Aggregated token usage for a session
+type UsageSummary struct {
+	InputTokens              int
+	OutputTokens             int
+	CacheCreationInputTokens int
+	CacheReadInputTokens     int
+	// Model is the model name from the most recent assistant message
+	Model string
+}
+
 // MessageList represents a paginated list of messages
 // @Description Paginated list of conversation messages
 type MessageList struct {

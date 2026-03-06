@@ -232,6 +232,68 @@ func TestReader_FindSessionFile_DifferentWorkdirs(t *testing.T) {
 	}
 }
 
+func TestReader_SumUsage_SessionNotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+	reader := NewReader(tmpDir)
+
+	_, err := reader.SumUsage("nonexistent-session")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "session history not found")
+}
+
+func TestReader_SumUsage_WithUsageData(t *testing.T) {
+	tmpDir := t.TempDir()
+	sessionID := "test-session-usage"
+
+	sessionDir := filepath.Join(tmpDir, sessionID, ".claude", "projects", "-workspace")
+	require.NoError(t, os.MkdirAll(sessionDir, 0755))
+
+	jsonlFile := filepath.Join(sessionDir, sessionID+".jsonl")
+	// Two assistant turns, each with usage data
+	testData := `{"type":"user","uuid":"u1","sessionId":"test-session-usage","timestamp":"2026-01-24T10:00:00.000Z","message":{"role":"user","content":"Hello"}}
+{"type":"assistant","uuid":"a1","sessionId":"test-session-usage","timestamp":"2026-01-24T10:00:01.000Z","message":{"role":"assistant","model":"claude-sonnet-4-5-20251101","id":"msg-1","content":[{"type":"text","text":"Hi!"}],"usage":{"input_tokens":100,"output_tokens":20,"cache_creation_input_tokens":50,"cache_read_input_tokens":0}}}
+{"type":"user","uuid":"u2","sessionId":"test-session-usage","timestamp":"2026-01-24T10:00:02.000Z","message":{"role":"user","content":"More?"}}
+{"type":"assistant","uuid":"a2","sessionId":"test-session-usage","timestamp":"2026-01-24T10:00:03.000Z","message":{"role":"assistant","model":"claude-sonnet-4-5-20251101","id":"msg-2","content":[{"type":"text","text":"Sure!"}],"usage":{"input_tokens":200,"output_tokens":30,"cache_creation_input_tokens":0,"cache_read_input_tokens":150}}}
+`
+	require.NoError(t, os.WriteFile(jsonlFile, []byte(testData), 0644))
+
+	reader := NewReader(tmpDir)
+
+	summary, err := reader.SumUsage(sessionID)
+	require.NoError(t, err)
+	require.NotNil(t, summary)
+	assert.Equal(t, 300, summary.InputTokens)
+	assert.Equal(t, 50, summary.OutputTokens)
+	assert.Equal(t, 50, summary.CacheCreationInputTokens)
+	assert.Equal(t, 150, summary.CacheReadInputTokens)
+	assert.Equal(t, "claude-sonnet-4-5-20251101", summary.Model)
+}
+
+func TestReader_SumUsage_NoUsageData(t *testing.T) {
+	tmpDir := t.TempDir()
+	sessionID := "test-session-no-usage"
+
+	sessionDir := filepath.Join(tmpDir, sessionID, ".claude", "projects", "-workspace")
+	require.NoError(t, os.MkdirAll(sessionDir, 0755))
+
+	jsonlFile := filepath.Join(sessionDir, sessionID+".jsonl")
+	// Messages without usage fields
+	testData := `{"type":"user","uuid":"u1","sessionId":"test-session-no-usage","timestamp":"2026-01-24T10:00:00.000Z","message":{"role":"user","content":"Hello"}}
+{"type":"assistant","uuid":"a1","sessionId":"test-session-no-usage","timestamp":"2026-01-24T10:00:01.000Z","message":{"role":"assistant","model":"claude-haiku-4-5","id":"msg-1","content":[{"type":"text","text":"Hi!"}]}}
+`
+	require.NoError(t, os.WriteFile(jsonlFile, []byte(testData), 0644))
+
+	reader := NewReader(tmpDir)
+
+	summary, err := reader.SumUsage(sessionID)
+	require.NoError(t, err)
+	require.NotNil(t, summary)
+	assert.Equal(t, 0, summary.InputTokens)
+	assert.Equal(t, 0, summary.OutputTokens)
+	// Model should still be captured even without usage
+	assert.Equal(t, "claude-haiku-4-5", summary.Model)
+}
+
 func TestReader_ListMessages_LimitEnforcement(t *testing.T) {
 	tmpDir := t.TempDir()
 	reader := NewReader(tmpDir)

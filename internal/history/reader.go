@@ -156,6 +156,67 @@ func (r *Reader) ListMessages(sessionID string, offset, limit int) (*MessageList
 	}, nil
 }
 
+// SumUsage aggregates token usage across all messages in a session.
+// It sums usage from every message that has a usage field, regardless of role.
+// The Model field is set to the model from the most recent assistant message.
+// Returns an empty summary (not an error) if the session has no usage data.
+func (r *Reader) SumUsage(sessionID string) (*UsageSummary, error) {
+	filePath, err := r.findSessionFile(sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open session file: %w", err)
+	}
+	defer file.Close()
+
+	var summary UsageSummary
+	scanner := bufio.NewScanner(file)
+	buf := make([]byte, 0, 1024*1024)
+	scanner.Buffer(buf, 10*1024*1024)
+
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+
+		var raw rawMessage
+		if err := json.Unmarshal(line, &raw); err != nil {
+			continue
+		}
+
+		if len(raw.Message) == 0 {
+			continue
+		}
+
+		var content rawMessageContent
+		if err := json.Unmarshal(raw.Message, &content); err != nil {
+			continue
+		}
+
+		if content.Usage != nil {
+			summary.InputTokens += content.Usage.InputTokens
+			summary.OutputTokens += content.Usage.OutputTokens
+			summary.CacheCreationInputTokens += content.Usage.CacheCreationInputTokens
+			summary.CacheReadInputTokens += content.Usage.CacheReadInputTokens
+		}
+
+		// Track model from assistant messages (last one wins)
+		if content.Role == "assistant" && content.Model != "" {
+			summary.Model = content.Model
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error reading session file: %w", err)
+	}
+
+	return &summary, nil
+}
+
 // GetMessage returns a specific message by UUID
 func (r *Reader) GetMessage(sessionID, messageUUID string) (*Message, error) {
 	filePath, err := r.findSessionFile(sessionID)

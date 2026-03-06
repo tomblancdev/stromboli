@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"stromboli/internal/history"
+	"stromboli/internal/job"
 )
 
 // SessionHistoryHandler handles session message history requests
@@ -91,6 +92,23 @@ func (h *SessionHistoryHandler) ListMessages(c *gin.Context) {
 		Limit:    result.Limit,
 		HasMore:  result.HasMore,
 	})
+}
+
+// SumUsage aggregates token usage across all messages in a session and returns
+// a job.Usage with TotalTokens and EstimatedCostUSD computed.
+// Returns nil if the session file cannot be read (e.g. no history yet).
+func (h *SessionHistoryHandler) SumUsage(sessionID string) *job.Usage {
+	summary, err := h.reader.SumUsage(sessionID)
+	if err != nil {
+		return nil
+	}
+	return job.NewUsage(
+		summary.InputTokens,
+		summary.OutputTokens,
+		summary.CacheCreationInputTokens,
+		summary.CacheReadInputTokens,
+		summary.Model,
+	)
 }
 
 // GetMessage returns a specific message by UUID

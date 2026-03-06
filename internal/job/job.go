@@ -39,6 +39,7 @@ type Job struct {
 	Error       string     `json:"error,omitempty"`
 	SessionID   string     `json:"session_id,omitempty"`
 	CrashInfo   *CrashInfo `json:"crash_info,omitempty"`
+	Usage       *Usage     `json:"usage,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	CancelledAt *time.Time `json:"cancelled_at,omitempty"`
@@ -103,6 +104,19 @@ func (m *Manager) Update(id string, status Status, output, errMsg, sessionID str
 	job.Output = output
 	job.Error = errMsg
 	job.SessionID = sessionID
+	job.UpdatedAt = time.Now()
+}
+
+// UpdateUsage sets the token usage on an existing job
+func (m *Manager) UpdateUsage(id string, usage *Usage) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	job, ok := m.jobs[id]
+	if !ok {
+		return
+	}
+	job.Usage = usage
 	job.UpdatedAt = time.Now()
 }
 
