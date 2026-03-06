@@ -37,6 +37,13 @@ type SessionMessageResponse struct {
 	Error   string           `json:"error,omitempty"`
 }
 
+// SumUsage returns the aggregated token usage and model name for a session by
+// reading its JSONL history. Used by the job manager to populate usage on
+// completed jobs.
+func (h *SessionHistoryHandler) SumUsage(sessionID string) (*history.Usage, string, error) {
+	return h.reader.SumUsage(sessionID)
+}
+
 // ListMessages returns paginated messages for a session
 // @Summary List session messages
 // @Description Returns paginated conversation history for a session including all messages, tool calls, and results

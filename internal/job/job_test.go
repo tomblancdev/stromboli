@@ -416,6 +416,121 @@ func TestManager_Cleanup_CrashedJobs(t *testing.T) {
 	})
 }
 
+func TestManager_UpdateUsage(t *testing.T) {
+	m := NewManager()
+
+	t.Run("update usage for existing job", func(t *testing.T) {
+		m.Create("job-usage")
+		m.Update("job-usage", StatusCompleted, "output", "", "sess-1")
+
+		usage := &Usage{
+			InputTokens:              100,
+			OutputTokens:             50,
+			CacheCreationInputTokens: 200,
+			CacheReadInputTokens:     1000,
+			TotalTokens:              1350,
+			EstimatedCostUSD:         0.00123,
+		}
+		m.UpdateUsage("job-usage", usage)
+
+		job, ok := m.Get("job-usage")
+		require.True(t, ok)
+		require.NotNil(t, job.Usage)
+		assert.Equal(t, 100, job.Usage.InputTokens)
+		assert.Equal(t, 50, job.Usage.OutputTokens)
+		assert.Equal(t, 200, job.Usage.CacheCreationInputTokens)
+		assert.Equal(t, 1000, job.Usage.CacheReadInputTokens)
+		assert.Equal(t, 1350, job.Usage.TotalTokens)
+		assert.InDelta(t, 0.00123, job.Usage.EstimatedCostUSD, 1e-9)
+	})
+
+	t.Run("update usage for non-existent job does not panic", func(t *testing.T) {
+		usage := &Usage{InputTokens: 10}
+		m.UpdateUsage("non-existent", usage)
+	})
+
+	t.Run("job usage is nil by default", func(t *testing.T) {
+		m.Create("job-nousage")
+		job, ok := m.Get("job-nousage")
+		require.True(t, ok)
+		assert.Nil(t, job.Usage)
+	})
+}
+
+func TestEstimateCost(t *testing.T) {
+	tests := []struct {
+		name         string
+		model        string
+		input        int
+		output       int
+		cacheCreate  int
+		cacheRead    int
+		wantApproxUSD float64
+	}{
+		{
+			name:          "haiku model",
+			model:         "claude-haiku-4-5-20251001",
+			input:         1_000_000,
+			output:        1_000_000,
+			cacheCreate:   0,
+			cacheRead:     0,
+			wantApproxUSD: 1.50, // 0.25 + 1.25
+		},
+		{
+			name:          "sonnet model",
+			model:         "claude-sonnet-4-5-20251101",
+			input:         1_000_000,
+			output:        1_000_000,
+			cacheCreate:   0,
+			cacheRead:     0,
+			wantApproxUSD: 18.00, // 3.00 + 15.00
+		},
+		{
+			name:          "opus model",
+			model:         "claude-opus-4-5-20251101",
+			input:         1_000_000,
+			output:        1_000_000,
+			cacheCreate:   0,
+			cacheRead:     0,
+			wantApproxUSD: 90.00, // 15.00 + 75.00
+		},
+		{
+			name:          "unknown model defaults to sonnet pricing",
+			model:         "unknown-model",
+			input:         1_000_000,
+			output:        0,
+			cacheCreate:   0,
+			cacheRead:     0,
+			wantApproxUSD: 3.00,
+		},
+		{
+			name:          "zero tokens",
+			model:         "claude-sonnet-4-5-20251101",
+			input:         0,
+			output:        0,
+			cacheCreate:   0,
+			cacheRead:     0,
+			wantApproxUSD: 0.0,
+		},
+		{
+			name:          "cache tokens included in cost",
+			model:         "claude-sonnet-4-5-20251101",
+			input:         0,
+			output:        0,
+			cacheCreate:   1_000_000, // 1.25x input = 3.75
+			cacheRead:     1_000_000, // 0.1x input  = 0.30
+			wantApproxUSD: 4.05,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := EstimateCost(tt.model, tt.input, tt.output, tt.cacheCreate, tt.cacheRead)
+			assert.InDelta(t, tt.wantApproxUSD, got, 0.001)
+		})
+	}
+}
+
 func TestCrashInfo_Struct(t *testing.T) {
 	info := CrashInfo{
 		ExitCode:      139,

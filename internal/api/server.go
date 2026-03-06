@@ -216,6 +216,23 @@ func (s *Server) runClaude(c *gin.Context) {
 		crashInfo = result.CrashInfo
 	}
 
+	// Collect token usage from the JSONL history.
+	var usage *job.Usage
+	if result.SessionID != "" {
+		if histUsage, model, err := s.historyHandler.SumUsage(result.SessionID); err == nil {
+			totalTokens := histUsage.InputTokens + histUsage.OutputTokens +
+				histUsage.CacheCreationInputTokens + histUsage.CacheReadInputTokens
+			usage = &job.Usage{
+				InputTokens:              histUsage.InputTokens,
+				OutputTokens:             histUsage.OutputTokens,
+				CacheCreationInputTokens: histUsage.CacheCreationInputTokens,
+				CacheReadInputTokens:     histUsage.CacheReadInputTokens,
+				TotalTokens:              totalTokens,
+				EstimatedCostUSD:         job.EstimateCost(model, histUsage.InputTokens, histUsage.OutputTokens, histUsage.CacheCreationInputTokens, histUsage.CacheReadInputTokens),
+			}
+		}
+	}
+
 	c.JSON(http.StatusOK, RunResponse{
 		ID:               result.ID,
 		Status:           status,
@@ -223,6 +240,7 @@ func (s *Server) runClaude(c *gin.Context) {
 		StructuredOutput: extractStructuredOutput(result.Output),
 		SessionID:        result.SessionID,
 		CrashInfo:        crashInfo,
+		Usage:            usage,
 	})
 }
 

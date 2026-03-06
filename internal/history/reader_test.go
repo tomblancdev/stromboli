@@ -232,6 +232,66 @@ func TestReader_FindSessionFile_DifferentWorkdirs(t *testing.T) {
 	}
 }
 
+func TestReader_SumUsage_SessionNotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+	reader := NewReader(tmpDir)
+
+	_, _, err := reader.SumUsage("nonexistent-session")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "session history not found")
+}
+
+func TestReader_SumUsage_WithUsage(t *testing.T) {
+	tmpDir := t.TempDir()
+	sessionID := "test-session-usage"
+
+	sessionDir := filepath.Join(tmpDir, sessionID, ".claude", "projects", "-workspace")
+	require.NoError(t, os.MkdirAll(sessionDir, 0755))
+
+	jsonlFile := filepath.Join(sessionDir, sessionID+".jsonl")
+	testData := `{"type":"user","uuid":"uuid-1","sessionId":"test-session-usage","timestamp":"2026-01-24T10:00:00.000Z","message":{"role":"user","content":"Hello"}}
+{"type":"assistant","uuid":"uuid-2","parentUuid":"uuid-1","sessionId":"test-session-usage","timestamp":"2026-01-24T10:00:01.000Z","message":{"role":"assistant","model":"claude-sonnet-4-5-20251101","content":[{"type":"text","text":"Hi!"}],"usage":{"input_tokens":10,"output_tokens":5,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}
+{"type":"user","uuid":"uuid-3","parentUuid":"uuid-2","sessionId":"test-session-usage","timestamp":"2026-01-24T10:00:02.000Z","message":{"role":"user","content":"More?"}}
+{"type":"assistant","uuid":"uuid-4","parentUuid":"uuid-3","sessionId":"test-session-usage","timestamp":"2026-01-24T10:00:03.000Z","message":{"role":"assistant","model":"claude-sonnet-4-5-20251101","content":[{"type":"text","text":"Yes."}],"usage":{"input_tokens":20,"output_tokens":3,"cache_creation_input_tokens":100,"cache_read_input_tokens":50}}}
+`
+	require.NoError(t, os.WriteFile(jsonlFile, []byte(testData), 0644))
+
+	reader := NewReader(tmpDir)
+
+	usage, model, err := reader.SumUsage(sessionID)
+	require.NoError(t, err)
+	assert.Equal(t, "claude-sonnet-4-5-20251101", model)
+	assert.Equal(t, 30, usage.InputTokens)              // 10 + 20
+	assert.Equal(t, 8, usage.OutputTokens)               // 5 + 3
+	assert.Equal(t, 100, usage.CacheCreationInputTokens) // 0 + 100
+	assert.Equal(t, 50, usage.CacheReadInputTokens)      // 0 + 50
+}
+
+func TestReader_SumUsage_NoUsageData(t *testing.T) {
+	tmpDir := t.TempDir()
+	sessionID := "test-session-nousage"
+
+	sessionDir := filepath.Join(tmpDir, sessionID, ".claude", "projects", "-workspace")
+	require.NoError(t, os.MkdirAll(sessionDir, 0755))
+
+	// Assistant messages without usage fields
+	jsonlFile := filepath.Join(sessionDir, sessionID+".jsonl")
+	testData := `{"type":"user","uuid":"uuid-1","sessionId":"test-session-nousage","timestamp":"2026-01-24T10:00:00.000Z","message":{"role":"user","content":"Hello"}}
+{"type":"assistant","uuid":"uuid-2","parentUuid":"uuid-1","sessionId":"test-session-nousage","timestamp":"2026-01-24T10:00:01.000Z","message":{"role":"assistant","model":"claude-haiku-4-5","content":[{"type":"text","text":"Hi!"}]}}
+`
+	require.NoError(t, os.WriteFile(jsonlFile, []byte(testData), 0644))
+
+	reader := NewReader(tmpDir)
+
+	usage, model, err := reader.SumUsage(sessionID)
+	require.NoError(t, err)
+	assert.Equal(t, "claude-haiku-4-5", model)
+	assert.Equal(t, 0, usage.InputTokens)
+	assert.Equal(t, 0, usage.OutputTokens)
+	assert.Equal(t, 0, usage.CacheCreationInputTokens)
+	assert.Equal(t, 0, usage.CacheReadInputTokens)
+}
+
 func TestReader_ListMessages_LimitEnforcement(t *testing.T) {
 	tmpDir := t.TempDir()
 	reader := NewReader(tmpDir)

@@ -196,6 +196,58 @@ func (r *Reader) GetMessage(sessionID, messageUUID string) (*Message, error) {
 	return nil, fmt.Errorf("message not found: %s", messageUUID)
 }
 
+// SumUsage reads the session JSONL and returns the total token usage summed
+// across all assistant messages, along with the model name from the last
+// assistant message. Returns an empty Usage (all zeros) and empty model if no
+// usage data is found (e.g. session not yet complete).
+func (r *Reader) SumUsage(sessionID string) (*Usage, string, error) {
+	filePath, err := r.findSessionFile(sessionID)
+	if err != nil {
+		return nil, "", err
+	}
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to open session file: %w", err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	buf := make([]byte, 0, 1024*1024)
+	scanner.Buffer(buf, 10*1024*1024)
+
+	total := &Usage{}
+	model := ""
+
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+
+		msg, err := r.parseMessage(line)
+		if err != nil || msg.Type != MessageTypeAssistant {
+			continue
+		}
+
+		if msg.Content.Usage != nil {
+			total.InputTokens += msg.Content.Usage.InputTokens
+			total.OutputTokens += msg.Content.Usage.OutputTokens
+			total.CacheCreationInputTokens += msg.Content.Usage.CacheCreationInputTokens
+			total.CacheReadInputTokens += msg.Content.Usage.CacheReadInputTokens
+		}
+		if msg.Content.Model != "" {
+			model = msg.Content.Model
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, "", fmt.Errorf("error reading session file: %w", err)
+	}
+
+	return total, model, nil
+}
+
 // parseMessage converts a raw JSONL line to a Message
 func (r *Reader) parseMessage(line []byte) (*Message, error) {
 	var raw rawMessage

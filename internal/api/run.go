@@ -61,6 +61,8 @@ type RunResponse struct {
 	SessionID string `json:"session_id,omitempty" example:"sess-abc123def456"`
 	// Crash details (when status is "crashed")
 	CrashInfo *job.CrashInfo `json:"crash_info,omitempty"`
+	// Token usage and estimated cost
+	Usage *job.Usage `json:"usage,omitempty"`
 }
 
 // extractStructuredOutput parses Claude's JSON envelope and returns the

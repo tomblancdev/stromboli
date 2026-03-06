@@ -32,6 +32,7 @@ type JobResponse struct {
 	Error            string          `json:"error,omitempty"`
 	SessionID        string          `json:"session_id,omitempty" example:"sess-abc123def456"`
 	CrashInfo        *job.CrashInfo  `json:"crash_info,omitempty"`
+	Usage            *job.Usage      `json:"usage,omitempty"`
 	CreatedAt        string          `json:"created_at" example:"2024-01-15T10:30:00Z"`
 	UpdatedAt        string          `json:"updated_at" example:"2024-01-15T10:31:00Z"`
 }
@@ -113,6 +114,31 @@ func (s *Server) runAsync(c *gin.Context) {
 			s.jobMgr.Update(jobID, status, output, errMsg, sessionID)
 		}
 
+		// Collect token usage from the JSONL history once the job is terminal.
+		if sessionID != "" {
+			histUsage, model, err := s.historyHandler.SumUsage(sessionID)
+			if err == nil {
+				totalTokens := histUsage.InputTokens + histUsage.OutputTokens +
+					histUsage.CacheCreationInputTokens + histUsage.CacheReadInputTokens
+				estimatedCost := job.EstimateCost(model,
+					histUsage.InputTokens,
+					histUsage.OutputTokens,
+					histUsage.CacheCreationInputTokens,
+					histUsage.CacheReadInputTokens,
+				)
+				s.jobMgr.UpdateUsage(jobID, &job.Usage{
+					InputTokens:              histUsage.InputTokens,
+					OutputTokens:             histUsage.OutputTokens,
+					CacheCreationInputTokens: histUsage.CacheCreationInputTokens,
+					CacheReadInputTokens:     histUsage.CacheReadInputTokens,
+					TotalTokens:              totalTokens,
+					EstimatedCostUSD:         estimatedCost,
+				})
+			} else {
+				slog.Debug("Could not collect usage for job", "job_id", jobID, "error", err)
+			}
+		}
+
 		// Send webhook notification if URL provided
 		if webhookURL != "" {
 			notifier := webhook.NewNotifier()
@@ -171,6 +197,7 @@ func (s *Server) getJob(c *gin.Context) {
 		Error:            j.Error,
 		SessionID:        j.SessionID,
 		CrashInfo:        j.CrashInfo,
+		Usage:            j.Usage,
 		CreatedAt:        j.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:        j.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	})
@@ -198,6 +225,7 @@ func (s *Server) listJobs(c *gin.Context) {
 			Error:            j.Error,
 			SessionID:        j.SessionID,
 			CrashInfo:        j.CrashInfo,
+			Usage:            j.Usage,
 			CreatedAt:        j.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 			UpdatedAt:        j.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		})

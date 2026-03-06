@@ -1,6 +1,7 @@
 package job
 
 import (
+	"strings"
 	"sync"
 	"time"
 )
@@ -16,6 +17,42 @@ const (
 	StatusCrashed   Status = "crashed"
 	StatusCancelled Status = "cancelled"
 )
+
+// Usage contains aggregated token usage and estimated cost for a job.
+type Usage struct {
+	InputTokens              int     `json:"input_tokens"`
+	OutputTokens             int     `json:"output_tokens"`
+	CacheCreationInputTokens int     `json:"cache_creation_input_tokens"`
+	CacheReadInputTokens     int     `json:"cache_read_input_tokens"`
+	TotalTokens              int     `json:"total_tokens"`
+	EstimatedCostUSD         float64 `json:"estimated_cost_usd"`
+}
+
+// EstimateCost returns an estimated USD cost based on the model name and token
+// counts. Pricing tiers are matched by substring (haiku / opus / sonnet).
+// Cache creation is billed at 1.25× the input rate; cache reads at 0.1×.
+func EstimateCost(model string, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens int) float64 {
+	var inputPricePerM, outputPricePerM float64
+
+	m := strings.ToLower(model)
+	switch {
+	case strings.Contains(m, "haiku"):
+		inputPricePerM = 0.25
+		outputPricePerM = 1.25
+	case strings.Contains(m, "opus"):
+		inputPricePerM = 15.00
+		outputPricePerM = 75.00
+	default: // sonnet and unrecognised models
+		inputPricePerM = 3.00
+		outputPricePerM = 15.00
+	}
+
+	cost := float64(inputTokens) * inputPricePerM / 1_000_000
+	cost += float64(outputTokens) * outputPricePerM / 1_000_000
+	cost += float64(cacheCreationTokens) * inputPricePerM * 1.25 / 1_000_000
+	cost += float64(cacheReadTokens) * inputPricePerM * 0.1 / 1_000_000
+	return cost
+}
 
 // CrashInfo contains details about a process crash
 type CrashInfo struct {
@@ -39,6 +76,7 @@ type Job struct {
 	Error       string     `json:"error,omitempty"`
 	SessionID   string     `json:"session_id,omitempty"`
 	CrashInfo   *CrashInfo `json:"crash_info,omitempty"`
+	Usage       *Usage     `json:"usage,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	CancelledAt *time.Time `json:"cancelled_at,omitempty"`
@@ -120,6 +158,19 @@ func (m *Manager) UpdateWithCrash(id string, crashInfo *CrashInfo, partialOutput
 	job.CrashInfo = crashInfo
 	job.Output = partialOutput
 	job.SessionID = sessionID
+	job.UpdatedAt = time.Now()
+}
+
+// UpdateUsage sets the token usage for a job.
+func (m *Manager) UpdateUsage(id string, usage *Usage) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	job, ok := m.jobs[id]
+	if !ok {
+		return
+	}
+	job.Usage = usage
 	job.UpdatedAt = time.Now()
 }
 
