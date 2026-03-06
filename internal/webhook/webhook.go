@@ -8,13 +8,22 @@ import (
 	"time"
 )
 
+// TokensUsed contains Claude token usage statistics
+type TokensUsed struct {
+	Input  int `json:"input"`
+	Output int `json:"output"`
+}
+
 // JobResult represents the result of a job to be sent to webhook
 type JobResult struct {
-	JobID     string `json:"job_id"`
-	Status    string `json:"status"`
-	Output    string `json:"output,omitempty"`
-	Error     string `json:"error,omitempty"`
-	SessionID string `json:"session_id,omitempty"`
+	JobID           string      `json:"job_id"`
+	Status          string      `json:"status"`
+	Output          string      `json:"output,omitempty"`
+	Error           string      `json:"error,omitempty"`
+	SessionID       string      `json:"session_id,omitempty"`
+	FilesChanged    []string    `json:"files_changed"`
+	TokensUsed      *TokensUsed `json:"tokens_used"`
+	DurationSeconds float64     `json:"duration_seconds"`
 }
 
 // Notifier sends webhook notifications

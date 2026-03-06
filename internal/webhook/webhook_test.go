@@ -29,11 +29,14 @@ func TestNotifier_Notify(t *testing.T) {
 		// Create notifier and send
 		notifier := NewNotifier()
 		payload := JobResult{
-			JobID:     "job-123",
-			Status:    "completed",
-			Output:    "test output",
-			Error:     "",
-			SessionID: "sess-456",
+			JobID:           "job-123",
+			Status:          "completed",
+			Output:          "test output",
+			Error:           "",
+			SessionID:       "sess-456",
+			FilesChanged:    []string{"src/app.ts", "README.md"},
+			TokensUsed:      &TokensUsed{Input: 1500, Output: 800},
+			DurationSeconds: 45.2,
 		}
 
 		err := notifier.Notify(server.URL, payload)
@@ -43,6 +46,9 @@ func TestNotifier_Notify(t *testing.T) {
 		assert.Equal(t, "completed", receivedPayload.Status)
 		assert.Equal(t, "test output", receivedPayload.Output)
 		assert.Equal(t, "sess-456", receivedPayload.SessionID)
+		assert.Equal(t, []string{"src/app.ts", "README.md"}, receivedPayload.FilesChanged)
+		assert.Equal(t, &TokensUsed{Input: 1500, Output: 800}, receivedPayload.TokensUsed)
+		assert.InDelta(t, 45.2, receivedPayload.DurationSeconds, 0.001)
 	})
 
 	t.Run("notification with error", func(t *testing.T) {
@@ -145,11 +151,14 @@ func TestNotifier_Notify(t *testing.T) {
 func TestJobResult(t *testing.T) {
 	t.Run("marshals to JSON correctly", func(t *testing.T) {
 		result := JobResult{
-			JobID:     "job-123",
-			Status:    "completed",
-			Output:    "test output",
-			Error:     "",
-			SessionID: "sess-456",
+			JobID:           "job-123",
+			Status:          "completed",
+			Output:          "test output",
+			Error:           "",
+			SessionID:       "sess-456",
+			FilesChanged:    []string{"src/app.ts"},
+			TokensUsed:      &TokensUsed{Input: 1500, Output: 800},
+			DurationSeconds: 45.0,
 		}
 
 		data, err := json.Marshal(result)
@@ -163,5 +172,35 @@ func TestJobResult(t *testing.T) {
 		assert.Equal(t, result.Status, unmarshaled.Status)
 		assert.Equal(t, result.Output, unmarshaled.Output)
 		assert.Equal(t, result.SessionID, unmarshaled.SessionID)
+		assert.Equal(t, result.FilesChanged, unmarshaled.FilesChanged)
+		assert.Equal(t, result.TokensUsed, unmarshaled.TokensUsed)
+		assert.Equal(t, result.DurationSeconds, unmarshaled.DurationSeconds)
+	})
+
+	t.Run("files_changed is always present as array", func(t *testing.T) {
+		result := JobResult{
+			JobID:        "job-123",
+			Status:       "completed",
+			FilesChanged: []string{},
+		}
+
+		data, err := json.Marshal(result)
+		require.NoError(t, err)
+
+		// files_changed should be [] not null
+		assert.Contains(t, string(data), `"files_changed":[]`)
+	})
+
+	t.Run("tokens_used is null when not set", func(t *testing.T) {
+		result := JobResult{
+			JobID:        "job-123",
+			Status:       "completed",
+			FilesChanged: []string{},
+		}
+
+		data, err := json.Marshal(result)
+		require.NoError(t, err)
+
+		assert.Contains(t, string(data), `"tokens_used":null`)
 	})
 }

@@ -145,9 +145,11 @@ func TestRunAsyncWithWebhook(t *testing.T) {
 				go func() {
 					time.Sleep(10 * time.Millisecond)
 					onComplete(&runner.Result{
-						ID:        "run-123",
-						Output:    "test output",
-						SessionID: "sess-456",
+						ID:           "run-123",
+						Output:       "test output",
+						SessionID:    "sess-456",
+						FilesChanged: []string{"src/app.ts", "README.md"},
+						TokensUsed:   &job.TokensUsed{Input: 1500, Output: 800},
 					}, nil)
 				}()
 			},
@@ -184,6 +186,9 @@ func TestRunAsyncWithWebhook(t *testing.T) {
 		assert.Equal(t, "test output", receivedPayload.Output)
 		assert.Equal(t, "sess-456", receivedPayload.SessionID)
 		assert.Empty(t, receivedPayload.Error)
+		assert.Equal(t, []string{"src/app.ts", "README.md"}, receivedPayload.FilesChanged)
+		assert.Equal(t, &webhook.TokensUsed{Input: 1500, Output: 800}, receivedPayload.TokensUsed)
+		assert.Greater(t, receivedPayload.DurationSeconds, 0.0)
 	})
 
 	t.Run("webhook called on failure", func(t *testing.T) {

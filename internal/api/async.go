@@ -113,15 +113,48 @@ func (s *Server) runAsync(c *gin.Context) {
 			s.jobMgr.Update(jobID, status, output, errMsg, sessionID)
 		}
 
+		// Store additional result details (files changed, token usage) if available
+		if result != nil && (result.FilesChanged != nil || result.TokensUsed != nil) {
+			var tokensUsed *job.TokensUsed
+			if result.TokensUsed != nil {
+				tokensUsed = result.TokensUsed
+			}
+			s.jobMgr.SetResultDetails(jobID, result.FilesChanged, tokensUsed)
+		}
+
 		// Send webhook notification if URL provided
 		if webhookURL != "" {
+			// Compute duration from job timestamps
+			var durationSeconds float64
+			if j, ok := s.jobMgr.Get(jobID); ok {
+				durationSeconds = j.UpdatedAt.Sub(j.CreatedAt).Seconds()
+			}
+
+			// Map token usage to webhook type
+			var tokensUsed *webhook.TokensUsed
+			if result != nil && result.TokensUsed != nil {
+				tokensUsed = &webhook.TokensUsed{
+					Input:  result.TokensUsed.Input,
+					Output: result.TokensUsed.Output,
+				}
+			}
+
+			// Ensure files_changed is always an array (never null)
+			filesChanged := []string{}
+			if result != nil && len(result.FilesChanged) > 0 {
+				filesChanged = result.FilesChanged
+			}
+
 			notifier := webhook.NewNotifier()
 			payload := webhook.JobResult{
-				JobID:     jobID,
-				Status:    string(status),
-				Output:    output,
-				Error:     errMsg,
-				SessionID: sessionID,
+				JobID:           jobID,
+				Status:          string(status),
+				Output:          output,
+				Error:           errMsg,
+				SessionID:       sessionID,
+				FilesChanged:    filesChanged,
+				TokensUsed:      tokensUsed,
+				DurationSeconds: durationSeconds,
 			}
 
 			// Send webhook in background, don't block on failure

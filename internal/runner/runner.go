@@ -50,10 +50,12 @@ type Request struct {
 
 // Result contains the output from running Claude
 type Result struct {
-	ID        string
-	Output    string
-	SessionID string
-	CrashInfo *job.CrashInfo
+	ID           string
+	Output       string
+	SessionID    string
+	CrashInfo    *job.CrashInfo
+	FilesChanged []string
+	TokensUsed   *job.TokensUsed
 }
 
 // ResourceDefaults contains default resource limits for containers

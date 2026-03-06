@@ -17,6 +17,12 @@ const (
 	StatusCancelled Status = "cancelled"
 )
 
+// TokensUsed contains Claude token usage statistics
+type TokensUsed struct {
+	Input  int `json:"input"`
+	Output int `json:"output"`
+}
+
 // CrashInfo contains details about a process crash
 type CrashInfo struct {
 	// Exit code (if available)
@@ -33,15 +39,17 @@ type CrashInfo struct {
 
 // Job represents an async execution job
 type Job struct {
-	ID          string     `json:"id"`
-	Status      Status     `json:"status"`
-	Output      string     `json:"output,omitempty"`
-	Error       string     `json:"error,omitempty"`
-	SessionID   string     `json:"session_id,omitempty"`
-	CrashInfo   *CrashInfo `json:"crash_info,omitempty"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	CancelledAt *time.Time `json:"cancelled_at,omitempty"`
+	ID           string      `json:"id"`
+	Status       Status      `json:"status"`
+	Output       string      `json:"output,omitempty"`
+	Error        string      `json:"error,omitempty"`
+	SessionID    string      `json:"session_id,omitempty"`
+	CrashInfo    *CrashInfo  `json:"crash_info,omitempty"`
+	FilesChanged []string    `json:"files_changed,omitempty"`
+	TokensUsed   *TokensUsed `json:"tokens_used,omitempty"`
+	CreatedAt    time.Time   `json:"created_at"`
+	UpdatedAt    time.Time   `json:"updated_at"`
+	CancelledAt  *time.Time  `json:"cancelled_at,omitempty"`
 }
 
 // Manager manages async jobs
@@ -104,6 +112,20 @@ func (m *Manager) Update(id string, status Status, output, errMsg, sessionID str
 	job.Error = errMsg
 	job.SessionID = sessionID
 	job.UpdatedAt = time.Now()
+}
+
+// SetResultDetails stores additional result metadata on a job (files changed, token usage)
+func (m *Manager) SetResultDetails(id string, filesChanged []string, tokensUsed *TokensUsed) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	job, ok := m.jobs[id]
+	if !ok {
+		return
+	}
+
+	job.FilesChanged = filesChanged
+	job.TokensUsed = tokensUsed
 }
 
 // UpdateWithCrash updates a job with crash information
