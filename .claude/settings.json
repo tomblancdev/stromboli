@@ -1,0 +1,87 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git fetch:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git ls-files:*)",
+      "Bash(git stash list:*)",
+      "Bash(git stash show:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(make test:*)",
+      "Bash(make test-unit:*)",
+      "Bash(make test-integration:*)",
+      "Bash(make test-e2e:*)",
+      "Bash(make test-all:*)",
+      "Bash(make test-coverage:*)",
+      "Bash(make lint:*)",
+      "Bash(make build:*)",
+      "Bash(make swagger:*)",
+      "Bash(make docs:*)",
+      "Bash(make docs-serve:*)",
+      "Bash(make docs-stop:*)",
+      "Bash(make docs-logs:*)",
+      "Bash(make deps:*)",
+      "Bash(make clean:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh workflow list:*)",
+      "Bash(gh workflow view:*)",
+      "Bash(gh api:*)",
+      "Bash(podman ps:*)",
+      "Bash(podman images:*)",
+      "Bash(podman logs:*)",
+      "Bash(podman inspect:*)",
+      "Bash(podman exec:*)",
+      "Bash(jq:*)",
+      "Bash(rg:*)",
+      "Bash(find:*)",
+      "Bash(wc:*)",
+      "Bash(realpath:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/gofmt-on-edit.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/block-main-commit.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/session-end-check.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
