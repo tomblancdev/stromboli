@@ -12,7 +12,7 @@ BUILD_TIME ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS=-ldflags "-X stromboli/internal/version.Version=$(VERSION) -X stromboli/internal/version.Commit=$(COMMIT) -X stromboli/internal/version.BuildTime=$(BUILD_TIME)"
 
 # Go container command - uses --userns=keep-id to preserve host file ownership
-GO_IMAGE=golang:1.24
+GO_IMAGE=golang:1.26
 GO_RUN=podman run --rm --userns=keep-id -v $(PWD):/app -w /app $(GO_IMAGE)
 
 # Build the application
