@@ -1,7 +1,7 @@
 # Stromboli Development Image
 # Go + Podman for testing
 
-FROM docker.io/golang:1.24
+FROM docker.io/golang:1.26
 
 # Install Podman
 RUN apt-get update && apt-get install -y --no-install-recommends \
