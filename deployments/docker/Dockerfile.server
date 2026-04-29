@@ -4,7 +4,7 @@
 # No Podman installation needed inside - just the CLI for commands.
 
 # Build stage - uses native cross-compilation (no QEMU needed)
-FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS builder
 
 # Target platform (set by docker buildx)
 ARG TARGETPLATFORM
