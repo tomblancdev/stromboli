@@ -183,6 +183,26 @@ make dev           # Start dev environment
 make build         # Build production image
 ```
 
+## Project Conventions for Claude Sessions
+
+- **Branch flow**: never commit directly to `main`. Use `feat/`, `fix/`, `docs/`, `refactor/`, `test/`, `ci/` prefixes. PRs only. The `block-main-commit` hook enforces this.
+- **Audit issues**: GitHub issues labelled `audit` (with `critical` / `high` / `medium` / `low`) are the security/infra triage backlog. Treat severity as priority.
+- **Agent worktrees**: `.stromboli-worktrees/` contains disposable copies the runtime spawns. Treat them as build artefacts — never edit, never commit, safe to clean.
+- **Go toolchain**: not on the host. Everything runs through `golang:1.24` via Podman (see Makefile `GO_RUN`). The first hook-triggered run will pull ~500MB; pre-pull with `podman pull golang:1.24` to avoid surprise.
+
+## Claude Code Setup
+
+This project ships with hooks and slash commands under `.claude/`:
+
+| File | Purpose |
+|------|---------|
+| `.claude/settings.json` | Permissions allowlist + hooks wiring (committed). |
+| `.claude/hooks/gofmt-on-edit.sh` | PostToolUse: gofmt on any `*.go` edit. |
+| `.claude/hooks/block-main-commit.sh` | PreToolUse: rejects `git commit` while on `main`. |
+| `.claude/hooks/session-end-check.sh` | Stop: runs `go vet` on changed packages + reminds to test. |
+| `.claude/commands/run-tests.md` | `/run-tests [unit\|integration\|e2e\|all\|coverage]` |
+| `.claude/commands/sweep-deps.md` | `/sweep-deps` — triage Dependabot PRs. |
+
 ## References
 
 - [Architecture Doc](docs/ARCHITECTURE.md)
