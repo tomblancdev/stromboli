@@ -303,9 +303,8 @@ container-start:
 		echo "   Create it with: make secret-create"; \
 		echo ""; \
 	fi
-	@# Create sessions directory
-	@mkdir -p /tmp/stromboli-sessions
-	@# Start container
+	@# Sessions persist via the stromboli-sessions-dev named volume
+	@# (created automatically by `compose up`).
 	podman compose -f deployments/docker/compose.yml up -d
 	@echo ""
 	@echo "✅ Stromboli running:"
