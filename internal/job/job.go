@@ -181,8 +181,10 @@ func (m *Manager) StartCleanup(ttl time.Duration, interval time.Duration) {
 		return
 	}
 
-	m.stopChan = make(chan struct{})
-	go m.cleanupLoop(ttl, interval)
+	stop := make(chan struct{})
+	m.stopChan = stop
+	// Pass stop explicitly so the loop never touches m.stopChan under no lock.
+	go m.cleanupLoop(ttl, interval, stop)
 }
 
 // StopCleanup stops the cleanup goroutine
@@ -197,7 +199,7 @@ func (m *Manager) StopCleanup() {
 }
 
 // cleanupLoop runs the cleanup process at regular intervals
-func (m *Manager) cleanupLoop(ttl time.Duration, interval time.Duration) {
+func (m *Manager) cleanupLoop(ttl time.Duration, interval time.Duration, stop <-chan struct{}) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -205,7 +207,7 @@ func (m *Manager) cleanupLoop(ttl time.Duration, interval time.Duration) {
 		select {
 		case <-ticker.C:
 			m.cleanup(ttl)
-		case <-m.stopChan:
+		case <-stop:
 			return
 		}
 	}

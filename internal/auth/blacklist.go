@@ -60,8 +60,10 @@ func (b *TokenBlacklist) StartCleanup(interval time.Duration) {
 		return
 	}
 
-	b.stopChan = make(chan struct{})
-	go b.cleanupLoop(interval)
+	stop := make(chan struct{})
+	b.stopChan = stop
+	// Pass stop explicitly so the loop never reads b.stopChan without the lock.
+	go b.cleanupLoop(interval, stop)
 }
 
 // StopCleanup stops the cleanup goroutine. This is idempotent.
@@ -76,7 +78,7 @@ func (b *TokenBlacklist) StopCleanup() {
 }
 
 // cleanupLoop runs the cleanup process at regular intervals
-func (b *TokenBlacklist) cleanupLoop(interval time.Duration) {
+func (b *TokenBlacklist) cleanupLoop(interval time.Duration, stop <-chan struct{}) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -84,7 +86,7 @@ func (b *TokenBlacklist) cleanupLoop(interval time.Duration) {
 		select {
 		case <-ticker.C:
 			b.cleanup()
-		case <-b.stopChan:
+		case <-stop:
 			return
 		}
 	}

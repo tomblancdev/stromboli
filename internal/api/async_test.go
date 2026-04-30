@@ -129,12 +129,16 @@ func TestCancelJob(t *testing.T) {
 
 func TestRunAsyncWithWebhook(t *testing.T) {
 	t.Run("webhook called on success", func(t *testing.T) {
-		// Setup webhook receiver
-		var receivedPayload webhook.JobResult
+		// The webhook handler runs on the httptest server's goroutine; sending the
+		// decoded payload through a channel hands ownership back to the test
+		// goroutine cleanly (no shared variable, no sleep-and-pray).
+		received := make(chan webhook.JobResult, 1)
 		webhookServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			err := json.NewDecoder(r.Body).Decode(&receivedPayload)
+			var payload webhook.JobResult
+			err := json.NewDecoder(r.Body).Decode(&payload)
 			require.NoError(t, err)
 			w.WriteHeader(http.StatusOK)
+			received <- payload
 		}))
 		defer webhookServer.Close()
 
@@ -175,8 +179,12 @@ func TestRunAsyncWithWebhook(t *testing.T) {
 		err = json.Unmarshal(rec.Body.Bytes(), &response)
 		require.NoError(t, err)
 
-		// Wait for webhook to be called
-		time.Sleep(50 * time.Millisecond)
+		var receivedPayload webhook.JobResult
+		select {
+		case receivedPayload = <-received:
+		case <-time.After(2 * time.Second):
+			t.Fatal("webhook was not called within 2s")
+		}
 
 		// Verify webhook was called with correct data
 		assert.Equal(t, response.JobID, receivedPayload.JobID)
@@ -187,11 +195,13 @@ func TestRunAsyncWithWebhook(t *testing.T) {
 	})
 
 	t.Run("webhook called on failure", func(t *testing.T) {
-		var receivedPayload webhook.JobResult
+		received := make(chan webhook.JobResult, 1)
 		webhookServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			err := json.NewDecoder(r.Body).Decode(&receivedPayload)
+			var payload webhook.JobResult
+			err := json.NewDecoder(r.Body).Decode(&payload)
 			require.NoError(t, err)
 			w.WriteHeader(http.StatusOK)
+			received <- payload
 		}))
 		defer webhookServer.Close()
 
@@ -225,8 +235,12 @@ func TestRunAsyncWithWebhook(t *testing.T) {
 		err = json.Unmarshal(rec.Body.Bytes(), &response)
 		require.NoError(t, err)
 
-		// Wait for webhook to be called
-		time.Sleep(50 * time.Millisecond)
+		var receivedPayload webhook.JobResult
+		select {
+		case receivedPayload = <-received:
+		case <-time.After(2 * time.Second):
+			t.Fatal("webhook was not called within 2s")
+		}
 
 		// Verify webhook was called with error
 		assert.Equal(t, response.JobID, receivedPayload.JobID)
