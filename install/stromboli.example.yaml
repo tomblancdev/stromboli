@@ -115,9 +115,11 @@ resources:
 # Authentication
 # -----------------------------------------------------------------------------
 auth:
-  # Enable authentication (strongly recommended for production)
+  # Authentication is ENABLED by default (secure-by-default).
+  # Stromboli refuses to start if `jwt.secret` is empty, < 32 chars, or a
+  # known placeholder. Set this to `false` only for local development.
   # Env: STROMBOLI_AUTH_ENABLED
-  enabled: false
+  enabled: true
 
   # Static API tokens (legacy - use JWT for production)
   # Env: STROMBOLI_API_TOKENS (comma-separated)
@@ -125,10 +127,10 @@ auth:
     # - "your-api-token-here"
 
 # -----------------------------------------------------------------------------
-# JWT Authentication (Recommended for Production)
+# JWT Authentication (required when auth is enabled)
 # -----------------------------------------------------------------------------
 jwt:
-  # Secret key for signing JWT tokens
+  # Secret key for signing JWT tokens. Required when auth.enabled = true.
   # Generate with: openssl rand -base64 32
   # Env: STROMBOLI_JWT_SECRET
   secret: ""
@@ -145,9 +147,9 @@ jwt:
 # Rate Limiting
 # -----------------------------------------------------------------------------
 rate_limit:
-  # Enable rate limiting
+  # Rate limiting is ENABLED by default. Tune `rate`/`burst` below.
   # Env: STROMBOLI_RATE_LIMIT_ENABLED
-  enabled: false
+  enabled: true
 
   # Requests per second
   # Env: STROMBOLI_RATE_LIMIT_RPS

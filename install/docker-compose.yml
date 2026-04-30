@@ -3,14 +3,27 @@
 # =============================================================================
 #
 # Quick Start:
-#   1. Ensure Claude credentials exist: ~/.claude/.credentials.json
-#   2. Start: docker compose up -d  (or: podman-compose up -d)
-#   3. Check health: curl http://localhost:8080/health
+#   1. Generate a JWT secret:
+#        echo "STROMBOLI_JWT_SECRET=$(openssl rand -base64 32)" > .env
+#      (or run: make gen-jwt-secret)
+#
+#   2. Ensure Claude credentials exist: ~/.claude/.credentials.json
+#
+#   3. Start: docker compose up -d  (or: podman-compose up -d)
+#
+#   4. Check health: curl http://localhost:8080/health
 #
 # Requirements:
 #   - Podman with socket enabled: systemctl --user enable --now podman.socket
 #   - OR Docker (comment out userns_mode line)
 #   - Claude Code credentials (~/.claude/.credentials.json)
+#
+# Security note:
+#   Auth and rate limiting are ENABLED by default. The compose file refuses to
+#   start if STROMBOLI_JWT_SECRET is unset (?err: syntax). The Stromboli server
+#   will also refuse to start if the secret is empty, too short (<32 chars), or
+#   a known placeholder value. To run without auth (e.g. local dev), set
+#   STROMBOLI_AUTH_ENABLED=false explicitly.
 #
 # =============================================================================
 
@@ -77,19 +90,21 @@ services:
       STROMBOLI_RESOURCES_TIMEOUT: "30m"
 
       # -------------------------------------------------------------------------
-      # Authentication (enable for production!)
+      # Authentication (enabled by default — secure-by-default)
       # -------------------------------------------------------------------------
-      STROMBOLI_AUTH_ENABLED: "false"
-      # STROMBOLI_JWT_SECRET: "generate-with-openssl-rand-base64-32"
-      # STROMBOLI_JWT_EXPIRY: "24h"
-      # STROMBOLI_JWT_REFRESH_EXPIRY: "168h"
+      # The ?err syntax fails compose-up if STROMBOLI_JWT_SECRET is unset.
+      # Generate one with: openssl rand -base64 32 (or `make gen-jwt-secret`).
+      STROMBOLI_AUTH_ENABLED: "true"
+      STROMBOLI_JWT_SECRET: "${STROMBOLI_JWT_SECRET:?STROMBOLI_JWT_SECRET is required — generate one with: openssl rand -base64 32}"
+      STROMBOLI_JWT_EXPIRY: "24h"
+      STROMBOLI_JWT_REFRESH_EXPIRY: "168h"
 
       # -------------------------------------------------------------------------
-      # Rate Limiting (enable for production!)
+      # Rate Limiting (enabled by default)
       # -------------------------------------------------------------------------
-      STROMBOLI_RATE_LIMIT_ENABLED: "false"
-      # STROMBOLI_RATE_LIMIT_RPS: "10"
-      # STROMBOLI_RATE_LIMIT_BURST: "20"
+      STROMBOLI_RATE_LIMIT_ENABLED: "true"
+      STROMBOLI_RATE_LIMIT_RPS: "10"
+      STROMBOLI_RATE_LIMIT_BURST: "20"
 
       # -------------------------------------------------------------------------
       # Job Cleanup
@@ -121,28 +136,18 @@ volumes:
     driver: local
 
 # =============================================================================
-# Production Deployment
+# Tightening rate limits for production
 # =============================================================================
 #
-# 1. Create docker-compose.override.yml:
+# The defaults above are sized for a small team. For production traffic, raise
+# them via a docker-compose.override.yml:
 #
 #    services:
 #      stromboli:
 #        environment:
-#          STROMBOLI_AUTH_ENABLED: "true"
-#          STROMBOLI_JWT_SECRET: "${JWT_SECRET}"
-#          STROMBOLI_RATE_LIMIT_ENABLED: "true"
 #          STROMBOLI_RATE_LIMIT_RPS: "50"
 #          STROMBOLI_RATE_LIMIT_BURST: "100"
 #          STROMBOLI_RESOURCES_MEMORY: "2g"
 #          STROMBOLI_RESOURCES_CPUS: "2"
-#
-# 2. Create .env file:
-#
-#    JWT_SECRET=your-secure-random-secret-generated-with-openssl
-#
-# 3. Start:
-#
-#    docker compose up -d
 #
 # =============================================================================

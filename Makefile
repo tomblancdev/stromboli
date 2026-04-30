@@ -1,4 +1,4 @@
-.PHONY: build run test test-integration test-e2e test-all test-coverage lint dev clean claude-setup claude-check claude-status claude-logout secret-create secret-update secret-remove secret-status docs docs-swagger docs-godoc docs-serve docs-stop docs-logs build-claude-cli build-claude-cli-version licenses
+.PHONY: build run test test-integration test-e2e test-all test-coverage lint dev clean claude-setup claude-check claude-status claude-logout secret-create secret-update secret-remove secret-status docs docs-swagger docs-godoc docs-serve docs-stop docs-logs build-claude-cli build-claude-cli-version licenses gen-jwt-secret
 
 # Binary name
 BINARY=stromboli
@@ -354,6 +354,28 @@ container-setup: podman-socket-enable build-images secret-create container-start
 	@echo "  curl -X POST http://localhost:8080/run -H 'Content-Type: application/json' -d '{\"prompt\": \"Say hello\"}'"
 
 # ============================================================================
+# JWT Secret Generation
+# ============================================================================
+
+# Generate a JWT secret and append it to install/.env (creates the file if needed).
+# Use this once before the first `docker compose up` for a production deploy.
+gen-jwt-secret:
+	@if ! command -v openssl >/dev/null 2>&1; then \
+		echo "❌ openssl not found in PATH"; exit 1; \
+	fi
+	@SECRET="$$(openssl rand -base64 32)"; \
+		ENVFILE="install/.env"; \
+		if [ -f "$$ENVFILE" ] && grep -q '^STROMBOLI_JWT_SECRET=' "$$ENVFILE"; then \
+			echo "⚠️  STROMBOLI_JWT_SECRET already set in $$ENVFILE — refusing to overwrite."; \
+			echo "   Edit it manually or remove the existing line first."; \
+			exit 1; \
+		fi; \
+		mkdir -p install; \
+		printf 'STROMBOLI_JWT_SECRET=%s\n' "$$SECRET" >> "$$ENVFILE"; \
+		echo "✅ Generated JWT secret and wrote $$ENVFILE"; \
+		echo "   docker compose --env-file $$ENVFILE -f install/docker-compose.yml up -d"
+
+# ============================================================================
 # Licenses
 # ============================================================================
 
@@ -418,6 +440,9 @@ help:
 	@echo "Licenses:"
 	@echo "  licenses         Generate THIRD_PARTY_LICENSES file"
 	@echo "  licenses-check   Check if all dependency licenses are allowed"
+	@echo ""
+	@echo "Production setup:"
+	@echo "  gen-jwt-secret   Generate JWT secret and write install/.env"
 	@echo ""
 	@echo "Claude & Secrets:"
 	@echo "  claude-check     Verify Claude credentials exist"
