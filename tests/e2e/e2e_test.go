@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"stromboli/internal/api"
 	"stromboli/internal/auth"
 	"stromboli/internal/claude"
@@ -26,6 +27,7 @@ import (
 type testEnv struct {
 	Server      *api.Server
 	BaseURL     string
+	MetricsURL  string
 	ClaudeToken string
 	TempDir     string
 	SessionsDir string
@@ -159,6 +161,24 @@ func setupE2EEnv(t *testing.T) *testEnv {
 		}
 	}()
 
+	// Start a separate metrics listener on its own ephemeral port — mirrors
+	// the production layout where /metrics lives off the public router.
+	metricsListener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		os.RemoveAll(tempDir)
+		t.Fatalf("failed to allocate metrics port: %v", err)
+	}
+	metricsAddr := metricsListener.Addr().String()
+	metricsURL := fmt.Sprintf("http://%s", metricsAddr)
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.Handler())
+	metricsSrv := &http.Server{Handler: metricsMux}
+	go func() {
+		if err := metricsSrv.Serve(metricsListener); err != nil && err != http.ErrServerClosed {
+			slog.Error("metrics server error", "error", err)
+		}
+	}()
+
 	// Wait for server to be ready
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -192,6 +212,7 @@ serverReady:
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		srv.Shutdown(ctx)
+		metricsSrv.Shutdown(ctx)
 		jobManager.StopCleanup()
 		os.RemoveAll(tempDir)
 	}
@@ -199,6 +220,7 @@ serverReady:
 	env := &testEnv{
 		Server:      server,
 		BaseURL:     baseURL,
+		MetricsURL:  metricsURL,
 		ClaudeToken: claudeToken,
 		TempDir:     tempDir,
 		SessionsDir: sessionsDir,
