@@ -29,6 +29,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -48,13 +49,33 @@ import (
 // defaultHealthTimeout is the timeout for each health check component
 const defaultHealthTimeout = 5 * time.Second
 
+// parseLogLevel maps a STROMBOLI_LOG_LEVEL value to a slog.Level. Unknown
+// values fall back to Info; the caller is expected to emit a warning so the
+// typo is visible in the log stream.
+func parseLogLevel(s string) (slog.Level, bool) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "", "info":
+		return slog.LevelInfo, true
+	case "debug":
+		return slog.LevelDebug, true
+	case "warn", "warning":
+		return slog.LevelWarn, true
+	case "error":
+		return slog.LevelError, true
+	default:
+		return slog.LevelInfo, false
+	}
+}
 
 func main() {
 	// Setup structured logging.
 	// JSON is the default so logs slot straight into Loki/CloudWatch/Datadog
 	// without fragile regex parsers. Operators can opt back into the human-
 	// readable text format with STROMBOLI_LOG_FORMAT=text (useful for local dev).
-	handlerOpts := &slog.HandlerOptions{Level: slog.LevelInfo}
+	// Log level is configurable via STROMBOLI_LOG_LEVEL (debug|info|warn|error).
+	rawLevel := os.Getenv("STROMBOLI_LOG_LEVEL")
+	logLevel, levelOK := parseLogLevel(rawLevel)
+	handlerOpts := &slog.HandlerOptions{Level: logLevel}
 	var handler slog.Handler
 	if os.Getenv("STROMBOLI_LOG_FORMAT") == "text" {
 		handler = slog.NewTextHandler(os.Stdout, handlerOpts)
@@ -63,6 +84,11 @@ func main() {
 	}
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
+	if !levelOK {
+		slog.Warn("Unknown STROMBOLI_LOG_LEVEL — falling back to info",
+			"received", rawLevel,
+			"valid_values", "debug|info|warn|error")
+	}
 
 	slog.Info("Starting Stromboli 🌋", "version", version.String())
 
