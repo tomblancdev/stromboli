@@ -726,7 +726,29 @@ func (r *PodmanRunner) applyRequestConfig(req Request, podmanBuilder *podman.Com
 		podmanBuilder.WithCPUShares(*req.Podman.CPUShares)
 	}
 
+	// Apply Claude-side env vars (prompt caching, Bedrock tier, PowerShell tool).
+	// These are env-var-only knobs; the CLI has no flag for them.
+	applyClaudeEnvVars(podmanBuilder, req.Claude)
+
 	return nil
+}
+
+// applyClaudeEnvVars translates Claude-side env-var-only options into podman
+// `-e KEY=VALUE` injections. Each option is opt-in — empty string / false
+// leaves the variable unset so the CLI sees its native default.
+func applyClaudeEnvVars(b *podman.CommandBuilder, opts types.ClaudeOptions) {
+	switch opts.PromptCachingTTL {
+	case "1h":
+		b.WithEnv("ENABLE_PROMPT_CACHING_1H", "1")
+	case "5m":
+		b.WithEnv("FORCE_PROMPT_CACHING_5M", "1")
+	}
+	if opts.BedrockServiceTier != "" {
+		b.WithEnv("ANTHROPIC_BEDROCK_SERVICE_TIER", opts.BedrockServiceTier)
+	}
+	if opts.EnablePowerShellTool {
+		b.WithEnv("CLAUDE_CODE_USE_POWERSHELL_TOOL", "1")
+	}
 }
 
 // RunAsync executes Claude in a goroutine and calls onComplete when done

@@ -111,6 +111,24 @@ type ClaudeOptions struct {
 	// Beta headers for API requests
 	Betas []string `json:"betas,omitempty"`
 
+	// --- Provider / Runtime Tuning (env-var-backed) ---
+
+	// Prompt cache TTL. "" leaves Claude's default; "5m" sets
+	// FORCE_PROMPT_CACHING_5M=1; "1h" sets ENABLE_PROMPT_CACHING_1H=1.
+	// Useful for long-lived agent loops where the same context is re-used
+	// across many turns. (#76)
+	PromptCachingTTL string `json:"prompt_caching_ttl,omitempty" example:"1h"`
+
+	// Bedrock service tier when running against AWS Bedrock as the model
+	// backend. Valid values: "default", "flex", "priority". Translates to
+	// ANTHROPIC_BEDROCK_SERVICE_TIER. Ignored when not on Bedrock. (#77)
+	BedrockServiceTier string `json:"bedrock_service_tier,omitempty" example:"priority"`
+
+	// Opt into Claude Code's native PowerShell tool on Windows agent hosts.
+	// Translates to CLAUDE_CODE_USE_POWERSHELL_TOOL=1. No-op on non-Windows
+	// containers. (#81)
+	EnablePowerShellTool bool `json:"enable_powershell_tool,omitempty" example:"false"`
+
 	// --- Misc ---
 
 	// Enable verbose mode
