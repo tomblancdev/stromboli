@@ -1845,8 +1845,23 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_api.SessionInfo": {
+            "description": "Metadata about a single session",
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "example": "sess-abc123"
+                },
+                "title": {
+                    "description": "Title is set by a UserPromptSubmit hook returning\nhookSpecificOutput.sessionTitle (or by /rename in interactive mode).\nEmpty when no title was ever set for this session.",
+                    "type": "string",
+                    "example": "Refactor billing service"
+                }
+            }
+        },
         "internal_api.SessionListResponse": {
-            "description": "List of existing sessions",
+            "description": "List of existing sessions with metadata",
             "type": "object",
             "properties": {
                 "error": {
@@ -1855,12 +1870,8 @@ const docTemplate = `{
                 "sessions": {
                     "type": "array",
                     "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "sess-abc123",
-                        "sess-def456"
-                    ]
+                        "$ref": "#/definitions/internal_api.SessionInfo"
+                    }
                 }
             }
         },

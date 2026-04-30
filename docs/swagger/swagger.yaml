@@ -434,17 +434,28 @@ definitions:
         example: true
         type: boolean
     type: object
+  internal_api.SessionInfo:
+    description: Metadata about a single session
+    properties:
+      id:
+        example: sess-abc123
+        type: string
+      title:
+        description: |-
+          Title is set by a UserPromptSubmit hook returning
+          hookSpecificOutput.sessionTitle (or by /rename in interactive mode).
+          Empty when no title was ever set for this session.
+        example: Refactor billing service
+        type: string
+    type: object
   internal_api.SessionListResponse:
-    description: List of existing sessions
+    description: List of existing sessions with metadata
     properties:
       error:
         type: string
       sessions:
-        example:
-        - sess-abc123
-        - sess-def456
         items:
-          type: string
+          $ref: '#/definitions/internal_api.SessionInfo'
         type: array
     type: object
   internal_api.SessionMessageResponse:
