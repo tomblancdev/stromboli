@@ -59,6 +59,7 @@ Edit `stromboli.example.yaml` or use environment variables:
 | `STROMBOLI_AUTH_ENABLED` | `true` | Auth on by default. Set `false` only for local dev. |
 | `STROMBOLI_JWT_SECRET` | _(required when auth on)_ | Min 32 chars; generate with `openssl rand -base64 32`. |
 | `STROMBOLI_RATE_LIMIT_ENABLED` | `true` | Rate limiting on by default. |
+| `STROMBOLI_LOG_FORMAT` | `json` | `json` for log aggregators, `text` for local dev. |
 
 ## API Usage
 

@@ -49,10 +49,18 @@ const defaultHealthTimeout = 5 * time.Second
 
 
 func main() {
-	// Setup structured logging
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}))
+	// Setup structured logging.
+	// JSON is the default so logs slot straight into Loki/CloudWatch/Datadog
+	// without fragile regex parsers. Operators can opt back into the human-
+	// readable text format with STROMBOLI_LOG_FORMAT=text (useful for local dev).
+	handlerOpts := &slog.HandlerOptions{Level: slog.LevelInfo}
+	var handler slog.Handler
+	if os.Getenv("STROMBOLI_LOG_FORMAT") == "text" {
+		handler = slog.NewTextHandler(os.Stdout, handlerOpts)
+	} else {
+		handler = slog.NewJSONHandler(os.Stdout, handlerOpts)
+	}
+	logger := slog.New(handler)
 	slog.SetDefault(logger)
 
 	slog.Info("Starting Stromboli 🌋", "version", version.String())
