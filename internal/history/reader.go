@@ -212,7 +212,7 @@ func (r *Reader) AggregateUsage(sessionID string) (*UsageSummary, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open session file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	scanner := bufio.NewScanner(file)
 	buf := make([]byte, 0, 1024*1024)
