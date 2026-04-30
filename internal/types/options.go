@@ -22,6 +22,11 @@ type ClaudeOptions struct {
 	Model string `json:"model,omitempty" example:"sonnet"`
 	// Fallback model when default is overloaded
 	FallbackModel string `json:"fallback_model,omitempty" example:"haiku"`
+	// Effort level for thinking/agentic complexity. Valid values per the
+	// upstream CLI reference: low, medium, high, xhigh, max. The accepted
+	// subset depends on the model — Claude rejects unsupported levels at
+	// runtime, so Stromboli does not gate on an enum here.
+	Effort string `json:"effort,omitempty" example:"high"`
 
 	// --- System Prompt ---
 

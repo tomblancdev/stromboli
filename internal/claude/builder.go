@@ -22,6 +22,7 @@ type CommandBuilder struct {
 	// Model configuration
 	model         string // --model
 	fallbackModel string // --fallback-model
+	effort        string // --effort (low, medium, high, xhigh, max — model-dependent)
 
 	// System prompt
 	systemPrompt       string // --system-prompt
@@ -136,6 +137,15 @@ func (b *CommandBuilder) WithModel(model string) *CommandBuilder {
 // WithFallbackModel sets fallback model when default is overloaded
 func (b *CommandBuilder) WithFallbackModel(model string) *CommandBuilder {
 	b.fallbackModel = model
+	return b
+}
+
+// WithEffort sets the per-session effort level. Valid values per the CLI
+// reference are low, medium, high, xhigh, max — but the actual subset
+// accepted depends on the model, so we don't gate on an enum here. Claude
+// will reject unsupported values at runtime with a clear error.
+func (b *CommandBuilder) WithEffort(level string) *CommandBuilder {
+	b.effort = level
 	return b
 }
 
@@ -371,6 +381,9 @@ func (b *CommandBuilder) Build() []string {
 	}
 	if b.fallbackModel != "" {
 		args = append(args, "--fallback-model", b.fallbackModel)
+	}
+	if b.effort != "" {
+		args = append(args, "--effort", b.effort)
 	}
 
 	// System prompt

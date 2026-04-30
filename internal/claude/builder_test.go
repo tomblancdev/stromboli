@@ -85,6 +85,24 @@ func TestWithFallbackModel(t *testing.T) {
 	assert.Contains(t, cmd, "sonnet")
 }
 
+func TestWithEffort(t *testing.T) {
+	for _, level := range []string{"low", "medium", "high", "xhigh", "max"} {
+		t.Run(level, func(t *testing.T) {
+			cmd := NewCommandBuilder().
+				WithPrompt("test").
+				WithEffort(level).
+				Build()
+			assert.Contains(t, cmd, "--effort")
+			assert.Contains(t, cmd, level)
+		})
+	}
+}
+
+func TestWithEffort_OmittedWhenEmpty(t *testing.T) {
+	cmd := NewCommandBuilder().WithPrompt("test").Build()
+	assert.NotContains(t, cmd, "--effort")
+}
+
 func TestWithSystemPrompt(t *testing.T) {
 	cmd := NewCommandBuilder().
 		WithPrompt("hello").
