@@ -231,7 +231,10 @@ func setupViper(v *viper.Viper) {
 	v.SetDefault("tracing.enabled", false)
 	v.SetDefault("tracing.service_name", defaultTracingService)
 	v.SetDefault("tracing.endpoint", defaultTracingEndpoint)
-	v.SetDefault("tracing.insecure", true)
+	// Tracing transport is TLS by default — plaintext gRPC leaks request
+	// metadata and session IDs. Operators with a localhost OTLP collector
+	// or trusted private network can opt back in via STROMBOLI_TRACING_INSECURE=true.
+	v.SetDefault("tracing.insecure", false)
 
 	// Compose defaults (secure by default)
 	v.SetDefault("compose.allow_privileged", false)
