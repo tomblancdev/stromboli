@@ -2386,6 +2386,11 @@ const docTemplate = `{
                         "Write"
                     ]
                 },
+                "effort": {
+                    "description": "Effort level for thinking/agentic complexity. Valid values per the\nupstream CLI reference: low, medium, high, xhigh, max. The accepted\nsubset depends on the model — Claude rejects unsupported levels at\nruntime, so Stromboli does not gate on an enum here.",
+                    "type": "string",
+                    "example": "high"
+                },
                 "fallback_model": {
                     "description": "Fallback model when default is overloaded",
                     "type": "string",

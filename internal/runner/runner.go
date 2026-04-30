@@ -777,13 +777,16 @@ func (r *PodmanRunner) applySessionOptions(b *claude.CommandBuilder, opts types.
 	}
 }
 
-// applyModelOptions handles Model, FallbackModel options
+// applyModelOptions handles Model, FallbackModel, Effort options
 func (r *PodmanRunner) applyModelOptions(b *claude.CommandBuilder, opts types.ClaudeOptions) {
 	if opts.Model != "" {
 		b.WithModel(opts.Model)
 	}
 	if opts.FallbackModel != "" {
 		b.WithFallbackModel(opts.FallbackModel)
+	}
+	if opts.Effort != "" {
+		b.WithEffort(opts.Effort)
 	}
 }
 
