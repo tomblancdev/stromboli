@@ -1,6 +1,9 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/base64"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,15 +13,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// validJWTSecret is a 44-char base64 string used in tests where we need auth to
-// pass validation. Generated with `openssl rand -base64 32`.
-const validJWTSecret = "qY3FvR0xUd5HxN6tA8bC9eK2mZ4pL7vJ8sQ1wE3rT5o="
+// newTestJWTSecret returns a fresh random base64 string suitable for satisfying
+// the JWT secret validation in tests. Generating it at runtime (rather than
+// embedding a literal) keeps secret-scanners from flagging the test fixture.
+func newTestJWTSecret(t *testing.T) string {
+	t.Helper()
+	b := make([]byte, 32)
+	_, err := rand.Read(b)
+	require.NoError(t, err)
+	return base64.StdEncoding.EncodeToString(b)
+}
 
 func TestLoad_Defaults(t *testing.T) {
 	// Clean environment, then provide a valid JWT secret so the secure-by-default
 	// auth check passes — we still want to verify the *other* defaults below.
 	cleanEnv(t)
-	t.Setenv("STROMBOLI_JWT_SECRET", validJWTSecret)
+	secret := newTestJWTSecret(t)
+	t.Setenv("STROMBOLI_JWT_SECRET", secret)
 
 	cfg, err := Load()
 	require.NoError(t, err)
@@ -47,7 +58,7 @@ func TestLoad_Defaults(t *testing.T) {
 	assert.Equal(t, time.Second, cfg.RateLimit.Period)
 
 	// Test JWT defaults (secret was injected above; durations come from defaults)
-	assert.Equal(t, validJWTSecret, cfg.JWT.Secret)
+	assert.Equal(t, secret, cfg.JWT.Secret)
 	assert.Equal(t, 24*time.Hour, cfg.JWT.AccessExpiry)
 	assert.Equal(t, 7*24*time.Hour, cfg.JWT.RefreshExpiry)
 
@@ -62,6 +73,7 @@ func TestLoad_Defaults(t *testing.T) {
 
 func TestLoad_EnvironmentVariables(t *testing.T) {
 	cleanEnv(t)
+	secret := newTestJWTSecret(t)
 
 	// Set environment variables
 	os.Setenv("STROMBOLI_SERVER_ADDRESS", ":9090")
@@ -76,7 +88,7 @@ func TestLoad_EnvironmentVariables(t *testing.T) {
 	os.Setenv("STROMBOLI_RATE_LIMIT_ENABLED", "true")
 	os.Setenv("STROMBOLI_RATE_LIMIT_RPS", "50")
 	os.Setenv("STROMBOLI_RATE_LIMIT_BURST", "100")
-	os.Setenv("STROMBOLI_JWT_SECRET", validJWTSecret)
+	os.Setenv("STROMBOLI_JWT_SECRET", secret)
 	os.Setenv("STROMBOLI_JWT_EXPIRY", "12h")
 	os.Setenv("STROMBOLI_JWT_REFRESH_EXPIRY", "72h")
 	os.Setenv("STROMBOLI_TOKEN_CACHE_ENABLED", "false")
@@ -97,7 +109,7 @@ func TestLoad_EnvironmentVariables(t *testing.T) {
 	assert.True(t, cfg.RateLimit.Enabled)
 	assert.Equal(t, 50, cfg.RateLimit.Rate)
 	assert.Equal(t, 100, cfg.RateLimit.Burst)
-	assert.Equal(t, validJWTSecret, cfg.JWT.Secret)
+	assert.Equal(t, secret, cfg.JWT.Secret)
 	assert.Equal(t, 12*time.Hour, cfg.JWT.AccessExpiry)
 	assert.Equal(t, 72*time.Hour, cfg.JWT.RefreshExpiry)
 	assert.False(t, cfg.Agent.TokenCache.Enabled)
@@ -107,9 +119,10 @@ func TestLoad_EnvironmentVariables(t *testing.T) {
 func TestLoad_BackwardCompatibility(t *testing.T) {
 	// Test that legacy env vars still work
 	cleanEnv(t)
+	secret := newTestJWTSecret(t)
 
 	os.Setenv("STROMBOLI_AUTH_ENABLED", "true")
-	os.Setenv("STROMBOLI_JWT_SECRET", validJWTSecret)
+	os.Setenv("STROMBOLI_JWT_SECRET", secret)
 	os.Setenv("STROMBOLI_API_TOKENS", "legacy1,legacy2")
 	os.Setenv("STROMBOLI_RATE_LIMIT_ENABLED", "true")
 	os.Setenv("STROMBOLI_RATE_LIMIT_RPS", "25")
@@ -133,12 +146,13 @@ func TestLoad_BackwardCompatibility(t *testing.T) {
 
 func TestLoad_ConfigFile(t *testing.T) {
 	cleanEnv(t)
+	secret := newTestJWTSecret(t)
 
 	// Create temporary config file
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "stromboli.yaml")
 
-	configContent := `
+	configContent := fmt.Sprintf(`
 server:
   address: ":7070"
 
@@ -167,14 +181,14 @@ rate_limit:
   burst: 200
 
 jwt:
-  secret: "qY3FvR0xUd5HxN6tA8bC9eK2mZ4pL7vJ8sQ1wE3rT5o="
+  secret: %q
   access_expiry: "6h"
   refresh_expiry: "48h"
 
 jobs:
   cleanup_ttl: "2h"
   cleanup_interval: "10m"
-`
+`, secret)
 	err := os.WriteFile(configPath, []byte(configContent), 0644)
 	require.NoError(t, err)
 
@@ -194,7 +208,7 @@ jobs:
 	assert.True(t, cfg.RateLimit.Enabled)
 	assert.Equal(t, 100, cfg.RateLimit.Rate)
 	assert.Equal(t, 200, cfg.RateLimit.Burst)
-	assert.Equal(t, validJWTSecret, cfg.JWT.Secret)
+	assert.Equal(t, secret, cfg.JWT.Secret)
 	assert.Equal(t, 6*time.Hour, cfg.JWT.AccessExpiry)
 	assert.Equal(t, 48*time.Hour, cfg.JWT.RefreshExpiry)
 	assert.Equal(t, 2*time.Hour, cfg.Jobs.CleanupTTL)
@@ -225,7 +239,7 @@ auth:
 	// Override with environment variables
 	os.Setenv("STROMBOLI_SERVER_ADDRESS", ":8888")
 	os.Setenv("STROMBOLI_AUTH_ENABLED", "true")
-	os.Setenv("STROMBOLI_JWT_SECRET", validJWTSecret)
+	os.Setenv("STROMBOLI_JWT_SECRET", newTestJWTSecret(t))
 	os.Setenv("STROMBOLI_API_TOKENS", "env-token")
 
 	cfg, err := LoadFromFile(configPath)
