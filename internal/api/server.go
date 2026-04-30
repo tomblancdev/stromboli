@@ -257,8 +257,23 @@ func (s *Server) listSessions(c *gin.Context) {
 		return
 	}
 
+	// Decorate each session ID with its title (when the JSONL recorded one
+	// via a UserPromptSubmit sessionTitle hook). Title lookup is best-effort
+	// — a missing or unreadable JSONL surfaces an empty title, never an error,
+	// so a single broken session doesn't fail the whole list response.
+	infos := make([]SessionInfo, 0, len(sessions))
+	for _, id := range sessions {
+		info := SessionInfo{ID: id}
+		if s.historyHandler != nil {
+			if t, _ := s.historyHandler.Reader().GetTitle(id); t != "" {
+				info.Title = t
+			}
+		}
+		infos = append(infos, info)
+	}
+
 	c.JSON(http.StatusOK, SessionListResponse{
-		Sessions: sessions,
+		Sessions: infos,
 	})
 }
 

@@ -503,9 +503,13 @@ func TestListSessions_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Len(t, response.Sessions, 3)
-	assert.Contains(t, response.Sessions, "sess-1")
-	assert.Contains(t, response.Sessions, "sess-2")
-	assert.Contains(t, response.Sessions, "sess-3")
+	ids := make([]string, len(response.Sessions))
+	for i, s := range response.Sessions {
+		ids[i] = s.ID
+	}
+	assert.Contains(t, ids, "sess-1")
+	assert.Contains(t, ids, "sess-2")
+	assert.Contains(t, ids, "sess-3")
 }
 
 func TestListSessions_Empty(t *testing.T) {
@@ -716,4 +720,54 @@ func TestRun_PopulatesUsage(t *testing.T) {
 	assert.Equal(t, 1200, resp.Usage.TotalTokens)
 	// 1000 input @ $3/1M + 200 output @ $15/1M = 0.003 + 0.003 = 0.006
 	assert.InDelta(t, 0.006, resp.Usage.EstimatedCostUSD, 1e-9)
+}
+
+func TestListSessions_SurfacesTitleFromJSONL(t *testing.T) {
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	require.NoError(t, os.WriteFile(secretsFile, []byte("test-token"), 0600))
+
+	const sessionID = "sess-titled"
+	jsonlDir := filepath.Join(sessionsDir, sessionID, ".claude", "projects", "-workspace")
+	require.NoError(t, os.MkdirAll(jsonlDir, 0755))
+	// Two custom-title entries — the API should surface the LATER one.
+	jsonl := `{"type":"custom-title","customTitle":"first-title","sessionId":"sess-titled"}
+{"type":"user","uuid":"u1","sessionId":"sess-titled","timestamp":"2026-01-24T10:00:00.000Z","message":{"role":"user","content":"hi"}}
+{"type":"custom-title","customTitle":"final-title","sessionId":"sess-titled"}
+`
+	require.NoError(t, os.WriteFile(filepath.Join(jsonlDir, sessionID+".jsonl"), []byte(jsonl), 0644))
+
+	mockRunner := &runner.MockRunner{
+		ListSessionsFunc: func() ([]string, error) {
+			return []string{"sess-titled", "sess-untitled"}, nil
+		},
+	}
+	claudeClient := claude.NewClient(secretsFile)
+	jobMgr := job.NewManager()
+	server := NewServer(
+		mockRunner, claudeClient,
+		auth.Config{Enabled: false}, RateLimitConfig{Enabled: false},
+		jobMgr, nil, nil, false, sessionsDir,
+		secrets.NewRegistry(&mockTestExecutor{}),
+		images.NewRegistry(&mockTestExecutor{}),
+		nil,
+	)
+
+	req, err := http.NewRequest(http.MethodGet, "/sessions", nil)
+	require.NoError(t, err)
+	rec := httptest.NewRecorder()
+	server.router.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var resp SessionListResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Len(t, resp.Sessions, 2)
+
+	titles := map[string]string{}
+	for _, s := range resp.Sessions {
+		titles[s.ID] = s.Title
+	}
+	assert.Equal(t, "final-title", titles["sess-titled"], "latest custom-title entry should win")
+	assert.Equal(t, "", titles["sess-untitled"], "session without a title gets empty Title")
 }

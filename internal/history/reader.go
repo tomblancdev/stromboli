@@ -196,6 +196,55 @@ func (r *Reader) GetMessage(sessionID, messageUUID string) (*Message, error) {
 	return nil, fmt.Errorf("message not found: %s", messageUUID)
 }
 
+// GetTitle reads the session's JSONL and returns the latest title set by a
+// UserPromptSubmit hook (via hookSpecificOutput.sessionTitle, which Claude
+// persists as `{"type":"custom-title","customTitle":"…","sessionId":"…"}`
+// entries). Returns "" + nil if the session has no title — that's a normal
+// state, not an error. Only filesystem / read errors are surfaced as err.
+func (r *Reader) GetTitle(sessionID string) (string, error) {
+	filePath, err := r.findSessionFile(sessionID)
+	if err != nil {
+		// Session file missing is treated as "no title" — most callers
+		// don't care, and a 404 in the title path shouldn't break the
+		// surrounding list response.
+		return "", nil
+	}
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to open session file: %w", err)
+	}
+	defer func() { _ = file.Close() }()
+
+	scanner := bufio.NewScanner(file)
+	buf := make([]byte, 0, 1024*1024)
+	scanner.Buffer(buf, 10*1024*1024)
+
+	// Multiple custom-title entries may exist (hook fires per turn). Keep
+	// the last one we see — that's the most recent rename.
+	var probe struct {
+		Type        string `json:"type"`
+		CustomTitle string `json:"customTitle"`
+	}
+	latest := ""
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		if err := json.Unmarshal(line, &probe); err != nil {
+			continue
+		}
+		if probe.Type == "custom-title" && probe.CustomTitle != "" {
+			latest = probe.CustomTitle
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return "", fmt.Errorf("error reading session file: %w", err)
+	}
+	return latest, nil
+}
+
 // AggregateUsage walks the session JSONL once and sums every assistant
 // message's `usage` block. Returns the totals plus the most recently seen
 // model identifier (used for cost estimation).

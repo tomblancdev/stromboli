@@ -83,11 +83,21 @@ func extractStructuredOutput(output string) json.RawMessage {
 	return envelope.StructuredOutput
 }
 
+// SessionInfo carries metadata about a session in list responses.
+// @Description Metadata about a single session
+type SessionInfo struct {
+	ID    string `json:"id" example:"sess-abc123"`
+	// Title is set by a UserPromptSubmit hook returning
+	// hookSpecificOutput.sessionTitle (or by /rename in interactive mode).
+	// Empty when no title was ever set for this session.
+	Title string `json:"title,omitempty" example:"Refactor billing service"`
+}
+
 // SessionListResponse represents the response from listing sessions
-// @Description List of existing sessions
+// @Description List of existing sessions with metadata
 type SessionListResponse struct {
-	Sessions []string `json:"sessions" example:"sess-abc123,sess-def456"`
-	Error    string   `json:"error,omitempty"`
+	Sessions []SessionInfo `json:"sessions"`
+	Error    string        `json:"error,omitempty"`
 }
 
 // SessionDestroyResponse represents the response from destroying a session
