@@ -811,6 +811,13 @@ definitions:
         description: Append to default system prompt
         example: Focus on security best practices
         type: string
+      bedrock_service_tier:
+        description: |-
+          Bedrock service tier when running against AWS Bedrock as the model
+          backend. Valid values: "default", "flex", "priority". Translates to
+          ANTHROPIC_BEDROCK_SERVICE_TIER. Ignored when not on Bedrock. (#77)
+        example: priority
+        type: string
       betas:
         description: Beta headers for API requests
         items:
@@ -839,6 +846,13 @@ definitions:
         items:
           type: string
         type: array
+      enable_powershell_tool:
+        description: |-
+          Opt into Claude Code's native PowerShell tool on Windows agent hosts.
+          Translates to CLAUDE_CODE_USE_POWERSHELL_TOOL=1. No-op on non-Windows
+          containers. (#81)
+        example: false
+        type: boolean
       fallback_model:
         description: Fallback model when default is overloaded
         example: haiku
@@ -901,6 +915,14 @@ definitions:
         items:
           type: string
         type: array
+      prompt_caching_ttl:
+        description: |-
+          Prompt cache TTL. "" leaves Claude's default; "5m" sets
+          FORCE_PROMPT_CACHING_5M=1; "1h" sets ENABLE_PROMPT_CACHING_1H=1.
+          Useful for long-lived agent loops where the same context is re-used
+          across many turns. (#76)
+        example: 1h
+        type: string
       replay_user_messages:
         description: Re-emit user messages on stdout
         example: false
