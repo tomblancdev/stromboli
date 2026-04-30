@@ -31,6 +31,25 @@ type CrashInfo struct {
 	TaskCompleted bool `json:"task_completed,omitempty"`
 }
 
+// Usage captures token consumption and cost estimate for a completed run.
+// Populated from the session's JSONL history after the run finishes.
+type Usage struct {
+	// Model identifier reported by Claude (e.g. "claude-opus-4-7-20260101").
+	// Empty when the model is unknown — cost estimation skipped in that case.
+	Model string `json:"model,omitempty"`
+
+	InputTokens              int `json:"input_tokens"`
+	OutputTokens             int `json:"output_tokens"`
+	CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
+	CacheReadInputTokens     int `json:"cache_read_input_tokens"`
+	TotalTokens              int `json:"total_tokens"`
+
+	// EstimatedCostUSD is best-effort: tokens × Anthropic's published
+	// per-1M rates, summed across all four buckets. Zero when the model
+	// isn't recognized or no usage was reported.
+	EstimatedCostUSD float64 `json:"estimated_cost_usd"`
+}
+
 // Job represents an async execution job
 type Job struct {
 	ID          string     `json:"id"`
@@ -38,6 +57,7 @@ type Job struct {
 	Output      string     `json:"output,omitempty"`
 	Error       string     `json:"error,omitempty"`
 	SessionID   string     `json:"session_id,omitempty"`
+	Usage       *Usage     `json:"usage,omitempty"`
 	CrashInfo   *CrashInfo `json:"crash_info,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
@@ -103,6 +123,22 @@ func (m *Manager) Update(id string, status Status, output, errMsg, sessionID str
 	job.Output = output
 	job.Error = errMsg
 	job.SessionID = sessionID
+	job.UpdatedAt = time.Now()
+}
+
+// SetUsage attaches token-usage / cost information to an existing job.
+// Called after the runner finishes and we've aggregated the session JSONL.
+// Silently no-ops when the job has been deleted or doesn't exist (the job
+// may have been cancelled while the runner was still going).
+func (m *Manager) SetUsage(id string, usage *Usage) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	job, ok := m.jobs[id]
+	if !ok {
+		return
+	}
+	job.Usage = usage
 	job.UpdatedAt = time.Now()
 }
 

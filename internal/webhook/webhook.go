@@ -6,15 +6,18 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"stromboli/internal/job"
 )
 
 // JobResult represents the result of a job to be sent to webhook
 type JobResult struct {
-	JobID     string `json:"job_id"`
-	Status    string `json:"status"`
-	Output    string `json:"output,omitempty"`
-	Error     string `json:"error,omitempty"`
-	SessionID string `json:"session_id,omitempty"`
+	JobID     string     `json:"job_id"`
+	Status    string     `json:"status"`
+	Output    string     `json:"output,omitempty"`
+	Error     string     `json:"error,omitempty"`
+	SessionID string     `json:"session_id,omitempty"`
+	Usage     *job.Usage `json:"usage,omitempty"`
 }
 
 // Notifier sends webhook notifications
