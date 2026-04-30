@@ -59,6 +59,10 @@ type RunResponse struct {
 	Error string `json:"error,omitempty" example:""`
 	// Session ID for conversation continuation
 	SessionID string `json:"session_id,omitempty" example:"sess-abc123def456"`
+	// Token usage totals + estimated USD cost. Populated best-effort from the
+	// session's JSONL; nil when the session file isn't readable yet or no
+	// assistant message reported usage.
+	Usage *job.Usage `json:"usage,omitempty"`
 	// Crash details (when status is "crashed")
 	CrashInfo *job.CrashInfo `json:"crash_info,omitempty"`
 }

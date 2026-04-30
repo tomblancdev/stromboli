@@ -20,6 +20,12 @@ func NewSessionHistoryHandler(sessionsDir string) *SessionHistoryHandler {
 	}
 }
 
+// Reader returns the underlying history reader so other handlers (like /run)
+// can aggregate session data without re-creating the reader.
+func (h *SessionHistoryHandler) Reader() *history.Reader {
+	return h.reader
+}
+
 // SessionMessagesResponse is the response for listing session messages
 // @Description Paginated list of session messages
 type SessionMessagesResponse struct {

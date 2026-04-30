@@ -221,6 +221,7 @@ func (s *Server) runClaude(c *gin.Context) {
 		Output:           result.Output,
 		StructuredOutput: extractStructuredOutput(result.Output),
 		SessionID:        result.SessionID,
+		Usage:            buildUsage(s.historyHandler.Reader(), result.SessionID),
 		CrashInfo:        crashInfo,
 	})
 }

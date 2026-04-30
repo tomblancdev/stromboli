@@ -1471,6 +1471,14 @@
                 "structured_output": {
                     "description": "Extracted structured_output from Claude's JSON envelope (when json_schema is used).\nConvenience field so callers don't need to parse the envelope themselves.",
                     "type": "object"
+                },
+                "usage": {
+                    "description": "Token usage totals + estimated USD cost. Populated best-effort from the\nsession's JSONL; nil when the session file isn't readable yet or no\nassistant message reported usage.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stromboli_internal_job.Usage"
+                        }
+                    ]
                 }
             }
         },
@@ -1913,6 +1921,34 @@
                 "StatusCrashed",
                 "StatusCancelled"
             ]
+        },
+        "stromboli_internal_job.Usage": {
+            "type": "object",
+            "properties": {
+                "cache_creation_input_tokens": {
+                    "type": "integer"
+                },
+                "cache_read_input_tokens": {
+                    "type": "integer"
+                },
+                "estimated_cost_usd": {
+                    "description": "EstimatedCostUSD is best-effort: tokens × Anthropic's published\nper-1M rates, summed across all four buckets. Zero when the model\nisn't recognized or no usage was reported.",
+                    "type": "number"
+                },
+                "input_tokens": {
+                    "type": "integer"
+                },
+                "model": {
+                    "description": "Model identifier reported by Claude (e.g. \"claude-opus-4-7-20260101\").\nEmpty when the model is unknown — cost estimation skipped in that case.",
+                    "type": "string"
+                },
+                "output_tokens": {
+                    "type": "integer"
+                },
+                "total_tokens": {
+                    "type": "integer"
+                }
+            }
         },
         "stromboli_internal_types.ClaudeOptions": {
             "description": "All available Claude CLI options for headless execution",

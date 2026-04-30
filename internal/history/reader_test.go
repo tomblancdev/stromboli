@@ -260,3 +260,59 @@ func TestReader_ListMessages_LimitEnforcement(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 50, result.Limit)
 }
+
+func TestReader_AggregateUsage_NoSession(t *testing.T) {
+	tmpDir := t.TempDir()
+	reader := NewReader(tmpDir)
+
+	summary, err := reader.AggregateUsage("missing-session")
+	assert.Error(t, err)
+	assert.Nil(t, summary)
+}
+
+func TestReader_AggregateUsage_NoUsageReported(t *testing.T) {
+	tmpDir := t.TempDir()
+	sessionID := "test-no-usage"
+
+	sessionDir := filepath.Join(tmpDir, sessionID, ".claude", "projects", "-workspace")
+	require.NoError(t, os.MkdirAll(sessionDir, 0755))
+
+	jsonlFile := filepath.Join(sessionDir, sessionID+".jsonl")
+	// User-only session: no assistant messages with usage.
+	data := `{"type":"user","uuid":"u1","sessionId":"test-no-usage","timestamp":"2026-01-24T10:00:00.000Z","message":{"role":"user","content":"hi"}}
+`
+	require.NoError(t, os.WriteFile(jsonlFile, []byte(data), 0644))
+
+	summary, err := NewReader(tmpDir).AggregateUsage(sessionID)
+	require.NoError(t, err)
+	assert.Nil(t, summary, "no assistant usage = nil summary, not an error")
+}
+
+func TestReader_AggregateUsage_SumsAcrossMessages(t *testing.T) {
+	tmpDir := t.TempDir()
+	sessionID := "test-aggregate"
+
+	sessionDir := filepath.Join(tmpDir, sessionID, ".claude", "projects", "-workspace")
+	require.NoError(t, os.MkdirAll(sessionDir, 0755))
+
+	jsonlFile := filepath.Join(sessionDir, sessionID+".jsonl")
+	// Two assistant messages — the aggregator should sum every bucket and keep
+	// the most recent model name.
+	data := `{"type":"user","uuid":"u1","sessionId":"test-aggregate","timestamp":"2026-01-24T10:00:00.000Z","message":{"role":"user","content":"hi"}}
+{"type":"assistant","uuid":"a1","parentUuid":"u1","sessionId":"test-aggregate","timestamp":"2026-01-24T10:00:01.000Z","message":{"role":"assistant","model":"claude-sonnet-4-6","id":"m1","content":[{"type":"text","text":"first"}],"usage":{"input_tokens":100,"output_tokens":20,"cache_creation_input_tokens":50,"cache_read_input_tokens":200}}}
+{"type":"user","uuid":"u2","sessionId":"test-aggregate","timestamp":"2026-01-24T10:00:02.000Z","message":{"role":"user","content":"more"}}
+{"type":"assistant","uuid":"a2","parentUuid":"u2","sessionId":"test-aggregate","timestamp":"2026-01-24T10:00:03.000Z","message":{"role":"assistant","model":"claude-opus-4-7","id":"m2","content":[{"type":"text","text":"second"}],"usage":{"input_tokens":50,"output_tokens":80,"cache_creation_input_tokens":0,"cache_read_input_tokens":300}}}
+`
+	require.NoError(t, os.WriteFile(jsonlFile, []byte(data), 0644))
+
+	summary, err := NewReader(tmpDir).AggregateUsage(sessionID)
+	require.NoError(t, err)
+	require.NotNil(t, summary)
+	assert.Equal(t, 150, summary.InputTokens)
+	assert.Equal(t, 100, summary.OutputTokens)
+	assert.Equal(t, 50, summary.CacheCreationInputTokens)
+	assert.Equal(t, 500, summary.CacheReadInputTokens)
+	assert.Equal(t, 800, summary.TotalTokens)
+	// Latest model wins so cost lookup uses the most recent.
+	assert.Equal(t, "claude-opus-4-7", summary.Model)
+}

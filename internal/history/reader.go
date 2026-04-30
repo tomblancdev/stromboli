@@ -196,6 +196,66 @@ func (r *Reader) GetMessage(sessionID, messageUUID string) (*Message, error) {
 	return nil, fmt.Errorf("message not found: %s", messageUUID)
 }
 
+// AggregateUsage walks the session JSONL once and sums every assistant
+// message's `usage` block. Returns the totals plus the most recently seen
+// model identifier (used for cost estimation).
+//
+// Returns (nil, nil) if the session file exists but no assistant message has
+// usage info — that's a normal in-flight state, not an error.
+func (r *Reader) AggregateUsage(sessionID string) (*UsageSummary, error) {
+	filePath, err := r.findSessionFile(sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open session file: %w", err)
+	}
+	defer func() { _ = file.Close() }()
+
+	scanner := bufio.NewScanner(file)
+	buf := make([]byte, 0, 1024*1024)
+	scanner.Buffer(buf, 10*1024*1024)
+
+	var summary UsageSummary
+	hasUsage := false
+
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		msg, err := r.parseMessage(line)
+		if err != nil {
+			continue
+		}
+		if msg.Type != MessageTypeAssistant || msg.Content.Usage == nil {
+			continue
+		}
+		u := msg.Content.Usage
+		summary.InputTokens += u.InputTokens
+		summary.OutputTokens += u.OutputTokens
+		summary.CacheCreationInputTokens += u.CacheCreationInputTokens
+		summary.CacheReadInputTokens += u.CacheReadInputTokens
+		if msg.Content.Model != "" {
+			summary.Model = msg.Content.Model
+		}
+		hasUsage = true
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error reading session file: %w", err)
+	}
+	if !hasUsage {
+		return nil, nil
+	}
+
+	summary.TotalTokens = summary.InputTokens + summary.OutputTokens +
+		summary.CacheCreationInputTokens + summary.CacheReadInputTokens
+	return &summary, nil
+}
+
 // parseMessage converts a raw JSONL line to a Message
 func (r *Reader) parseMessage(line []byte) (*Message, error) {
 	var raw rawMessage

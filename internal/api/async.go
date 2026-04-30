@@ -113,6 +113,13 @@ func (s *Server) runAsync(c *gin.Context) {
 			s.jobMgr.Update(jobID, status, output, errMsg, sessionID)
 		}
 
+		// Best-effort attach token usage / cost. Skipped silently if the
+		// session has no JSONL yet or the runner failed before producing one.
+		usage := buildUsage(s.historyHandler.Reader(), sessionID)
+		if usage != nil {
+			s.jobMgr.SetUsage(jobID, usage)
+		}
+
 		// Send webhook notification if URL provided
 		if webhookURL != "" {
 			notifier := webhook.NewNotifier()
@@ -122,6 +129,7 @@ func (s *Server) runAsync(c *gin.Context) {
 				Output:    output,
 				Error:     errMsg,
 				SessionID: sessionID,
+				Usage:     usage,
 			}
 
 			// Send webhook in background, don't block on failure

@@ -665,3 +665,54 @@ type errorMockExecutor struct {
 func (m *errorMockExecutor) Run(ctx context.Context, args []string) ([]byte, error) {
 	return nil, m.err
 }
+
+func TestRun_PopulatesUsage(t *testing.T) {
+	tmpDir := t.TempDir()
+	secretsFile := filepath.Join(tmpDir, ".claude-secrets")
+	sessionsDir := filepath.Join(tmpDir, "sessions")
+	require.NoError(t, os.WriteFile(secretsFile, []byte("test-token"), 0600))
+
+	const sessionID = "sess-usage-1"
+	// Pre-write the session JSONL so the post-run aggregation has data to
+	// consume. The reader looks under <sessionsDir>/<sid>/.claude/projects/*/<sid>.jsonl.
+	jsonlDir := filepath.Join(sessionsDir, sessionID, ".claude", "projects", "-workspace")
+	require.NoError(t, os.MkdirAll(jsonlDir, 0755))
+	jsonl := `{"type":"user","uuid":"u1","sessionId":"` + sessionID + `","timestamp":"2026-01-24T10:00:00.000Z","message":{"role":"user","content":"hi"}}
+{"type":"assistant","uuid":"a1","sessionId":"` + sessionID + `","timestamp":"2026-01-24T10:00:01.000Z","message":{"role":"assistant","model":"claude-sonnet-4-6","id":"m1","content":[{"type":"text","text":"ok"}],"usage":{"input_tokens":1000,"output_tokens":200,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}
+`
+	require.NoError(t, os.WriteFile(filepath.Join(jsonlDir, sessionID+".jsonl"), []byte(jsonl), 0644))
+
+	mockRunner := &runner.MockRunner{
+		RunFunc: func(ctx context.Context, req runner.Request) (*runner.Result, error) {
+			return &runner.Result{ID: "run-x", Output: "hello", SessionID: sessionID}, nil
+		},
+	}
+	claudeClient := claude.NewClient(secretsFile)
+	jobMgr := job.NewManager()
+	server := NewServer(
+		mockRunner, claudeClient,
+		auth.Config{Enabled: false}, RateLimitConfig{Enabled: false},
+		jobMgr, nil, nil, false, sessionsDir,
+		secrets.NewRegistry(&mockTestExecutor{}),
+		images.NewRegistry(&mockTestExecutor{}),
+	)
+
+	body := bytes.NewBufferString(`{"prompt": "hi", "claude": {"session_id": "` + sessionID + `"}}`)
+	req, err := http.NewRequest(http.MethodPost, "/run", body)
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+
+	rec := httptest.NewRecorder()
+	server.router.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var resp RunResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.NotNil(t, resp.Usage, "usage should be populated when session JSONL has data")
+	assert.Equal(t, "claude-sonnet-4-6", resp.Usage.Model)
+	assert.Equal(t, 1000, resp.Usage.InputTokens)
+	assert.Equal(t, 200, resp.Usage.OutputTokens)
+	assert.Equal(t, 1200, resp.Usage.TotalTokens)
+	// 1000 input @ $3/1M + 200 output @ $15/1M = 0.003 + 0.003 = 0.006
+	assert.InDelta(t, 0.006, resp.Usage.EstimatedCostUSD, 1e-9)
+}
