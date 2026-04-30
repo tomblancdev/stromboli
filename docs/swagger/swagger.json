@@ -2385,6 +2385,11 @@
                         "Write"
                     ]
                 },
+                "effort": {
+                    "description": "Effort level for thinking/agentic complexity. Valid values per the\nupstream CLI reference: low, medium, high, xhigh, max. The accepted\nsubset depends on the model — Claude rejects unsupported levels at\nruntime, so Stromboli does not gate on an enum here.",
+                    "type": "string",
+                    "example": "high"
+                },
                 "enable_powershell_tool": {
                     "description": "Opt into Claude Code's native PowerShell tool on Windows agent hosts.\nTranslates to CLAUDE_CODE_USE_POWERSHELL_TOOL=1. No-op on non-Windows\ncontainers. (#81)",
                     "type": "boolean",

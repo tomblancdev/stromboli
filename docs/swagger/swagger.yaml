@@ -846,6 +846,14 @@ definitions:
         items:
           type: string
         type: array
+      effort:
+        description: |-
+          Effort level for thinking/agentic complexity. Valid values per the
+          upstream CLI reference: low, medium, high, xhigh, max. The accepted
+          subset depends on the model — Claude rejects unsupported levels at
+          runtime, so Stromboli does not gate on an enum here.
+        example: high
+        type: string
       enable_powershell_tool:
         description: |-
           Opt into Claude Code's native PowerShell tool on Windows agent hosts.
