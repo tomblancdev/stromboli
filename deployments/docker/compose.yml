@@ -1,4 +1,10 @@
-# Stromboli - Podman Compose Deployment
+# Stromboli - Podman Compose Deployment (DEV)
+#
+# ⚠️  This file is for local development. Do NOT use it for staging or
+#     anything resembling production:
+#       - Auth is off by default
+#       - Resource limits are minimal
+#     For production, see install/docker-compose.yml.
 #
 # Usage:
 #   cd /path/to/stromboli
@@ -40,8 +46,9 @@ services:
       # Mount Podman socket (rootless)
       - ${XDG_RUNTIME_DIR:-/run/user/1000}/podman/podman.sock:/run/podman/podman.sock:ro
 
-      # Sessions directory - use absolute path on host, same path in container
-      - /tmp/stromboli-sessions:/tmp/stromboli-sessions
+      # Sessions directory — named volume so dev state survives container
+      # restarts (the previous /tmp bind got wiped on every host reboot).
+      - stromboli-sessions-dev:/app/sessions
 
     # Claude credentials via Podman secret (secure, encrypted storage)
     secrets:
@@ -54,7 +61,7 @@ services:
       STROMBOLI_AGENT_IMAGE: "stromboli-agent"
       STROMBOLI_AGENT_IMAGE_TAG: "latest"
       STROMBOLI_AGENT_CREDENTIALS_FILE: "/home/user/.claude/.credentials.json"
-      STROMBOLI_AGENT_SESSIONS_DIR: "/tmp/stromboli-sessions"
+      STROMBOLI_AGENT_SESSIONS_DIR: "/app/sessions"
       CONTAINER_HOST: "unix:///run/podman/podman.sock"
 
       # Resource defaults
@@ -100,6 +107,15 @@ services:
       timeout: 5s
       retries: 3
       start_period: 5s
+
+# ==========================================================================
+# Volumes
+# ==========================================================================
+volumes:
+  # Named volume for session persistence in dev. Survives `compose down/up`
+  # and host reboots; remove with `podman volume rm stromboli-sessions-dev`.
+  stromboli-sessions-dev:
+    driver: local
 
 # ==========================================================================
 # Secrets - Compose-managed secrets (file-based)
