@@ -17,6 +17,230 @@
     "host": "localhost:8080",
     "basePath": "/",
     "paths": {
+        "/agents": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "List persistent agents",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/stromboli_internal_agent.Snapshot"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Launches a long-lived Claude container with stream-json I/O.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Spawn a persistent agent",
+                "parameters": [
+                    {
+                        "description": "Agent configuration",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/stromboli_internal_agent.CreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.CreateAgentResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.errorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Spawn failed",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.errorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/agents/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Get persistent agent",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/stromboli_internal_agent.Snapshot"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.errorBody"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Stop a persistent agent",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.errorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/agents/{id}/send": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Send a turn to a persistent agent",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Prompt",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SendAgentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SendAgentResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.errorBody"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.errorBody"
+                        }
+                    },
+                    "409": {
+                        "description": "Turn already in progress",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.errorBody"
+                        }
+                    },
+                    "410": {
+                        "description": "Agent has exited",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.errorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/agents/{id}/stream": {
+            "get": {
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Stream a persistent agent's events (SSE)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SSE stream of agent.Event objects",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.errorBody"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/logout": {
             "post": {
                 "security": [
@@ -1053,6 +1277,36 @@
                 }
             }
         },
+        "internal_api.CreateAgentResponse": {
+            "description": "Created agent metadata",
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "exit_error": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "idle_timeout_seconds": {
+                    "type": "integer"
+                },
+                "last_activity_at": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/stromboli_internal_agent.Status"
+                },
+                "turns_completed": {
+                    "type": "integer"
+                }
+            }
+        },
         "internal_api.CreateSecretRequest": {
             "description": "Request to create a new Podman secret",
             "type": "object",
@@ -1545,6 +1799,29 @@
                 }
             }
         },
+        "internal_api.SendAgentRequest": {
+            "description": "Append a prompt to a running agent's stream-json stdin",
+            "type": "object",
+            "required": [
+                "prompt"
+            ],
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "example": "Tell me about that alert"
+                }
+            }
+        },
+        "internal_api.SendAgentResponse": {
+            "description": "Acknowledgement that a turn has started; output streams via /stream",
+            "type": "object",
+            "properties": {
+                "turn_id": {
+                    "type": "string",
+                    "example": "turn-abc123"
+                }
+            }
+        },
         "internal_api.SessionDestroyResponse": {
             "description": "Result of session destruction",
             "type": "object",
@@ -1658,6 +1935,80 @@
                     "type": "boolean"
                 }
             }
+        },
+        "internal_api.errorBody": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "stromboli_internal_agent.CreateRequest": {
+            "type": "object",
+            "properties": {
+                "claude": {
+                    "description": "Free-form Claude CLI options forwarded to the command builder.\nKept as map[string]any so we can evolve the surface without bumping the\nCreateRequest schema every time Claude adds a flag.",
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "idle_timeout_seconds": {
+                    "description": "Idle-timeout override in seconds. Zero means \"use the manager default\n(DefaultIdleTimeout)\". Negative values are rejected at parse time.",
+                    "type": "integer"
+                },
+                "prompt": {
+                    "description": "Initial prompt sent as the first turn. Optional — callers can also\ncreate an empty agent and use /send for the first interaction.",
+                    "type": "string"
+                },
+                "workdir": {
+                    "description": "Working directory inside the container.",
+                    "type": "string"
+                }
+            }
+        },
+        "stromboli_internal_agent.Snapshot": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "exit_error": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "idle_timeout_seconds": {
+                    "type": "integer"
+                },
+                "last_activity_at": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/stromboli_internal_agent.Status"
+                },
+                "turns_completed": {
+                    "type": "integer"
+                }
+            }
+        },
+        "stromboli_internal_agent.Status": {
+            "type": "string",
+            "enum": [
+                "starting",
+                "idle",
+                "generating",
+                "exited"
+            ],
+            "x-enum-varnames": [
+                "StatusStarting",
+                "StatusIdle",
+                "StatusGenerating",
+                "StatusExited"
+            ]
         },
         "stromboli_internal_history.ContentBlock": {
             "description": "A content block (text, tool_use, or tool_result)",
