@@ -130,6 +130,11 @@ const (
 	defaultTracingEndpoint   = "localhost:4317"
 	defaultTracingService    = "stromboli"
 
+	// MinJWTSecretLength is the minimum allowed JWT secret length in bytes.
+	// 32 bytes matches the output of `openssl rand -base64 24` (32 chars) and
+	// gives at least 192 bits of entropy when generated from random bytes.
+	MinJWTSecretLength = 32
+
 	// Compose defaults
 	defaultComposeBuildTimeout  = 10 * time.Minute
 	defaultComposeHealthTimeout = 2 * time.Minute
@@ -197,7 +202,10 @@ func setupViper(v *viper.Viper) {
 	v.SetDefault("resources.memory", defaultMemory)
 	v.SetDefault("resources.cpus", defaultCPUs)
 	v.SetDefault("resources.timeout", defaultTimeout)
-	v.SetDefault("auth.enabled", false)
+	// Auth is on by default — secure-by-default.
+	// Operators must provide STROMBOLI_JWT_SECRET; Validate() refuses to start otherwise.
+	// Local dev that wants to skip auth must set STROMBOLI_AUTH_ENABLED=false explicitly.
+	v.SetDefault("auth.enabled", true)
 	v.SetDefault("auth.valid_tokens", []string{})
 	v.SetDefault("rate_limit.enabled", false)
 	v.SetDefault("rate_limit.rate", defaultRateLimitRate)
@@ -472,6 +480,15 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	// When auth is enabled, the JWT secret must be present, long enough, and not a
+	// known placeholder. This is the secure-by-default gate: a misconfigured prod
+	// deploy fails to start instead of silently exposing an unauthenticated API.
+	if c.Auth.Enabled {
+		if err := validateJWTSecret(c.JWT.Secret); err != nil {
+			return err
+		}
+	}
+
 	// Validate job cleanup config
 	if c.Jobs.CleanupTTL <= 0 {
 		return fmt.Errorf("job cleanup TTL must be positive")
@@ -501,5 +518,37 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("compose stack TTL must be positive")
 	}
 
+	return nil
+}
+
+// jwtPlaceholderSecrets are well-known placeholder strings shipped in templates
+// and documentation. Treating them as invalid prevents an operator from
+// accidentally promoting a copy-pasted example to production.
+var jwtPlaceholderSecrets = map[string]struct{}{
+	"change-me":                              {},
+	"changeme":                               {},
+	"replace-me":                             {},
+	"your-secret-here":                       {},
+	"your-jwt-secret":                        {},
+	"generate-with-openssl-rand-base64-32":   {},
+	"insecure-secret-do-not-use-in-prod":     {},
+	"test-secret":                            {},
+}
+
+// validateJWTSecret enforces the JWT secret requirements when auth is enabled.
+// Returns an actionable error directing the operator to generate a real secret.
+func validateJWTSecret(secret string) error {
+	const howToFix = "generate one with: openssl rand -base64 32"
+
+	if secret == "" {
+		return fmt.Errorf("auth is enabled but STROMBOLI_JWT_SECRET is empty — %s", howToFix)
+	}
+	if len(secret) < MinJWTSecretLength {
+		return fmt.Errorf("auth is enabled but STROMBOLI_JWT_SECRET is too short (%d chars, need at least %d) — %s",
+			len(secret), MinJWTSecretLength, howToFix)
+	}
+	if _, isPlaceholder := jwtPlaceholderSecrets[strings.ToLower(strings.TrimSpace(secret))]; isPlaceholder {
+		return fmt.Errorf("auth is enabled but STROMBOLI_JWT_SECRET is a known placeholder value — %s", howToFix)
+	}
 	return nil
 }
