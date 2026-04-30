@@ -77,11 +77,13 @@ func Init(ctx context.Context, cfg Config) (ShutdownFunc, error) {
 		return nil, fmt.Errorf("failed to create OTLP exporter: %w", err)
 	}
 
-	// Create resource with service information
+	// Create resource with service information.
+	// NewSchemaless avoids merge-time schema URL conflicts when the SDK's
+	// resource.Default() and our semconv import resolve to different OTel
+	// schema versions (a real risk after dependency bumps).
 	res, err := resource.Merge(
 		resource.Default(),
-		resource.NewWithAttributes(
-			semconv.SchemaURL,
+		resource.NewSchemaless(
 			semconv.ServiceName(serviceName),
 		),
 	)

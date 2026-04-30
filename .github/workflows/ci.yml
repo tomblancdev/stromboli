@@ -43,6 +43,9 @@ jobs:
         with:
           version: latest
           args: --timeout=5m
+          # Only flag issues introduced by the PR. The project has a backlog of
+          # pre-existing errcheck/staticcheck/unused warnings; tracked separately.
+          only-new-issues: true
 
   test:
     name: Unit tests
