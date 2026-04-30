@@ -150,8 +150,8 @@ func TestPodmanRunner_Run_AppliesDefaults(t *testing.T) {
 	require.Len(t, calls, 1)
 
 	cmdStr := strings.Join(calls[0], " ")
-	assert.Contains(t, cmdStr, "--memory=512m")
-	assert.Contains(t, cmdStr, "--cpus=1")
+	assert.Contains(t, cmdStr, "--memory 512m")
+	assert.Contains(t, cmdStr, "--cpus 1")
 }
 
 // TestPodmanRunner_Run_OverridesDefaults tests explicit values override defaults
@@ -192,9 +192,9 @@ func TestPodmanRunner_Run_OverridesDefaults(t *testing.T) {
 	require.Len(t, calls, 1)
 
 	cmdStr := strings.Join(calls[0], " ")
-	assert.Contains(t, cmdStr, "--memory=2g")
-	assert.Contains(t, cmdStr, "--cpus=4")
-	assert.NotContains(t, cmdStr, "--memory=512m")
+	assert.Contains(t, cmdStr, "--memory 2g")
+	assert.Contains(t, cmdStr, "--cpus 4")
+	assert.NotContains(t, cmdStr, "--memory 512m")
 }
 
 // TestPodmanRunner_Run_SessionHandling tests session creation and reuse
@@ -272,7 +272,7 @@ func TestPodmanRunner_Run_WorkspaceAsWorkdir(t *testing.T) {
 	calls := mock.GetCalls()
 	require.Len(t, calls, 1)
 	cmdStr := strings.Join(calls[0], " ")
-	assert.Contains(t, cmdStr, "--workdir=/workspace")
+	assert.Contains(t, cmdStr, "-w /workspace")
 
 	// Workspace should NOT create a volume mount (that's what volumes are for)
 	// Count volume mounts - should only be the session mount, not workspace
@@ -314,7 +314,7 @@ func TestPodmanRunner_Run_VolumeMounting(t *testing.T) {
 	calls := mock.GetCalls()
 	require.Len(t, calls, 1)
 	cmdStr := strings.Join(calls[0], " ")
-	assert.Contains(t, cmdStr, "--workdir=/app")
+	assert.Contains(t, cmdStr, "-w /app")
 	assert.Contains(t, cmdStr, "-v "+hostCodeDir+":/app:ro")
 }
 
@@ -479,10 +479,10 @@ func TestPodmanRunner_Run_BuildsCorrectCommand(t *testing.T) {
 	assert.Contains(t, cmdStr, "podman")
 	assert.Contains(t, cmdStr, "run")
 	assert.Contains(t, cmdStr, "my-image:latest")
-	assert.Contains(t, cmdStr, "--memory=1g")
-	assert.Contains(t, cmdStr, "--cpus=2")
+	assert.Contains(t, cmdStr, "--memory 1g")
+	assert.Contains(t, cmdStr, "--cpus 2")
 	assert.Contains(t, cmdStr, "test prompt")
-	assert.Contains(t, cmdStr, "--model=opus")
+	assert.Contains(t, cmdStr, "--model opus")
 	assert.Contains(t, cmdStr, "--verbose")
 }
 
@@ -1087,7 +1087,7 @@ func TestPodmanRunner_Run_WorkdirAutoCreateDisabled(t *testing.T) {
 	// Should NOT be wrapped with sh -c mkdir
 	assert.NotContains(t, cmdStr, "mkdir -p")
 	// But should still have workdir flag
-	assert.Contains(t, cmdStr, "--workdir=/my/workdir")
+	assert.Contains(t, cmdStr, "-w /my/workdir")
 }
 
 // TestPodmanRunner_Run_VolumeAutoCreate tests auto-creation of host directories for volumes
