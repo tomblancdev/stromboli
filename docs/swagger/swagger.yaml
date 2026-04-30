@@ -35,6 +35,26 @@ definitions:
         example: ok
         type: string
     type: object
+  internal_api.CreateAgentResponse:
+    description: Created agent metadata
+    properties:
+      created_at:
+        type: string
+      exit_error:
+        type: string
+      id:
+        type: string
+      idle_timeout_seconds:
+        type: integer
+      last_activity_at:
+        type: string
+      session_id:
+        type: string
+      status:
+        $ref: '#/definitions/stromboli_internal_agent.Status'
+      turns_completed:
+        type: integer
+    type: object
   internal_api.CreateSecretRequest:
     description: Request to create a new Podman secret
     properties:
@@ -386,6 +406,22 @@ definitions:
           $ref: '#/definitions/internal_api.SecretInfoResponse'
         type: array
     type: object
+  internal_api.SendAgentRequest:
+    description: Append a prompt to a running agent's stream-json stdin
+    properties:
+      prompt:
+        example: Tell me about that alert
+        type: string
+    required:
+    - prompt
+    type: object
+  internal_api.SendAgentResponse:
+    description: Acknowledgement that a turn has started; output streams via /stream
+    properties:
+      turn_id:
+        example: turn-abc123
+        type: string
+    type: object
   internal_api.SessionDestroyResponse:
     description: Result of session destruction
     properties:
@@ -462,6 +498,65 @@ definitions:
       valid:
         type: boolean
     type: object
+  internal_api.errorBody:
+    properties:
+      error:
+        type: string
+    type: object
+  stromboli_internal_agent.CreateRequest:
+    properties:
+      claude:
+        additionalProperties: {}
+        description: |-
+          Free-form Claude CLI options forwarded to the command builder.
+          Kept as map[string]any so we can evolve the surface without bumping the
+          CreateRequest schema every time Claude adds a flag.
+        type: object
+      idle_timeout_seconds:
+        description: |-
+          Idle-timeout override in seconds. Zero means "use the manager default
+          (DefaultIdleTimeout)". Negative values are rejected at parse time.
+        type: integer
+      prompt:
+        description: |-
+          Initial prompt sent as the first turn. Optional — callers can also
+          create an empty agent and use /send for the first interaction.
+        type: string
+      workdir:
+        description: Working directory inside the container.
+        type: string
+    type: object
+  stromboli_internal_agent.Snapshot:
+    properties:
+      created_at:
+        type: string
+      exit_error:
+        type: string
+      id:
+        type: string
+      idle_timeout_seconds:
+        type: integer
+      last_activity_at:
+        type: string
+      session_id:
+        type: string
+      status:
+        $ref: '#/definitions/stromboli_internal_agent.Status'
+      turns_completed:
+        type: integer
+    type: object
+  stromboli_internal_agent.Status:
+    enum:
+    - starting
+    - idle
+    - generating
+    - exited
+    type: string
+    x-enum-varnames:
+    - StatusStarting
+    - StatusIdle
+    - StatusGenerating
+    - StatusExited
   stromboli_internal_history.ContentBlock:
     description: A content block (text, tool_use, or tool_result)
     properties:
@@ -978,6 +1073,152 @@ info:
   title: Stromboli API
   version: "1.0"
 paths:
+  /agents:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/stromboli_internal_agent.Snapshot'
+            type: array
+      summary: List persistent agents
+      tags:
+      - agents
+    post:
+      consumes:
+      - application/json
+      description: Launches a long-lived Claude container with stream-json I/O.
+      parameters:
+      - description: Agent configuration
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/stromboli_internal_agent.CreateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_api.CreateAgentResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_api.errorBody'
+        "500":
+          description: Spawn failed
+          schema:
+            $ref: '#/definitions/internal_api.errorBody'
+      summary: Spawn a persistent agent
+      tags:
+      - agents
+  /agents/{id}:
+    delete:
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_api.errorBody'
+      summary: Stop a persistent agent
+      tags:
+      - agents
+    get:
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/stromboli_internal_agent.Snapshot'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_api.errorBody'
+      summary: Get persistent agent
+      tags:
+      - agents
+  /agents/{id}/send:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Prompt
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.SendAgentRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/internal_api.SendAgentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_api.errorBody'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_api.errorBody'
+        "409":
+          description: Turn already in progress
+          schema:
+            $ref: '#/definitions/internal_api.errorBody'
+        "410":
+          description: Agent has exited
+          schema:
+            $ref: '#/definitions/internal_api.errorBody'
+      summary: Send a turn to a persistent agent
+      tags:
+      - agents
+  /agents/{id}/stream:
+    get:
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: SSE stream of agent.Event objects
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_api.errorBody'
+      summary: Stream a persistent agent's events (SSE)
+      tags:
+      - agents
   /auth/logout:
     post:
       description: Invalidates a JWT token by adding it to the blacklist

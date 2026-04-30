@@ -31,10 +31,11 @@ type Server struct {
 	historyHandler  *SessionHistoryHandler
 	secretsHandler  *SecretsHandler
 	imagesHandler   *ImagesHandler
+	agentsHandler   *AgentsHandler
 }
 
 // NewServer creates a new API server
-func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Config, rateLimitConfig RateLimitConfig, jobMgr *job.Manager, healthChecker *HealthChecker, blacklist *auth.TokenBlacklist, tracingEnabled bool, sessionsDir string, secretsRegistry *secrets.Registry, imagesRegistry *images.Registry) *Server {
+func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Config, rateLimitConfig RateLimitConfig, jobMgr *job.Manager, healthChecker *HealthChecker, blacklist *auth.TokenBlacklist, tracingEnabled bool, sessionsDir string, secretsRegistry *secrets.Registry, imagesRegistry *images.Registry, agentsHandler *AgentsHandler) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -64,6 +65,7 @@ func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Con
 		historyHandler:  NewSessionHistoryHandler(sessionsDir),
 		secretsHandler:  NewSecretsHandler(secretsRegistry),
 		imagesHandler:   NewImagesHandler(imagesRegistry),
+		agentsHandler:   agentsHandler,
 	}
 	s.setupRoutes()
 
@@ -124,6 +126,18 @@ func (s *Server) setupRoutes() {
 		protected.GET("/images/search", s.imagesHandler.Search)
 		protected.POST("/images/pull", s.imagesHandler.Pull)
 		protected.GET("/images/:name", s.imagesHandler.Inspect)
+
+		// Persistent agents (long-lived Claude sessions). Registered only
+		// when an AgentsHandler is wired in — main.go injects it; tests
+		// that don't exercise this surface pass nil and the routes stay off.
+		if s.agentsHandler != nil {
+			protected.POST("/agents", s.agentsHandler.Create)
+			protected.GET("/agents", s.agentsHandler.List)
+			protected.GET("/agents/:id", s.agentsHandler.Get)
+			protected.POST("/agents/:id/send", s.agentsHandler.Send)
+			protected.GET("/agents/:id/stream", s.agentsHandler.Stream)
+			protected.DELETE("/agents/:id", s.agentsHandler.Delete)
+		}
 	}
 }
 

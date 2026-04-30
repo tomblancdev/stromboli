@@ -34,6 +34,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"stromboli/internal/agent"
 	"stromboli/internal/api"
 	"stromboli/internal/auth"
 	"stromboli/internal/claude"
@@ -48,6 +49,44 @@ import (
 
 // defaultHealthTimeout is the timeout for each health check component
 const defaultHealthTimeout = 5 * time.Second
+
+// buildAgentArgv returns an agent.ArgvBuilder closure that knows the
+// container image, credentials path, and sessions root for this deployment.
+// The closure is invoked once per /agents create and produces the podman +
+// claude argv that the agent.Spawner will exec.
+//
+// MVP scope: single image, claude with stream-json I/O, sessions mounted at
+// /app/sessions, credentials at /home/stromboli/.claude/.credentials.json
+// (matching the production compose template). Custom images, allowed-volumes,
+// etc. land in a follow-up — see PR description.
+func buildAgentArgv(agentImage, credentialsFile, sessionsDir string) agent.ArgvBuilder {
+	return func(req agent.CreateRequest, agentID, sessionID string) ([]string, error) {
+		// Container name doubles as the bookkeeping handle so a kill -9 of
+		// stromboli leaves a discoverable orphan that cleanup can reap.
+		containerName := "stromboli-" + agentID
+
+		argv := []string{
+			"podman", "run",
+			"--rm",
+			"--interactive",                   // keep stdin open for stream-json input
+			"--name", containerName,
+			"-e", "HOME=/home/user",
+			"-v", credentialsFile + ":/home/user/.claude/.credentials.json:ro",
+			"-v", sessionsDir + "/" + sessionID + ":/home/user",
+			agentImage,
+			"--input-format", "stream-json",
+			"--output-format", "stream-json",
+			"--include-partial-messages",
+			"--session-id", sessionID,
+		}
+		if req.Workdir != "" {
+			// Insert -w just before the image arg.
+			imgIdx := len(argv) - 7 // 7 args after the image
+			argv = append(argv[:imgIdx], append([]string{"-w", req.Workdir}, argv[imgIdx:]...)...)
+		}
+		return argv, nil
+	}
+}
 
 // parseLogLevel maps a STROMBOLI_LOG_LEVEL value to a slog.Level. Unknown
 // values fall back to Info; the caller is expected to emit a warning so the
@@ -332,8 +371,15 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// Persistent agents (long-lived stream-json Claude sessions). One Manager
+	// for the whole server; the handler is wired into the API and shut down
+	// alongside the rest of the goroutines on SIGTERM.
+	agentManager := agent.NewManager(agent.NewProcessSpawner())
+	agentArgvBuilder := buildAgentArgv(fullImage, cfg.Agent.CredentialsFile, cfg.Agent.SessionsDir)
+	agentsHandler := api.NewAgentsHandler(agentManager, agentArgvBuilder)
+
 	// Create the API server
-	server := api.NewServer(podmanRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, blacklist, cfg.Tracing.Enabled, cfg.Agent.SessionsDir, secretsRegistry, imagesRegistry)
+	server := api.NewServer(podmanRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, blacklist, cfg.Tracing.Enabled, cfg.Agent.SessionsDir, secretsRegistry, imagesRegistry, agentsHandler)
 
 	srv := &http.Server{
 		Addr:              cfg.Server.Address,
@@ -391,6 +437,11 @@ func main() {
 	// Stop blacklist cleanup
 	blacklist.StopCleanup()
 	slog.Info("Token blacklist cleanup stopped")
+
+	// Tear every persistent agent down so we don't leak podman containers
+	// after the API stops accepting traffic.
+	agentsHandler.StopAll(context.Background())
+	slog.Info("Persistent agents stopped")
 
 	// Shutdown tracing
 	if err := shutdownTracing(context.Background()); err != nil {

@@ -132,6 +132,7 @@ func setupE2EEnv(t *testing.T) *testEnv {
 		sessionsDir,     // Sessions directory for history API
 		secretsRegistry, // Secrets registry for managing Podman secrets
 		imagesRegistry,  // Images registry for image discovery API
+		nil,             // Persistent agents handler not exercised in current E2E tests
 	)
 
 	// Find available port
