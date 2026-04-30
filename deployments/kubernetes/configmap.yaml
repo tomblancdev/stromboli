@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: stromboli-config
+  namespace: stromboli
+  labels:
+    app.kubernetes.io/name: stromboli
+data:
+  # ---------------------------------------------------------------------------
+  # Server
+  # ---------------------------------------------------------------------------
+  STROMBOLI_SERVER_ADDRESS: ":8080"
+  STROMBOLI_LOG_FORMAT: "json"
+  STROMBOLI_LOG_LEVEL: "info"
+
+  # ---------------------------------------------------------------------------
+  # Agent containers
+  # ---------------------------------------------------------------------------
+  STROMBOLI_AGENT_IMAGE: "ghcr.io/tomblancdev/stromboli-agent"
+  STROMBOLI_AGENT_IMAGE_TAG: "latest"
+  STROMBOLI_AGENT_MOUNT_CLAUDE_CLI: "true"
+  STROMBOLI_AGENT_CLI_IMAGE: "ghcr.io/tomblancdev/stromboli-agent"
+  STROMBOLI_AGENT_CLI_IMAGE_TAG: "latest"
+  STROMBOLI_AGENT_AUTO_PULL_CLI: "true"
+  STROMBOLI_AGENT_CREDENTIALS_FILE: "/home/stromboli/.claude/.credentials.json"
+  STROMBOLI_AGENT_SESSIONS_DIR: "/app/sessions"
+  STROMBOLI_TOKEN_CACHE_ENABLED: "true"
+  STROMBOLI_TOKEN_CACHE_TTL: "5m"
+
+  # ---------------------------------------------------------------------------
+  # Resource defaults (per agent container)
+  # ---------------------------------------------------------------------------
+  STROMBOLI_RESOURCES_MEMORY: "512m"
+  STROMBOLI_RESOURCES_CPUS: "1"
+  STROMBOLI_RESOURCES_TIMEOUT: "30m"
+
+  # ---------------------------------------------------------------------------
+  # Auth (secure-by-default; JWT secret comes from the Secret)
+  # ---------------------------------------------------------------------------
+  STROMBOLI_AUTH_ENABLED: "true"
+  STROMBOLI_JWT_EXPIRY: "24h"
+  STROMBOLI_JWT_REFRESH_EXPIRY: "168h"
+
+  # ---------------------------------------------------------------------------
+  # Rate limiting
+  # ---------------------------------------------------------------------------
+  STROMBOLI_RATE_LIMIT_ENABLED: "true"
+  STROMBOLI_RATE_LIMIT_RPS: "10"
+  STROMBOLI_RATE_LIMIT_BURST: "20"
+
+  # ---------------------------------------------------------------------------
+  # Metrics — bound to 0.0.0.0:9090 inside the pod, but the Service does not
+  # expose it externally. Reach it from a Prometheus scrape sidecar / pod, or
+  # add a separate ClusterIP Service if you need cross-namespace scraping.
+  # ---------------------------------------------------------------------------
+  STROMBOLI_METRICS_ENABLED: "true"
+  STROMBOLI_METRICS_ADDRESS: "0.0.0.0:9090"
+
+  # ---------------------------------------------------------------------------
+  # Job cleanup
+  # ---------------------------------------------------------------------------
+  STROMBOLI_JOBS_CLEANUP_TTL: "1h"
+  STROMBOLI_JOBS_CLEANUP_INTERVAL: "5m"

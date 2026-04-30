@@ -11,7 +11,10 @@ BUILD_TIME ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 # Linker flags to inject version
 LDFLAGS=-ldflags "-X stromboli/internal/version.Version=$(VERSION) -X stromboli/internal/version.Commit=$(COMMIT) -X stromboli/internal/version.BuildTime=$(BUILD_TIME)"
 
-# Go container command - uses --userns=keep-id to preserve host file ownership
+# Go container command - uses --userns=keep-id to preserve host file ownership.
+# This image is for dev / CI only (it ships the full Go toolchain). Production
+# images come from deployments/docker/Dockerfile.server, a minimal multi-stage
+# build — never tag or push GO_IMAGE as a deployment artifact.
 GO_IMAGE=golang:1.26
 GO_RUN=podman run --rm --userns=keep-id -v $(PWD):/app -w /app $(GO_IMAGE)
 

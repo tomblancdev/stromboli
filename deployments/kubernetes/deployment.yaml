@@ -1,0 +1,132 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stromboli
+  namespace: stromboli
+  labels:
+    app.kubernetes.io/name: stromboli
+    app.kubernetes.io/component: api
+spec:
+  # Stromboli holds in-memory job state and writes session files to a volume,
+  # so replicas > 1 needs a shared volume + sticky sessions or a future
+  # external job store. Keep at 1 unless you've designed for that.
+  replicas: 1
+  strategy:
+    # Recreate avoids two pods racing for the Podman socket when rolling.
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: stromboli
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: stromboli
+        app.kubernetes.io/component: api
+    spec:
+      serviceAccountName: stromboli
+      # Stromboli must be on a node that runs Podman and exposes its socket
+      # at /run/podman/podman.sock. The audit's recommendation is one of:
+      #   1. A DaemonSet of Stromboli pinned to nodes with podman installed
+      #      (requires hostPath mount + node-affinity to those nodes).
+      #   2. A privileged sidecar that runs Podman in the pod (not shown).
+      #   3. Use a managed kpodman / Kubevirt-on-Podman environment.
+      # The simplest reference is option 1, captured below: this Deployment
+      # uses a hostPath mount and assumes podman.io/socket=true on its nodes.
+      nodeSelector:
+        podman.io/socket: "true"
+      containers:
+        - name: stromboli
+          image: ghcr.io/tomblancdev/stromboli:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: stromboli-config
+          env:
+            - name: STROMBOLI_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: stromboli-secrets
+                  key: STROMBOLI_JWT_SECRET
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 5
+          volumeMounts:
+            # Podman socket — see the nodeSelector + caveats above.
+            - name: podman-socket
+              mountPath: /run/podman/podman.sock
+            # Claude credentials are projected from the Secret as a single
+            # JSON file at the path Stromboli expects.
+            - name: claude-credentials
+              mountPath: /home/stromboli/.claude
+              readOnly: true
+            # Sessions persist between pod restarts via a PVC.
+            - name: sessions
+              mountPath: /app/sessions
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: podman-socket
+          hostPath:
+            path: /run/podman/podman.sock
+            type: Socket
+        - name: claude-credentials
+          secret:
+            secretName: stromboli-secrets
+            items:
+              - key: credentials.json
+                path: .credentials.json
+                mode: 0400
+        - name: sessions
+          persistentVolumeClaim:
+            claimName: stromboli-sessions
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: stromboli
+  namespace: stromboli
+  labels:
+    app.kubernetes.io/name: stromboli
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: stromboli-sessions
+  namespace: stromboli
+  labels:
+    app.kubernetes.io/name: stromboli
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi

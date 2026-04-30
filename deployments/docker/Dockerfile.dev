@@ -1,4 +1,15 @@
 # Stromboli Development Image
+# =============================================================================
+# DEV / CI ONLY — NOT A DEPLOYMENT ARTIFACT.
+#
+# This image bundles the full Go toolchain plus podman so contributors can run
+# `go build`, `go test`, and integration tests without installing anything on
+# the host. Do not tag, push, or run this image in production: it is several
+# hundred MB and ships compiler + stdlib sources that the runtime doesn't need.
+#
+# Production builds use deployments/docker/Dockerfile.server, which is a
+# multi-stage build that copies only the compiled binary into a minimal image.
+# =============================================================================
 # Go + Podman for testing
 
 FROM docker.io/golang:1.26

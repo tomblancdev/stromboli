@@ -1,0 +1,138 @@
+# =============================================================================
+# Prometheus alerting rules for Stromboli
+# =============================================================================
+#
+# Apply by either:
+#   - Loading directly into Prometheus: rule_files: [ "/etc/prometheus/rules/stromboli.yaml" ]
+#   - Wrapping in a Kubernetes PrometheusRule CR (for kube-prometheus-stack):
+#       apiVersion: monitoring.coreos.com/v1
+#       kind: PrometheusRule
+#       spec: { groups: <contents below> }
+#
+# Tuning:
+#   - All thresholds are starting points. Watch the dashboard for a week before
+#     paging on them — every Stromboli deployment has a different request mix.
+#   - Severity convention: `critical` pages on-call, `warning` opens a ticket.
+# =============================================================================
+groups:
+  - name: stromboli.api
+    interval: 30s
+    rules:
+      - alert: StrombiliAPIErrorRateHigh
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "Stromboli API 5xx rate above 5% (5m)"
+          description: |
+            More than 5% of HTTP requests have returned a 5xx response over
+            the last 5 minutes. Check `/health`, recent deploys, and the
+            container backend (Podman socket).
+
+      - alert: StrombiliAPILatencyHigh
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, path)
+          ) > 5
+        for: 10m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "Stromboli p99 request latency > 5s (10m)"
+          description: |
+            p99 latency on at least one endpoint has been above 5s for 10
+            minutes. Likely culprits: slow agent containers, Claude API
+            stalls, or a backed-up job queue. Check job status with
+            `GET /jobs?status=running`.
+
+      - alert: StrombiliAPIDown
+        # /health is on the public listener and returns 200 on success. If
+        # the up{} target reports down OR no requests are coming through,
+        # something is wrong.
+        expr: up{job=~"stromboli.*"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "Stromboli is unreachable from Prometheus"
+          description: |
+            Prometheus has not been able to scrape Stromboli for 2 minutes.
+            Pod crashed, network partitioned, or metrics endpoint moved.
+
+  - name: stromboli.runtime
+    interval: 30s
+    rules:
+      - alert: StrombiliMemoryHigh
+        # process_resident_memory_bytes is exposed automatically by
+        # promhttp. The threshold below assumes the operator-configured
+        # container memory limit is roughly 1Gi — adjust for your deploy.
+        expr: process_resident_memory_bytes > 0.8 * 1024 * 1024 * 1024
+        for: 10m
+        labels:
+          severity: warning
+          component: runtime
+        annotations:
+          summary: "Stromboli RSS > 80% of configured memory limit (10m)"
+          description: |
+            Memory pressure has been sustained for 10 minutes. Either the
+            agent container fleet has grown unexpectedly, sessions are
+            leaking, or the configured limit is too low for the workload.
+
+      - alert: StrombiliGoroutineLeak
+        # Goroutine count creeping up over time usually points at a leaked
+        # ticker, an unbounded channel, or a webhook handler that never
+        # returns. 5000 is conservative; tune it down once you have a
+        # baseline.
+        expr: go_goroutines > 5000
+        for: 15m
+        labels:
+          severity: warning
+          component: runtime
+        annotations:
+          summary: "Stromboli goroutine count > 5000 (15m)"
+          description: |
+            Goroutine count has stayed above 5000 for 15 minutes. Capture
+            a goroutine profile (pprof) and look for blocked workers.
+
+  - name: stromboli.containers
+    interval: 30s
+    rules:
+      - alert: StrombiliActiveContainersStuck
+        # active_containers should oscillate. A high, flat plateau often
+        # means agents aren't being cleaned up (orphaned pods, broken
+        # cleanup goroutine, podman socket wedged).
+        expr: stddev_over_time(active_containers[15m]) < 0.5 and active_containers > 5
+        for: 15m
+        labels:
+          severity: warning
+          component: containers
+        annotations:
+          summary: "Stromboli active container count flat-lined (15m)"
+          description: |
+            active_containers has been steady (>5, no variation) for 15
+            minutes. Likely the cleanup loop is stuck or agents aren't
+            being reaped. Check the container backend and recent logs
+            for "Failed to cleanup orphaned containers".
+
+      - alert: StrombiliActiveContainersSurge
+        expr: active_containers > 50
+        for: 5m
+        labels:
+          severity: critical
+          component: containers
+        annotations:
+          summary: "Stromboli active container count above 50 (5m)"
+          description: |
+            More than 50 agent containers running concurrently for 5
+            minutes. This is well above typical traffic for a single
+            instance — investigate before resource exhaustion takes the
+            whole node down.
