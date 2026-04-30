@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: stromboli
+  namespace: stromboli
+  labels:
+    app.kubernetes.io/name: stromboli
+    app.kubernetes.io/component: api
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: stromboli
+    app.kubernetes.io/component: api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+---
+# Separate metrics Service so cluster-internal Prometheus can scrape /metrics
+# without going through the same path as user traffic. /metrics is *not*
+# exposed on the public Service above.
+apiVersion: v1
+kind: Service
+metadata:
+  name: stromboli-metrics
+  namespace: stromboli
+  labels:
+    app.kubernetes.io/name: stromboli
+    app.kubernetes.io/component: metrics
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: stromboli
+    app.kubernetes.io/component: api
+  ports:
+    - name: metrics
+      port: 9090
+      targetPort: metrics
+      protocol: TCP

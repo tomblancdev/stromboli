@@ -1,0 +1,21 @@
+# =============================================================================
+# Stromboli — Kubernetes reference manifests
+# =============================================================================
+#
+# Use as a starting point, not a turnkey deployment. Read deployments/
+# kubernetes/README.md for the Podman socket / DaemonSet caveats.
+#
+# Apply with:
+#   kubectl apply -k deployments/kubernetes/
+# =============================================================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: stromboli
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret.example.yaml   # replace with secret.yaml in your overlay
+  - deployment.yaml
+  - service.yaml

@@ -14,15 +14,28 @@ In Grafana:
 
 ### 2. Configure Prometheus
 
-Add Stromboli as a scrape target in `prometheus.yml`:
+Add Stromboli as a scrape target in `prometheus.yml`. Note that `/metrics`
+is served on a separate listener (default `127.0.0.1:9090`) — point the
+scraper there, not at the API port:
 
 ```yaml
 scrape_configs:
   - job_name: 'stromboli'
     static_configs:
-      - targets: ['localhost:8080']
+      - targets: ['localhost:9090']
     metrics_path: '/metrics'
+
+rule_files:
+  - 'prometheus-rules.yaml'
 ```
+
+### 3. Load alerting rules
+
+`prometheus-rules.yaml` ships alongside the dashboard with starter alerts
+for API error rate, latency, memory pressure, goroutine leaks, and stuck
+container cleanup. Tune the thresholds to your workload before paging
+on them. For kube-prometheus-stack users, wrap the `groups:` block in a
+`PrometheusRule` CR.
 
 ## Dashboard Panels
 
