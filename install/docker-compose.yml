@@ -127,10 +127,13 @@ services:
       # -------------------------------------------------------------------------
       # Tracing (optional)
       # -------------------------------------------------------------------------
+      # Defaults to TLS. Set STROMBOLI_TRACING_INSECURE=true ONLY if the
+      # collector is on localhost or a trusted private network — plaintext
+      # OTLP leaks request metadata, session IDs, and internal routing.
       # STROMBOLI_TRACING_ENABLED: "true"
       # STROMBOLI_TRACING_SERVICE_NAME: "stromboli"
       # STROMBOLI_TRACING_ENDPOINT: "jaeger:4317"
-      # STROMBOLI_TRACING_INSECURE: "true"
+      # STROMBOLI_TRACING_INSECURE: "false"
 
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]

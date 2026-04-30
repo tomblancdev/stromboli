@@ -201,10 +201,12 @@ tracing:
   # Env: STROMBOLI_TRACING_ENDPOINT
   endpoint: "localhost:4317"
 
-  # Use insecure connection (no TLS)
-  # Set to false in production with proper TLS
+  # Use insecure (plaintext) connection — disables TLS to the OTLP collector.
+  # Defaults to false. Set to true ONLY if the collector is on localhost or a
+  # trusted private network — plaintext OTLP leaks request metadata, session
+  # IDs, and internal routing details.
   # Env: STROMBOLI_TRACING_INSECURE
-  insecure: true
+  insecure: false
 
 # -----------------------------------------------------------------------------
 # Compose Environment Configuration

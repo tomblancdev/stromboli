@@ -76,6 +76,9 @@ services:
       STROMBOLI_TRACING_ENABLED: "${STROMBOLI_TRACING_ENABLED:-false}"
       STROMBOLI_TRACING_SERVICE_NAME: "${STROMBOLI_TRACING_SERVICE_NAME:-stromboli}"
       STROMBOLI_TRACING_ENDPOINT: "${STROMBOLI_TRACING_ENDPOINT:-localhost:4317}"
+      # Dev compose talks to a local OTLP collector by default, so plaintext
+      # is acceptable here. Production (install/docker-compose.yml) defaults
+      # to TLS — set this to "true" only on localhost or trusted private nets.
       STROMBOLI_TRACING_INSECURE: "${STROMBOLI_TRACING_INSECURE:-true}"
 
     healthcheck:
