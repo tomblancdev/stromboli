@@ -32,6 +32,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"stromboli/internal/api"
 	"stromboli/internal/auth"
 	"stromboli/internal/claude"
@@ -309,8 +310,9 @@ func main() {
 	server := api.NewServer(podmanRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, blacklist, cfg.Tracing.Enabled, cfg.Agent.SessionsDir, secretsRegistry, imagesRegistry)
 
 	srv := &http.Server{
-		Addr:    cfg.Server.Address,
-		Handler: server.Handler(),
+		Addr:              cfg.Server.Address,
+		Handler:           server.Handler(),
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	// Start server in a goroutine
@@ -321,6 +323,30 @@ func main() {
 			os.Exit(1)
 		}
 	}()
+
+	// Start the metrics endpoint on a separate listener. The default address
+	// (127.0.0.1:9090) keeps Prometheus scrape data off any public interface;
+	// operators that need to expose it move it onto an internal-only network
+	// via STROMBOLI_METRICS_ADDRESS.
+	var metricsSrv *http.Server
+	if cfg.Metrics.Enabled {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		metricsSrv = &http.Server{
+			Addr:              cfg.Metrics.Address,
+			Handler:           mux,
+			ReadHeaderTimeout: 10 * time.Second,
+		}
+		go func() {
+			slog.Info("Metrics endpoint starting", "addr", cfg.Metrics.Address)
+			if err := metricsSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				slog.Error("Metrics endpoint error", "error", err)
+				// Non-fatal: app keeps serving requests even if metrics listener fails.
+			}
+		}()
+	} else {
+		slog.Info("Metrics endpoint disabled")
+	}
 
 	// Wait for shutdown signal
 	<-ctx.Done()
@@ -352,6 +378,12 @@ func main() {
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		slog.Error("Server forced to shutdown", "error", err)
+	}
+
+	if metricsSrv != nil {
+		if err := metricsSrv.Shutdown(shutdownCtx); err != nil {
+			slog.Error("Metrics endpoint forced to shutdown", "error", err)
+		}
 	}
 
 	slog.Info("Server stopped")

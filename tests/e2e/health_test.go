@@ -25,14 +25,21 @@ func TestHealthEndpoint(t *testing.T) {
 		assert.NotEmpty(t, health["timestamp"])
 	})
 
-	t.Run("metrics endpoint returns 200", func(t *testing.T) {
-		resp := makeRequest(t, "GET", env.BaseURL+"/metrics", nil, nil)
+	t.Run("metrics endpoint returns 200 on the dedicated listener", func(t *testing.T) {
+		resp := makeRequest(t, "GET", env.MetricsURL+"/metrics", nil, nil)
 		defer resp.Body.Close()
 
 		assertStatusCode(t, resp, http.StatusOK)
 
 		body := readStringResponse(t, resp)
 		assert.Contains(t, body, "# HELP")
+	})
+
+	t.Run("metrics endpoint is not exposed on the public router", func(t *testing.T) {
+		// /metrics moved off the public listener to avoid leaking ops data.
+		resp := makeRequest(t, "GET", env.BaseURL+"/metrics", nil, nil)
+		defer resp.Body.Close()
+		assertStatusCode(t, resp, http.StatusNotFound)
 	})
 }
 

@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"stromboli/internal/auth"
 	"stromboli/internal/claude"
@@ -84,9 +83,9 @@ func (s *Server) Handler() http.Handler {
 
 // setupRoutes configures all API routes
 func (s *Server) setupRoutes() {
-	// Health check and metrics are public (no auth required, no rate limiting)
+	// Health check is public (no auth required, no rate limiting).
+	// /metrics is served on a separate listener — see cmd/stromboli/main.go.
 	s.router.GET("/health", s.healthCheck)
-	s.router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// Auth routes (JWT token generation, refresh, validation)
 	s.setupAuthRoutes()

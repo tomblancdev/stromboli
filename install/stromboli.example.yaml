@@ -172,6 +172,20 @@ jobs:
   cleanup_interval: "5m"
 
 # -----------------------------------------------------------------------------
+# Prometheus /metrics endpoint
+# -----------------------------------------------------------------------------
+# Served on a separate listener so it doesn't share the public port. Defaults
+# to 127.0.0.1:9090; set address to a private interface (or run Prometheus as
+# a sidecar) before exposing it more broadly. Setting address to ":9090"
+# binds on every interface — only do that behind a real network ACL.
+metrics:
+  # Env: STROMBOLI_METRICS_ENABLED
+  enabled: true
+
+  # Env: STROMBOLI_METRICS_ADDRESS
+  address: "127.0.0.1:9090"
+
+# -----------------------------------------------------------------------------
 # OpenTelemetry Tracing (Optional)
 # -----------------------------------------------------------------------------
 tracing:

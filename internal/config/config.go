@@ -24,6 +24,7 @@ type Config struct {
 	Jobs      JobsConfig
 	Tracing   TracingConfig
 	Compose   ComposeConfig
+	Metrics   MetricsConfig
 }
 
 // ServerConfig holds HTTP server configuration
@@ -98,6 +99,17 @@ type TracingConfig struct {
 	Insecure    bool   // Use insecure connection (no TLS)
 }
 
+// MetricsConfig holds Prometheus metrics endpoint configuration.
+//
+// /metrics exposes operational data (job counts, container lifecycle, request
+// rates) and is served on a separate listener that defaults to localhost only.
+// Production scrapers should run alongside Stromboli (sidecar / DaemonSet) or
+// reach it through a private network — never put this on a public interface.
+type MetricsConfig struct {
+	Enabled bool   // Whether to expose /metrics (default: true)
+	Address string // Listener address (default: "127.0.0.1:9090")
+}
+
 // ComposeConfig holds compose environment configuration
 type ComposeConfig struct {
 	AllowPrivileged  bool          // Allow services with privileged: true (default: false)
@@ -129,6 +141,7 @@ const (
 	defaultTokenCacheTTL     = 5 * time.Minute
 	defaultTracingEndpoint   = "localhost:4317"
 	defaultTracingService    = "stromboli"
+	defaultMetricsAddress    = "127.0.0.1:9090"
 
 	// MinJWTSecretLength is the minimum allowed JWT secret length in bytes.
 	// 32 bytes matches the output of `openssl rand -base64 24` (32 chars) and
@@ -228,6 +241,12 @@ func setupViper(v *viper.Viper) {
 	v.SetDefault("compose.health_timeout", defaultComposeHealthTimeout.String())
 	v.SetDefault("compose.stack_ttl", defaultComposeStackTTL.String())
 
+	// Metrics endpoint defaults — bind to localhost so /metrics doesn't leak
+	// without an explicit operator opt-in. Set metrics.address to ":9090" to
+	// expose on all interfaces.
+	v.SetDefault("metrics.enabled", true)
+	v.SetDefault("metrics.address", defaultMetricsAddress)
+
 	// Environment variable configuration
 	v.SetEnvPrefix("STROMBOLI")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
@@ -277,6 +296,10 @@ func setupViper(v *viper.Viper) {
 	_ = v.BindEnv("compose.build_timeout", "STROMBOLI_COMPOSE_BUILD_TIMEOUT")
 	_ = v.BindEnv("compose.health_timeout", "STROMBOLI_COMPOSE_HEALTH_TIMEOUT")
 	_ = v.BindEnv("compose.stack_ttl", "STROMBOLI_COMPOSE_STACK_TTL")
+
+	// Metrics environment variables
+	_ = v.BindEnv("metrics.enabled", "STROMBOLI_METRICS_ENABLED")
+	_ = v.BindEnv("metrics.address", "STROMBOLI_METRICS_ADDRESS")
 }
 
 // parseConfig extracts and validates configuration from viper
@@ -386,6 +409,11 @@ func parseConfig(v *viper.Viper) (*Config, error) {
 		BuildTimeout:     composeBuildTimeout,
 		HealthTimeout:    composeHealthTimeout,
 		StackTTL:         composeStackTTL,
+	}
+
+	cfg.Metrics = MetricsConfig{
+		Enabled: v.GetBool("metrics.enabled"),
+		Address: v.GetString("metrics.address"),
 	}
 
 	// Validate configuration
