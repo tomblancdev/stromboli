@@ -126,18 +126,49 @@ jobs:
           labels: stromboli-sync, automated
 ```
 
-## Required repo secret
+## Auth: a GitHub App, not a PAT
 
-The fan-out job in this repo needs a token with `repo` scope on every target SDK. Two ways to provision:
+The fan-out needs cross-repo write access (one `repository_dispatch` per SDK). `GITHUB_TOKEN` is scoped to the source repo and can't do that. We use a **GitHub App** rather than a Personal Access Token because:
 
-| Option | Pros | Cons |
-|---|---|---|
-| **Personal Access Token** (classic, `repo` scope, stored as `SDK_DISPATCH_TOKEN`) | Simple, works today | Tied to a single account; expires |
-| **GitHub App** with `actions: write` + `metadata: read` on each SDK repo, generate an installation token at job time | Auditable, tied to the org | More setup; needs a small token-mint step |
+- **Per-iteration scoping.** The matrix mints a fresh installation token *per SDK repo*, valid only for that one repo. A token leaked from one job can dispatch to that one SDK, not the entire fleet.
+- **No personal-account dependency.** PATs die when their owner leaves; an App is org-owned and survives.
+- **Auditable.** App actions appear under the bot identity in audit logs, not as a human user.
+- **No expiry to rotate.** Installation tokens auto-expire after ~1 hour — but we mint them at job time, so there's nothing to rotate.
 
-Start with a PAT (`Settings → Secrets and variables → Actions → New repository secret`, name `SDK_DISPATCH_TOKEN`). Move to a GitHub App if/when secret rotation becomes a chore.
+### One-time setup
 
-If the secret is missing, the fan-out step **logs a warning and skips** — the release itself never fails because of the SDK side. That's deliberate: a release should never block on downstream tooling, only notify it.
+1. **Create the App** — `Settings → Developer settings → GitHub Apps → New GitHub App`.
+   - Name: `Stromboli SDK Sync` (anything; appears as the actor on dispatched events)
+   - Homepage URL: this repo
+   - Webhook: not needed (uncheck Active)
+   - **Repository permissions:** `Contents: Read and write` (this is what `repository_dispatch` requires)
+   - **Where can this GitHub App be installed?**: Only on this account (or the org if multi-account)
+
+2. **Generate a private key** — on the App's settings page, scroll to "Private keys" → "Generate a private key". Saves a `.pem` file.
+
+3. **Install the App on each SDK repo** — `Install App` from the App's page → select `stromboli-go`, `stromboli-ts`, `mcp-server-stromboli`, `n8n-nodes-stromboli`. Add new SDKs to the install list whenever the matrix grows.
+
+4. **Add two secrets to this repo** — `Settings → Secrets and variables → Actions → New repository secret`:
+   - `SDK_DISPATCH_APP_ID` — the App's numeric ID (visible at the top of its settings page)
+   - `SDK_DISPATCH_APP_PRIVATE_KEY` — paste the entire contents of the `.pem` file, including `-----BEGIN ...` / `-----END ...` lines
+
+### Verify
+
+After the secrets are set, you don't have to wait for a real release — push a no-op tag (e.g. `v0.5.X-alpha-rc1`) and watch the `notify-sdks` matrix in the release workflow. Each iteration should:
+
+1. Skip the gate (because secrets are present)
+2. Mint an installation token via `actions/create-github-app-token@v1`
+3. POST a dispatch to the matrix repo
+
+Then check the SDK's Actions tab — the receiver workflow should fire and open a sync PR.
+
+### Falling back gracefully
+
+If `SDK_DISPATCH_APP_ID` or `SDK_DISPATCH_APP_PRIVATE_KEY` is missing, the fan-out step **logs a warning and skips** — the release itself never fails because of the SDK side. That's deliberate: a release should never block on downstream tooling, only notify it.
+
+### Why not a PAT?
+
+It works as an escape hatch for solo / personal projects, but for "official SDK" coupling the App is strictly better. If you really want a PAT-only setup, the receiver template doesn't change — just swap the App-token-minting step on the server side for a `secrets.SDK_DISPATCH_TOKEN` env. Don't expect long-term peace, though: classic PATs expire, broad scopes are a liability, and personal-account links break things you didn't expect.
 
 ## Compatibility marker
 

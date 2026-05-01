@@ -215,11 +215,22 @@ jobs:
   # The protocol is documented in docs/development/sdk-contract.md —
   # event_type=stromboli-released, client_payload={version, swagger_url}.
   #
-  # Requires a repo secret `SDK_DISPATCH_TOKEN`: a PAT (or GitHub App
-  # token) with `repo` scope on every target. Without it the step skips
-  # gracefully — the release itself still succeeds. New SDK repos are
-  # added by extending the matrix; new ecosystems just need to ship the
-  # template workflow from sdk-contract.md.
+  # Auth model: a GitHub App ("Stromboli SDK Sync") is installed on every
+  # SDK repo with `Contents: Write` permission. We mint a fresh
+  # installation token PER MATRIX ITERATION, scoped to the single SDK
+  # repo we're about to dispatch to — so a leaked token from one job
+  # can only write to that one repo, not the whole fleet. App-based auth
+  # also avoids the PAT-rotation toil and ties the bot identity to the
+  # org rather than a personal account.
+  #
+  # Two secrets required:
+  #   - SDK_DISPATCH_APP_ID         — the App's numeric ID
+  #   - SDK_DISPATCH_APP_PRIVATE_KEY — its PEM-encoded private key
+  #
+  # Without them the step skips gracefully — the release itself still
+  # succeeds. New SDK repos are added by extending the matrix AND
+  # installing the App on the new repo; new ecosystems just need to ship
+  # the template workflow from sdk-contract.md.
   notify-sdks:
     name: Notify SDK repos of release
     needs: release
@@ -234,22 +245,33 @@ jobs:
           - mcp-server-stromboli
           - n8n-nodes-stromboli
     steps:
-      - name: Skip if dispatch token is missing
+      - name: Skip if App credentials are missing
         id: gate
         env:
-          DISPATCH_TOKEN: ${{ secrets.SDK_DISPATCH_TOKEN }}
+          APP_ID: ${{ secrets.SDK_DISPATCH_APP_ID }}
+          APP_KEY: ${{ secrets.SDK_DISPATCH_APP_PRIVATE_KEY }}
         run: |
-          if [ -z "$DISPATCH_TOKEN" ]; then
-            echo "::warning::SDK_DISPATCH_TOKEN secret not configured — skipping fanout. Add a PAT with repo scope to enable."
+          if [ -z "$APP_ID" ] || [ -z "$APP_KEY" ]; then
+            echo "::warning::SDK_DISPATCH_APP_ID / SDK_DISPATCH_APP_PRIVATE_KEY not configured — skipping fanout. See docs/development/sdk-contract.md for setup."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Mint installation token scoped to ${{ matrix.repo }}
+        if: steps.gate.outputs.skip != 'true'
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.SDK_DISPATCH_APP_ID }}
+          private-key: ${{ secrets.SDK_DISPATCH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ matrix.repo }}
+
       - name: Dispatch stromboli-released event to ${{ matrix.repo }}
         if: steps.gate.outputs.skip != 'true'
         env:
-          GH_TOKEN: ${{ secrets.SDK_DISPATCH_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           VERSION: ${{ github.ref_name }}
           REPO: ${{ matrix.repo }}
           OWNER: ${{ github.repository_owner }}
