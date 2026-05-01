@@ -13,6 +13,9 @@ All notable changes to Stromboli will be documented here.
 - Env-var passthrough for runtime tuning: `claude.prompt_caching_ttl` (`5m`/`1h`), `claude.bedrock_service_tier`, `claude.enable_powershell_tool`. (#76, #77, #81, #85)
 - Session titles surfaced from a `UserPromptSubmit` hook returning `hookSpecificOutput.sessionTitle`. `GET /sessions` now returns `{id, title}` records. (#83, #86)
 - New `GET /sessions/:id/messages/:message_id` endpoint to fetch a single message without re-reading the whole transcript.
+- **Webhook HMAC-SHA256 signing.** Outgoing async-job webhooks now carry `X-Stromboli-Signature` (`sha256=<hex>`) and `X-Stromboli-Timestamp` headers when `STROMBOLI_WEBHOOK_SIGNING_SECRET` is set. Receivers verify with the new `webhook.Verify()` helper. Retries reuse the same timestamp+signature so the receiver's freshness window evaluates the original send time. Empty secret = unsigned (legacy/dev) — the server logs a `WARN` on startup so the missing config is loud. (#88)
+- **Pluggable token blacklist** with `memory` (default — fastest, lost on restart) and `bolt` (durable single-file store) backends. Switch via `STROMBOLI_AUTH_BLACKLIST_BACKEND`; the interface is designed so future Redis/Postgres backends slot in without API or middleware churn. New env vars: `STROMBOLI_AUTH_BLACKLIST_BOLT_PATH`, `STROMBOLI_AUTH_BLACKLIST_CLEANUP_INTERVAL`. (#92)
+- **Trusted-proxy allowlist for `X-Forwarded-For`** via `STROMBOLI_RATE_LIMIT_TRUSTED_PROXIES` (comma-separated CIDRs or bare IPs). Defaults to empty: forwarding headers are ignored entirely so an internet-facing client can't spoof its rate-limit bucket. When the immediate peer is in the allowlist, the leftmost XFF entry is used as the client IP. (#88)
 
 ### Changed
 
@@ -26,6 +29,11 @@ All notable changes to Stromboli will be documented here.
 
 - Dev compose now uses a named volume for sessions (was a bind mount that dropped state across `compose down`). (#50, #69)
 - `.dockerignore` slims the build context. (#51, #68)
+- **`forwardLines` tolerates oversized agent stdout** (>10 MiB lines). Previously `bufio.Scanner` permanently failed on the first oversized line; with no reader draining the OS pipe, Claude's next stdout write blocked and `cmd.Wait` hung forever. Now emits a single truncation marker and keeps reading the next line. (#91)
+- **Error wrapping (`%w`) in `compose/validator`, `runner/cleanup`, `secrets/registry`** — was returning raw `err` values that hid which operation failed in the chain. (#89)
+- **`watchIdle` exits promptly on agent shutdown** instead of holding the goroutine alive for up to 30 s waiting for the next ticker fire. New per-agent `done` channel that `markExited` closes via `sync.Once`. (#89)
+- **`X-RateLimit-Remaining` reports available tokens, not consumed.** Formula was `Burst() - Tokens()` which inverted the semantics the header is supposed to convey. Now `int(l.Tokens())`, floored at zero. (#89)
+- Logout (`POST /auth/logout`) now returns 503 instead of silently 200-ing when the configured blacklist is nil or its `Add` errors. The auth middleware fails closed on a non-nil error from the blacklist backend (e.g. transient bolt I/O). (#92)
 
 ### Infra
 
@@ -65,6 +73,15 @@ All notable changes to Stromboli will be documented here.
 - Compose file validation with security checks for dangerous configurations
 - Lifecycle hooks validation with length limits and shell escaping
 - TOCTOU protection for compose file parsing
+- **JWT algorithm pinned to HS256 explicitly.** The validator used a `*jwt.SigningMethodHMAC` type assertion that silently accepted HS384/HS512 and relied on the library to refuse `alg: none`. Replaced with an explicit `token.Method != jwt.SigningMethodHS256` check that fails closed regardless of library behavior. (#88)
+- **Workspace symlink validation fails closed.** `Validator.Validate` previously fell back to the unresolved cleaned path on every `EvalSymlinks` error — including symlink loops, where a crafted A→B→A pair could pass the allowlist check via the pre-resolution path. Now only `fs.ErrNotExist` is tolerated (the workspace is created later); loops, permission errors, and other failures are rejected up front. (#88)
+
+### Tests
+
+- New `internal/agent/process_test.go` covers the previously-untested `processSpawner` end-to-end against real subprocesses: stdout fan-out, stderr prefixing, stdin `Send`, escalating `Stop` (stdin-close → SIGTERM → SIGKILL), oversized-line truncation, empty-argv rejection, and start-failure error wrapping. (#90, #91)
+- `internal/job/job_test.go` cleanup-removes-X subtests use `require.Eventually` instead of fixed `time.Sleep(50ms)` barriers — finishes in ~10 ms each and tolerant of slow CI schedulers. (#90)
+- New trusted-proxy and signing-verify tests cover the security additions above. (#88)
+- Bolt-backed blacklist tests cover persistence across close/reopen, startup cleanup, lazy expiry filtering, and expiry overwrite on re-`Add`. (#92)
 
 ---
 
