@@ -58,7 +58,7 @@ func CleanupOrphanedContainers(ctx context.Context) error {
 		if strings.Contains(err.Error(), "no such") {
 			return nil
 		}
-		return err
+		return fmt.Errorf("runner: list orphaned containers via podman ps: %w", err)
 	}
 
 	containers := strings.Split(strings.TrimSpace(string(output)), "\n")
@@ -103,7 +103,7 @@ func CleanupStaleContainers(ctx context.Context, maxAge time.Duration) error {
 	cmd := exec.CommandContext(ctx, "podman", "ps", "--filter", "name="+ContainerNamePrefix, "--format", "{{.Names}}\t{{.RunningFor}}")
 	output, err := cmd.Output()
 	if err != nil {
-		return err
+		return fmt.Errorf("runner: list stale containers via podman ps: %w", err)
 	}
 
 	lines := strings.Split(strings.TrimSpace(string(output)), "\n")

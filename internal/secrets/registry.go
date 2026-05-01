@@ -111,7 +111,7 @@ func NewRegistry(executor Executor) *Registry {
 // Returns validation errors if the name contains invalid characters or exceeds length limits.
 func (r *Registry) Create(ctx context.Context, name, value string) error {
 	if err := validateName(name); err != nil {
-		return err
+		return fmt.Errorf("secrets: create %q: %w", name, err)
 	}
 	if value == "" {
 		return fmt.Errorf("%w: secret value cannot be empty", ErrValidation)

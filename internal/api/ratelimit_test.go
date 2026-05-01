@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -179,6 +180,43 @@ func TestRateLimitDisabled(t *testing.T) {
 		router.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusOK, w.Code)
 	}
+}
+
+func TestRateLimit_RemainingHeaderReportsAvailableTokens(t *testing.T) {
+	// X-RateLimit-Remaining is supposed to tell the client how many more
+	// requests they can make right now — not how many they've already used.
+	// Burst=5: after the first allowed request, 4 tokens remain.
+	gin.SetMode(gin.TestMode)
+
+	cfg := RateLimitConfig{
+		Enabled: true,
+		Rate:    1, // slow refill so we observe the bucket draining as we burst
+		Period:  time.Second,
+		Burst:   5,
+	}
+
+	router := gin.New()
+	router.Use(RateLimitMiddleware(cfg))
+	router.GET("/", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{}) })
+
+	// Make 3 quick requests against the same client and assert remaining
+	// counts down monotonically toward zero (not upward toward Burst).
+	var remainings []int
+	for i := 0; i < 3; i++ {
+		req := httptest.NewRequest("GET", "/", nil)
+		req.RemoteAddr = "192.0.2.10:1234"
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+		var r int
+		_, err := fmt.Sscanf(w.Header().Get("X-RateLimit-Remaining"), "%d", &r)
+		assert.NoError(t, err)
+		remainings = append(remainings, r)
+	}
+
+	assert.LessOrEqual(t, remainings[0], 4, "first request: at most burst-1 left")
+	assert.LessOrEqual(t, remainings[1], remainings[0], "remaining must not increase between bursts")
+	assert.LessOrEqual(t, remainings[2], remainings[1], "remaining must not increase between bursts")
 }
 
 func TestRateLimitErrorResponse(t *testing.T) {

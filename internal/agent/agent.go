@@ -79,6 +79,12 @@ type Agent struct {
 	currentTurnID  string
 	exitErr        error
 
+	// done is closed exactly once when the agent transitions to StatusExited.
+	// Background goroutines (watchIdle) select on it to exit promptly instead
+	// of waiting for their next tick.
+	done     chan struct{}
+	doneOnce sync.Once
+
 	// Process plumbing.
 	process agentProcess
 
