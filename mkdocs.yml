@@ -106,6 +106,7 @@ nav:
     - Quick Start: getting-started/quickstart.md
     - Installation: getting-started/installation.md
     - Configuration: getting-started/configuration.md
+    - Upgrade to v0.5.0: getting-started/upgrade-to-0.5.0.md
   - Guides:
     - Running Agents: guides/running-agents.md
     - Persistent Agents: guides/persistent-agents.md
