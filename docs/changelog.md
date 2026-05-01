@@ -8,6 +8,22 @@ _(empty — add new entries here as PRs land)_
 
 ---
 
+## [0.5.6-alpha] - 2026-05-01
+
+### Fixed
+
+- **`notify-sdks` fan-out no longer 404s on n8n.** v0.5.5-alpha surfaced that `n8n-nodes-stromboli` is a local-only repo and has never been pushed to GitHub — its matrix iteration failed with HTTP 404 and propagated up to mark the whole release run as failed (the GitHub release artefacts still landed correctly). Removed it from the matrix with a TODO comment so it can be re-added in one line once the repo is published. (#109)
+
+### Documentation
+
+- `n8n-nodes-stromboli` is now marked "coming soon" everywhere it appears (home page, SDKs page, README, sdk-contract intro) — no broken links to a non-existent GitHub URL. (#109)
+
+### Ecosystem
+
+- **First receiver workflow landed on `stromboli-go`** ([tomblancdev/stromboli-go#22](https://github.com/tomblancdev/stromboli-go/pull/22)). It listens on the `stromboli-released` dispatch (and `workflow_dispatch` for manual triggering), records the version to `STROMBOLI_COMPAT`, and opens a `chore: sync to stromboli vX.Y.Z` PR. Codegen is intentionally TODO — the point of landing the minimal receiver now is to make the dispatch path observable in the Actions tab, where unhandled `repository_dispatch` events leave no trace.
+
+---
+
 ## [0.5.5-alpha] - 2026-05-01
 
 ### Added
