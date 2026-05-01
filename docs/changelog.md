@@ -8,6 +8,24 @@ _(empty — add new entries here as PRs land)_
 
 ---
 
+## [0.5.1-alpha] - 2026-05-01
+
+### Documentation
+
+- New [persistent agents guide](guides/persistent-agents.md) — end-to-end coverage of the `/agents/*` API: when to use a long-lived process vs. `/run`, lifecycle state machine, idle-timeout sizing, SSE event types, and a worked on-call-bot example. (#97)
+- New [performance & cost tuning guide](guides/performance-tuning.md) — bundles the `claude.*` cost knobs that were scattered across the endpoints reference: token usage / estimated cost on `RunResponse.usage`, effort levels, prompt caching TTL (`5m` / `1h`), Bedrock service tier, PowerShell tool. Combination template for a low-cost persistent agent. (#97)
+- New [webhook security guide](guides/webhook-security.md) — Go / Python / Node verifier snippets for HMAC-signed callbacks, retry semantics (timestamp + signature reused), secret-rotation playbook, and the related trusted-proxy allowlist. (#97)
+- New [v0.5.0 upgrade guide](getting-started/upgrade-to-0.5.0.md) — TL;DR migration checklist for the four breaking default changes (auth on, metrics on localhost, tracing TLS, JSON logs), per-change deep-dives, dropped Windows binaries, sanity-check curl sequence. (#98)
+- [Production hardening](security/production.md) refreshed for v0.5.0 — required-checklist updated with trusted proxies and webhook signing, new sections on token blacklist backend choice / webhook signing / X-Forwarded-For trust, alert-target additions, version pin example bumped. (#98)
+- Cross-links so the new content is reachable: home page feature grid, "How It Works" execution-modes table grew from 3 to 4 entries, `running-agents.md` ↔ `persistent-agents.md`, `sessions.md` finally documents the `UserPromptSubmit` title hook from #83/#86. (#97)
+
+### Changed
+
+- **OpenAPI: `agent.CreateRequest.claude` is now fully typed.** Previously rendered as `additionalProperties: {}` (opaque object), losing the entire Claude CLI option schema. Switched to `*types.ClaudeOptions` — the same struct `RunRequest.claude` uses — so the spec `$ref`s a single shared definition across both endpoints. Pure schema win; the field was inert (never threaded through to the argv builder yet). (#96)
+- **OpenAPI: `DELETE /jobs/{id}` returns a typed `JobCancelResponse`** instead of the unhelpful `map[string]interface{}` it previously generated. (#96)
+
+---
+
 ## [0.5.0-alpha] - 2026-05-01
 
 ### Added
