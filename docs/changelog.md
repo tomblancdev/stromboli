@@ -8,6 +8,15 @@ _(empty — add new entries here as PRs land)_
 
 ---
 
+## [0.5.4-alpha] - 2026-05-01
+
+### Added
+
+- **Release fan-out to client SDKs.** When a tag is pushed and the release workflow finishes, a `notify-sdks` job sends a `repository_dispatch` (`event_type=stromboli-released`) to each registered SDK repo with the new version + swagger URL. SDKs wire the dispatch into their own CI to regenerate typed clients and open a `chore: sync to stromboli vX.Y.Z` PR — auto-mergeable when the diff is mechanical, held for review when it isn't. Targets: `stromboli-go`, `stromboli-ts`, `mcp-server-stromboli`, `n8n-nodes-stromboli`. Protocol + receiver template documented at [SDK Release Fan-out](development/sdk-contract.md). (#104)
+- Fan-out skips gracefully with a warning when `SDK_DISPATCH_TOKEN` (the cross-repo PAT) isn't configured — a release never fails because of downstream tooling.
+
+---
+
 ## [0.5.3-alpha] - 2026-05-01
 
 ### Added
