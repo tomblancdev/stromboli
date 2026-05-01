@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,6 +19,12 @@ type RateLimitConfig struct {
 	Period          time.Duration // Time period (e.g., time.Second)
 	Burst           int           // Maximum burst size
 	CleanupInterval time.Duration // How often to clean up stale IP entries (default: 10 minutes)
+	// TrustedProxies is the parsed CIDR list whose X-Forwarded-For /
+	// X-Real-IP headers will be honored. When empty, forwarding headers
+	// are ignored and the immediate peer's address is always used —
+	// without this allowlist, anyone on the internet could spoof their
+	// rate-limit identity simply by setting X-Forwarded-For.
+	TrustedProxies []string
 }
 
 // ipLimiterEntry holds a rate limiter and its last access time
@@ -113,13 +120,18 @@ func RateLimitMiddleware(config RateLimitConfig) gin.HandlerFunc {
 		cleanupInterval = 10 * time.Minute
 	}
 
+	// Pre-parse trusted-proxy CIDRs once so the per-request path is just a
+	// linear scan over already-parsed nets. Malformed entries are dropped
+	// silently here — config validation surfaces them at startup.
+	trustedNets := parseTrustedProxies(config.TrustedProxies)
+
 	// Calculate rate per second
 	ratePerSecond := rate.Limit(float64(config.Rate) / config.Period.Seconds())
 	limiter := newIPRateLimiter(ratePerSecond, config.Burst, cleanupInterval)
 
 	return func(c *gin.Context) {
 		// Extract IP from request
-		ip := getClientIP(c)
+		ip := getClientIP(c, trustedNets)
 
 		// Get limiter for this IP
 		l := limiter.getLimiter(ip)
@@ -152,30 +164,95 @@ func RateLimitMiddleware(config RateLimitConfig) gin.HandlerFunc {
 	}
 }
 
-// getClientIP extracts the client IP from the request
-func getClientIP(c *gin.Context) string {
-	// Try to get IP from X-Forwarded-For header
-	forwarded := c.GetHeader("X-Forwarded-For")
-	if forwarded != "" {
-		// Take the first IP in the list
-		if ip, _, err := net.SplitHostPort(forwarded); err == nil {
-			return ip
-		}
-		return forwarded
+// getClientIP extracts the client IP from the request.
+//
+// When trustedNets is non-empty AND the immediate peer (RemoteAddr) is inside
+// one of those CIDRs, we honor X-Forwarded-For / X-Real-IP. Otherwise we
+// always use RemoteAddr — this prevents an internet-facing client from
+// spoofing its rate-limit identity by setting X-Forwarded-For: <victim>.
+func getClientIP(c *gin.Context, trustedNets []*net.IPNet) string {
+	peer := remoteAddrIP(c.Request.RemoteAddr)
+	if !peerIsTrusted(peer, trustedNets) {
+		return peer
 	}
 
-	// Try to get IP from X-Real-IP header
-	realIP := c.GetHeader("X-Real-IP")
-	if realIP != "" {
+	// Behind a trusted proxy: forwarding headers are reliable.
+	if forwarded := c.GetHeader("X-Forwarded-For"); forwarded != "" {
+		// X-Forwarded-For is a comma-separated chain (`client, proxy1, proxy2`).
+		// The leftmost entry is the original client; later entries are the
+		// proxy chain we already trust.
+		first := forwarded
+		if idx := strings.IndexByte(forwarded, ','); idx >= 0 {
+			first = strings.TrimSpace(forwarded[:idx])
+		}
+		// Strip a possible :port suffix.
+		if host, _, err := net.SplitHostPort(first); err == nil {
+			return host
+		}
+		return first
+	}
+	if realIP := c.GetHeader("X-Real-IP"); realIP != "" {
 		return realIP
 	}
+	return peer
+}
 
-	// Fall back to RemoteAddr
-	ip, _, err := net.SplitHostPort(c.Request.RemoteAddr)
-	if err != nil {
-		return c.Request.RemoteAddr
+// remoteAddrIP strips the port from a net.Conn-formatted RemoteAddr. Falls
+// back to the raw value when SplitHostPort can't parse it (unix sockets,
+// in-process httptest.NewRequest etc.).
+func remoteAddrIP(remoteAddr string) string {
+	if remoteAddr == "" {
+		return ""
 	}
-	return ip
+	if host, _, err := net.SplitHostPort(remoteAddr); err == nil {
+		return host
+	}
+	return remoteAddr
+}
+
+// parseTrustedProxies parses the operator-supplied CIDR list. Empty / invalid
+// entries are dropped — the resulting slice is what runtime path matches
+// against, so we keep it safe-by-construction.
+func parseTrustedProxies(cidrs []string) []*net.IPNet {
+	out := make([]*net.IPNet, 0, len(cidrs))
+	for _, raw := range cidrs {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+		// Accept a bare IP by promoting it to /32 (v4) or /128 (v6).
+		if !strings.Contains(raw, "/") {
+			if ip := net.ParseIP(raw); ip != nil {
+				if ip.To4() != nil {
+					raw += "/32"
+				} else {
+					raw += "/128"
+				}
+			}
+		}
+		_, network, err := net.ParseCIDR(raw)
+		if err != nil {
+			continue
+		}
+		out = append(out, network)
+	}
+	return out
+}
+
+func peerIsTrusted(ip string, trustedNets []*net.IPNet) bool {
+	if len(trustedNets) == 0 || ip == "" {
+		return false
+	}
+	parsed := net.ParseIP(ip)
+	if parsed == nil {
+		return false
+	}
+	for _, n := range trustedNets {
+		if n.Contains(parsed) {
+			return true
+		}
+	}
+	return false
 }
 
 // setRateLimitHeaders sets rate limit response headers

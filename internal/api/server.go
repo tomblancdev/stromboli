@@ -32,10 +32,13 @@ type Server struct {
 	secretsHandler  *SecretsHandler
 	imagesHandler   *ImagesHandler
 	agentsHandler   *AgentsHandler
+	// webhookSecret signs every outgoing async-job webhook with HMAC-SHA256
+	// when non-empty, so receivers can verify the callback came from Stromboli.
+	webhookSecret string
 }
 
 // NewServer creates a new API server
-func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Config, rateLimitConfig RateLimitConfig, jobMgr *job.Manager, healthChecker *HealthChecker, blacklist *auth.TokenBlacklist, tracingEnabled bool, sessionsDir string, secretsRegistry *secrets.Registry, imagesRegistry *images.Registry, agentsHandler *AgentsHandler) *Server {
+func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Config, rateLimitConfig RateLimitConfig, jobMgr *job.Manager, healthChecker *HealthChecker, blacklist *auth.TokenBlacklist, tracingEnabled bool, sessionsDir string, secretsRegistry *secrets.Registry, imagesRegistry *images.Registry, agentsHandler *AgentsHandler, webhookSecret string) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -66,6 +69,7 @@ func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Con
 		secretsHandler:  NewSecretsHandler(secretsRegistry),
 		imagesHandler:   NewImagesHandler(imagesRegistry),
 		agentsHandler:   agentsHandler,
+		webhookSecret:   webhookSecret,
 	}
 	s.setupRoutes()
 

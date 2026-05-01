@@ -89,8 +89,12 @@ func GenerateRefreshToken(subject string, cfg JWTConfig) (string, error) {
 func ValidateToken(tokenString string, cfg JWTConfig) (*Claims, error) {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		// Verify signing method
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		// Reject anything other than the exact algorithm we issue. The
+		// type-assertion form (`*jwt.SigningMethodHMAC`) accepts any HMAC
+		// variant and silently relies on the library to refuse "none" — an
+		// explicit method comparison fails closed even if a future library
+		// release loosens that guarantee.
+		if token.Method != jwt.SigningMethodHS256 {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return []byte(cfg.Secret), nil
@@ -119,8 +123,12 @@ func ValidateToken(tokenString string, cfg JWTConfig) (*Claims, error) {
 func ValidateRefreshToken(tokenString string, cfg JWTConfig) (*Claims, error) {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		// Verify signing method
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		// Reject anything other than the exact algorithm we issue. The
+		// type-assertion form (`*jwt.SigningMethodHMAC`) accepts any HMAC
+		// variant and silently relies on the library to refuse "none" — an
+		// explicit method comparison fails closed even if a future library
+		// release loosens that guarantee.
+		if token.Method != jwt.SigningMethodHS256 {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return []byte(cfg.Secret), nil

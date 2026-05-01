@@ -112,6 +112,13 @@ STROMBOLI_RATE_LIMIT_BURST=20
 | `STROMBOLI_RATE_LIMIT_ENABLED` | `false` | Enable rate limiting |
 | `STROMBOLI_RATE_LIMIT_RPS` | `10` | Requests per second |
 | `STROMBOLI_RATE_LIMIT_BURST` | `20` | Burst allowance |
+| `STROMBOLI_RATE_LIMIT_TRUSTED_PROXIES` | (none) | Comma-separated CIDRs (or bare IPs) whose `X-Forwarded-For` / `X-Real-IP` headers will be honored for rate-limit identity. Leave empty when not behind a proxy — otherwise any client can spoof its bucket by setting `X-Forwarded-For`. |
+
+### Webhooks
+
+| Variable | Default | Description |
+|---|---|---|
+| `STROMBOLI_WEBHOOK_SIGNING_SECRET` | (none) | Secret used to HMAC-SHA256-sign every outgoing async-job webhook. Receivers verify by recomputing `HMAC(secret, timestamp + "." + body)` and constant-time-comparing against the `X-Stromboli-Signature` header. The accompanying `X-Stromboli-Timestamp` header guards against replays. Leave empty for local dev only — in production, unsigned callbacks can be forged. |
 
 ### Jobs
 

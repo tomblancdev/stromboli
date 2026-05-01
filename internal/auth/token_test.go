@@ -265,3 +265,48 @@ func TestJWTConfig_DefaultExpiry(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, token)
 }
+
+func TestValidateToken_RejectsAlternativeSigningAlgorithms(t *testing.T) {
+	cfg := JWTConfig{
+		Secret:       "test-secret-key-must-be-long-enough",
+		AccessExpiry: time.Hour,
+	}
+
+	now := time.Now()
+	claims := Claims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   "user123",
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),
+			ID:        "test-jti",
+		},
+	}
+
+	cases := []struct {
+		name   string
+		method jwt.SigningMethod
+	}{
+		{"HS384 rejected", jwt.SigningMethodHS384},
+		{"HS512 rejected", jwt.SigningMethodHS512},
+		{"none algorithm rejected", jwt.SigningMethodNone},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			token := jwt.NewWithClaims(tc.method, claims)
+			var (
+				signed string
+				err    error
+			)
+			if tc.method == jwt.SigningMethodNone {
+				signed, err = token.SignedString(jwt.UnsafeAllowNoneSignatureType)
+			} else {
+				signed, err = token.SignedString([]byte(cfg.Secret))
+			}
+			require.NoError(t, err)
+
+			_, err = ValidateToken(signed, cfg)
+			require.Error(t, err, "validator must refuse non-HS256 tokens")
+		})
+	}
+}

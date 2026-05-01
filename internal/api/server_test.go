@@ -47,7 +47,7 @@ func newTestServer(t *testing.T, mockRunner runner.Runner, configured bool) *Ser
 	secretsRegistry := secrets.NewRegistry(&mockTestExecutor{})
 	imagesRegistry := images.NewRegistry(&mockTestExecutor{})
 	// Health checker, blacklist nil and tracing disabled for basic tests
-	return NewServer(mockRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, nil, nil, false, sessionsDir, secretsRegistry, imagesRegistry, nil)
+	return NewServer(mockRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, nil, nil, false, sessionsDir, secretsRegistry, imagesRegistry, nil, "")
 }
 
 func TestHealthCheck(t *testing.T) {
@@ -92,7 +92,7 @@ func TestHealthCheck_WithHealthChecker(t *testing.T) {
 
 	secretsRegistry := secrets.NewRegistry(&mockTestExecutor{})
 	imagesRegistry := images.NewRegistry(&mockTestExecutor{})
-	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, nil, false, tmpDir, secretsRegistry, imagesRegistry, nil)
+	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, nil, false, tmpDir, secretsRegistry, imagesRegistry, nil, "")
 
 	req, err := http.NewRequest(http.MethodGet, "/health", nil)
 	require.NoError(t, err)
@@ -144,7 +144,7 @@ func TestHealthCheck_Degraded(t *testing.T) {
 
 	secretsRegistry := secrets.NewRegistry(&mockTestExecutor{})
 	imagesRegistry := images.NewRegistry(&mockTestExecutor{})
-	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, nil, false, tmpDir, secretsRegistry, imagesRegistry, nil)
+	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, nil, false, tmpDir, secretsRegistry, imagesRegistry, nil, "")
 
 	req, err := http.NewRequest(http.MethodGet, "/health", nil)
 	require.NoError(t, err)
@@ -624,7 +624,7 @@ func TestListSecrets_PodmanError(t *testing.T) {
 	secretsRegistry := secrets.NewRegistry(mockSecretsExec)
 	imagesRegistry := images.NewRegistry(&mockTestExecutor{})
 
-	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, nil, nil, false, tmpDir, secretsRegistry, imagesRegistry, nil)
+	server := NewServer(nil, claudeClient, authConfig, rateLimitConfig, jobMgr, nil, nil, false, tmpDir, secretsRegistry, imagesRegistry, nil, "")
 
 	req, err := http.NewRequest(http.MethodGet, "/secrets", nil)
 	require.NoError(t, err)
@@ -700,6 +700,7 @@ func TestRun_PopulatesUsage(t *testing.T) {
 		secrets.NewRegistry(&mockTestExecutor{}),
 		images.NewRegistry(&mockTestExecutor{}),
 		nil,
+		"",
 	)
 
 	body := bytes.NewBufferString(`{"prompt": "hi", "claude": {"session_id": "` + sessionID + `"}}`)
@@ -752,6 +753,7 @@ func TestListSessions_SurfacesTitleFromJSONL(t *testing.T) {
 		secrets.NewRegistry(&mockTestExecutor{}),
 		images.NewRegistry(&mockTestExecutor{}),
 		nil,
+		"",
 	)
 
 	req, err := http.NewRequest(http.MethodGet, "/sessions", nil)

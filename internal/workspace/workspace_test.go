@@ -3,6 +3,7 @@ package workspace
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -73,6 +74,40 @@ func TestValidate_PathNotInAllowlist(t *testing.T) {
 	_, err := v.Validate("/etc/passwd")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not in allowed directories")
+}
+
+func TestValidate_RejectsBrokenSymlinkChain(t *testing.T) {
+	// Symlink loops and other unreadable-but-existing chains used to fall back
+	// to the unresolved cleaned path, which lets an attacker mount the loop's
+	// pre-resolution path even when the actual target evaluates to something
+	// outside the allowlist. The validator must now reject these.
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks behave differently on Windows; skipping")
+	}
+
+	tmpDir := t.TempDir()
+	loopA := filepath.Join(tmpDir, "loop-a")
+	loopB := filepath.Join(tmpDir, "loop-b")
+	require.NoError(t, os.Symlink(loopB, loopA))
+	require.NoError(t, os.Symlink(loopA, loopB))
+
+	v := NewValidator([]string{tmpDir})
+	_, err := v.Validate(loopA)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot validate workspace path")
+}
+
+func TestValidate_AcceptsNonExistentPathInsideAllowlist(t *testing.T) {
+	// "Doesn't exist yet" is a normal case (workspace gets created later).
+	// The validator should accept it as long as the resolved-or-cleaned path
+	// is still inside the allowlist.
+	tmpDir := t.TempDir()
+	target := filepath.Join(tmpDir, "future", "workspace")
+
+	v := NewValidator([]string{tmpDir})
+	got, err := v.Validate(target)
+	require.NoError(t, err)
+	assert.Equal(t, target, got)
 }
 
 func TestValidate_SubdirectoryOfAllowedPath(t *testing.T) {
