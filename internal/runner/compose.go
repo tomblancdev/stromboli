@@ -93,7 +93,7 @@ func (r *PodmanRunner) runWithCompose(ctx context.Context, req Request) (*Result
 	if req.Claude.Resume {
 		claudeBuilder.WithResume()
 	}
-	r.applyClaudeOptions(claudeBuilder, req.Claude)
+	claude.ApplyOptions(claudeBuilder, req.Claude)
 	claudeCmd := claudeBuilder.Build()
 
 	// Prepend "claude" if mounting CLI
@@ -223,7 +223,7 @@ func (r *PodmanRunner) runStreamWithCompose(ctx context.Context, req Request, ou
 	if req.Claude.Resume {
 		claudeBuilder.WithResume()
 	}
-	r.applyClaudeOptions(claudeBuilder, req.Claude)
+	claude.ApplyOptions(claudeBuilder, req.Claude)
 	claudeCmd := claudeBuilder.Build()
 
 	if r.mountClaudeCLI {

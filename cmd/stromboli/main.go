@@ -30,6 +30,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -45,6 +46,7 @@ import (
 	"stromboli/internal/runner"
 	"stromboli/internal/secrets"
 	"stromboli/internal/tracing"
+	"stromboli/internal/types"
 	"stromboli/internal/version"
 )
 
@@ -56,37 +58,94 @@ const defaultHealthTimeout = 5 * time.Second
 // The closure is invoked once per /agents create and produces the podman +
 // claude argv that the agent.Spawner will exec.
 //
-// MVP scope: single image, claude with stream-json I/O, sessions mounted at
-// /app/sessions, credentials at /home/stromboli/.claude/.credentials.json
-// (matching the production compose template). Custom images, allowed-volumes,
-// etc. land in a follow-up — see PR description.
+// The argv layout is shared with the regular /run runner via
+// claude.ApplyOptions and claude.EnvVars — when a caller sends `claude.model`
+// or `claude.allowed_tools` to /agents, those translate to the same flags
+// /run honors. Three things are pinned and not user-overridable: input/output
+// format (stream-json), include_partial_messages, and verbose — together
+// they're the contract the agent's stdout-line dispatcher relies on.
 func buildAgentArgv(agentImage, credentialsFile, sessionsDir string) agent.ArgvBuilder {
 	return func(req agent.CreateRequest, agentID, sessionID string) ([]string, error) {
+		// Pre-create the per-session bind-mount source. Podman's `-v` requires
+		// the host path to exist before mount — without this, the spawner
+		// dies with `statfs ...: no such file or directory` and the agent
+		// transitions straight to StatusExited with `signal: killed` from
+		// cmd.Wait, which gives operators almost nothing to debug from.
+		// Mode 0700: only the runtime user reads sessions; matches the
+		// existing /run runner's session-dir creation.
+		sessionDir := filepath.Join(sessionsDir, sessionID)
+		if err := os.MkdirAll(sessionDir, 0o700); err != nil {
+			return nil, fmt.Errorf("create session dir %q: %w", sessionDir, err)
+		}
+
 		// Container name doubles as the bookkeeping handle so a kill -9 of
 		// stromboli leaves a discoverable orphan that cleanup can reap.
 		containerName := "stromboli-" + agentID
 
-		argv := []string{
+		// Map the host user into the container and preserve their UID. Without
+		// this the container runs as root, and claude refuses
+		// --dangerously-skip-permissions when running as root. The regular
+		// /run runner does the same dance via podman.CommandBuilder.WithKeepID.
+		hostUser := fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())
+
+		// ----- podman flags -----
+		podmanArgs := []string{
 			"podman", "run",
 			"--rm",
-			"--interactive",                   // keep stdin open for stream-json input
+			"--interactive", // keep stdin open for stream-json input
 			"--name", containerName,
+			"--userns=keep-id", // map host UID/GID into container
+			"--user", hostUser, // run claude as the host user
 			"-e", "HOME=/home/user",
 			"-v", credentialsFile + ":/home/user/.claude/.credentials.json:ro",
-			"-v", sessionsDir + "/" + sessionID + ":/home/user",
-			agentImage,
-			"--input-format", "stream-json",
-			"--output-format", "stream-json",
-			"--include-partial-messages",
-			"--session-id", sessionID,
+			"-v", sessionDir + ":/home/user",
 		}
+		// Per-request env vars (prompt cache TTL, Bedrock tier, PowerShell tool).
+		podmanArgs = append(podmanArgs, claude.EnvVars(opts(req))...)
 		if req.Workdir != "" {
-			// Insert -w just before the image arg.
-			imgIdx := len(argv) - 7 // 7 args after the image
-			argv = append(argv[:imgIdx], append([]string{"-w", req.Workdir}, argv[imgIdx:]...)...)
+			podmanArgs = append(podmanArgs, "-w", req.Workdir)
 		}
+		podmanArgs = append(podmanArgs, agentImage)
+
+		// ----- claude flags -----
+		// The agent image's entrypoint (docker-entrypoint.sh) execs its first
+		// positional arg as the binary; we name "claude" explicitly so the
+		// rest of the flags reach the Claude CLI rather than node (the image
+		// default). Same prepend pattern the regular /run runner uses.
+		//
+		// Build via claude.NewCommandBuilder so user-supplied options
+		// (model, effort, system_prompt, allowed_tools, etc.) are honored
+		// the same way they are for /run.
+		cb := claude.NewCommandBuilder().
+			WithSessionID(sessionID).
+			WithInputFormat("stream-json").
+			WithOutputFormat("stream-json").
+			WithIncludePartialMessages().
+			WithVerbose() // required by claude when output-format=stream-json
+		claude.ApplyOptions(cb, opts(req))
+
+		// ApplyOptions may have flipped these from user input — restore the
+		// agent-required values. Stream-json on stdin/stdout is how the
+		// dispatcher reads agent events; flipping output to "text" would
+		// silently break every subscriber.
+		cb.WithInputFormat("stream-json")
+		cb.WithOutputFormat("stream-json")
+
+		argv := append(podmanArgs, "claude")
+		argv = append(argv, cb.Build()...)
 		return argv, nil
 	}
+}
+
+// opts unpacks the optional Claude options on a CreateRequest into a value
+// safe for ApplyOptions / EnvVars to consume. Callers pass `req.Claude` as a
+// pointer so the JSON shape is `claude: { ... }` rather than a freeform
+// object — but the helper APIs want the value directly.
+func opts(req agent.CreateRequest) types.ClaudeOptions {
+	if req.Claude == nil {
+		return types.ClaudeOptions{}
+	}
+	return *req.Claude
 }
 
 // buildBlacklist constructs the configured Blacklist backend, starts its

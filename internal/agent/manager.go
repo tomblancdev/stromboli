@@ -94,7 +94,13 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest, build ArgvBuild
 	// lines per second during tool calls.
 	lineSink := make(chan string, 256)
 
-	proc, err := m.spawner.Spawn(ctx, SpawnRequest{
+	// The agent's process must outlive the HTTP request that spawned it —
+	// using `ctx` here would bind the underlying podman/claude process to
+	// `c.Request.Context()`, which gets cancelled the instant the handler
+	// returns 201 Created. exec.CommandContext would then SIGKILL the child
+	// and the agent would die before the caller's first /send arrives. Use
+	// Background instead; lifecycle is managed by Stop / StopAll / watchIdle.
+	proc, err := m.spawner.Spawn(context.Background(), SpawnRequest{
 		AgentID:   agentID,
 		SessionID: sessionID,
 		Workdir:   req.Workdir,
