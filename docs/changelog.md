@@ -8,6 +8,19 @@ _(empty — add new entries here as PRs land)_
 
 ---
 
+## [0.5.5-alpha] - 2026-05-01
+
+### Added
+
+- **[SDKs & Integrations](sdks.md) page** — landing page for the four official client libraries (`stromboli-go`, `stromboli-ts`, `mcp-server-stromboli`, `n8n-nodes-stromboli`) with a "picking the right one" guide, version-compatibility notes, and a "build your own" pointer to the OpenAPI spec + receiver-workflow template. (#107)
+
+### Documentation
+
+- Home page (`docs/index.md`) gets a "Talk to it from your stack" section linking each SDK; until now the docs talked about the API surface as if everyone would hit it via curl. (#107)
+- Top-level `README.md` shows the SDKs table near the top of the GitHub landing page so it's visible without scrolling. (#107)
+
+---
+
 ## [0.5.4-alpha] - 2026-05-01
 
 ### Added
