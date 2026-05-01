@@ -246,19 +246,19 @@ func TestManager_StartStopCleanup(t *testing.T) {
 
 		// Start cleanup with 1 hour TTL, 10ms interval
 		m.StartCleanup(1*time.Hour, 10*time.Millisecond)
+		defer m.StopCleanup()
 
-		// Wait for cleanup to run
-		time.Sleep(50 * time.Millisecond)
+		// Old job should be deleted by the cleanup goroutine; poll instead of
+		// time.Sleep so the test runs as fast as the cleanup actually fires.
+		require.Eventually(t, func() bool {
+			_, exists := m.Get("old-job")
+			return !exists
+		}, time.Second, 5*time.Millisecond)
 
-		// Stop cleanup
-		m.StopCleanup()
-
-		// Old job should be deleted
-		_, exists := m.Get("old-job")
-		assert.False(t, exists)
-
-		// Recent job should still exist
-		_, exists = m.Get("recent-job")
+		// Recent job is also a side effect: by the time the deletion above
+		// is observable, at least one cleanup tick has fired — so a snapshot
+		// of "recent-job still exists" is safe to read here.
+		_, exists := m.Get("recent-job")
 		assert.True(t, exists)
 	})
 
@@ -271,11 +271,12 @@ func TestManager_StartStopCleanup(t *testing.T) {
 		m.mu.Unlock()
 
 		m.StartCleanup(1*time.Hour, 10*time.Millisecond)
-		time.Sleep(50 * time.Millisecond)
-		m.StopCleanup()
+		defer m.StopCleanup()
 
-		_, exists := m.Get("old-failed")
-		assert.False(t, exists)
+		require.Eventually(t, func() bool {
+			_, exists := m.Get("old-failed")
+			return !exists
+		}, time.Second, 5*time.Millisecond)
 	})
 
 	t.Run("cleanup removes old cancelled jobs", func(t *testing.T) {
@@ -287,11 +288,12 @@ func TestManager_StartStopCleanup(t *testing.T) {
 		m.mu.Unlock()
 
 		m.StartCleanup(1*time.Hour, 10*time.Millisecond)
-		time.Sleep(50 * time.Millisecond)
-		m.StopCleanup()
+		defer m.StopCleanup()
 
-		_, exists := m.Get("old-cancelled")
-		assert.False(t, exists)
+		require.Eventually(t, func() bool {
+			_, exists := m.Get("old-cancelled")
+			return !exists
+		}, time.Second, 5*time.Millisecond)
 	})
 
 	t.Run("cleanup does not remove pending jobs", func(t *testing.T) {
@@ -395,11 +397,12 @@ func TestManager_Cleanup_CrashedJobs(t *testing.T) {
 		m.mu.Unlock()
 
 		m.StartCleanup(1*time.Hour, 10*time.Millisecond)
-		time.Sleep(50 * time.Millisecond)
-		m.StopCleanup()
+		defer m.StopCleanup()
 
-		_, exists := m.Get("old-crashed")
-		assert.False(t, exists)
+		require.Eventually(t, func() bool {
+			_, exists := m.Get("old-crashed")
+			return !exists
+		}, time.Second, 5*time.Millisecond)
 	})
 
 	t.Run("recent crashed jobs are not cleaned up", func(t *testing.T) {
