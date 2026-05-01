@@ -8,6 +8,33 @@ _(empty — add new entries here as PRs land)_
 
 ---
 
+## [0.5.2-alpha] - 2026-05-01
+
+### Fixed
+
+The `/agents` endpoint shipped in v0.5.0-alpha but had never been exercised end-to-end. Five distinct bugs in the spawn path, all surfacing as `signal: killed` or `exit status 1` with no transcript to debug from. Agents now work as designed — sub-second turn latency in a warm container after the initial boot.
+
+- **Session subdirectory not pre-created** — Podman's `-v <host>:<container>` requires the host path to exist before mount, so the spawner died with `statfs ...: no such file or directory`. `buildAgentArgv` now `MkdirAll`s the per-session bind-mount source. (#100)
+- **Process bound to HTTP request context** — `agent.Manager.Create` passed the gin handler's request context all the way to `exec.CommandContext`, so the agent process was SIGKILLed the instant the spawn handler returned 201 Created. Switched to `context.Background()`; agent lifetime is owned by `Manager.Stop` / `StopAll` / `watchIdle`. (#100)
+- **Missing `claude` prepend on argv** — the agent image's entrypoint passed our flags to `node` (the image's default binary) instead of `claude`, so `node` printed `bad option: --input-format` and exited. (#100)
+- **Container ran as root** — without `--userns=keep-id` and `--user $UID:$GID`, claude refuses `--dangerously-skip-permissions` for the root user (security feature). Added both. (#100)
+- **`--verbose` missing** — claude requires it whenever `--output-format stream-json` is set. (#100)
+
+### Changed
+
+- **`req.Claude` now threaded through to `/agents`.** Was parsed off the wire and silently dropped — operators sending `claude.model`, `claude.effort`, `claude.allowed_tools`, `claude.prompt_caching_ttl`, etc. to `/agents` got the CLI defaults while the same fields worked fine on `/run`. Refactored `runner.PodmanRunner.applyClaudeOptions` and `applyClaudeEnvVars` into package-level helpers in `internal/claude` (`claude.ApplyOptions` and `claude.EnvVars`); both `/run` and `/agents` now share one option-threading path. Three flags are pinned regardless of caller input — `--input-format`, `--output-format`, `--verbose` — because the agent dispatcher reads stdout line-by-line as JSON; flipping output to `text` would silently break every subscriber. (#100)
+
+### Tests
+
+- Per-bug regression coverage in `cmd/stromboli/main_test.go` for `buildAgentArgv` (rejects un-creatable session dir, claude prepend, `--userns=keep-id` + `--user UID:GID`, `--verbose`, stream-json input/output pinned even when caller requests "text"/"json", `-w` lands before image, claude options threaded through, env-var-only options reach podman `-e`). (#100)
+- New `internal/claude/options_test.go` — per-field coverage of `ApplyOptions` and `EnvVars` (model, effort, permissions, tools, budget/turns pointer semantics, prompt-cache TTL recognised values, Bedrock tier, PowerShell tool). (#100)
+
+### Known limitations
+
+- `GET /sessions/{id}/messages` does not return persistent-agent transcripts. Claude's CLI in stream-json mode runs in print mode which is intentionally ephemeral — events flow live via SSE only, nothing is persisted to `.claude/projects/<encoded-cwd>/<session>.jsonl`. Subscribe to `GET /agents/{id}/stream` for real-time replay.
+
+---
+
 ## [0.5.1-alpha] - 2026-05-01
 
 ### Documentation
