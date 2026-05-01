@@ -8,6 +8,14 @@ _(empty — add new entries here as PRs land)_
 
 ---
 
+## [0.5.3-alpha] - 2026-05-01
+
+### Added
+
+- **`disable_idle_timeout` on `POST /agents`** — opt-out from the per-agent idle watchdog for service-style deployments where the caller owns lifecycle via explicit `DELETE`. When set, the watchdog goroutine isn't started and the agent runs until DELETE or server shutdown. `Snapshot.idle_timeout_disabled` (omitempty) surfaces the flag back to observers, and stromboli logs a loud `WARN` on spawn so a forgotten long-lived agent is visible. Use only when the lifecycle is genuinely external — without the watchdog, a buggy caller can leak an agent indefinitely. (#102)
+
+---
+
 ## [0.5.2-alpha] - 2026-05-01
 
 ### Fixed
