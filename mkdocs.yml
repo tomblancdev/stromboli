@@ -133,5 +133,6 @@ nav:
     - Contributing: development/contributing.md
     - Architecture: development/architecture.md
     - Testing: development/testing.md
+    - SDK Release Fan-out: development/sdk-contract.md
   - Changelog: changelog.md
   - Acknowledgements: acknowledgements.md
