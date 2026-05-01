@@ -12,6 +12,8 @@ package agent
 import (
 	"sync"
 	"time"
+
+	"stromboli/internal/types"
 )
 
 // Status captures the current lifecycle state of an Agent.
@@ -31,19 +33,21 @@ const (
 )
 
 // CreateRequest is the operator-supplied configuration for a new Agent.
+//
+// @Description Configuration for spawning a long-lived Claude agent
 type CreateRequest struct {
 	// Initial prompt sent as the first turn. Optional — callers can also
 	// create an empty agent and use /send for the first interaction.
-	Prompt string `json:"prompt,omitempty"`
+	Prompt string `json:"prompt,omitempty" example:"You are an on-call assistant."`
 	// Working directory inside the container.
-	Workdir string `json:"workdir,omitempty"`
+	Workdir string `json:"workdir,omitempty" example:"/workspace"`
 	// Idle-timeout override in seconds. Zero means "use the manager default
 	// (DefaultIdleTimeout)". Negative values are rejected at parse time.
-	IdleTimeoutSeconds int `json:"idle_timeout_seconds,omitempty"`
-	// Free-form Claude CLI options forwarded to the command builder.
-	// Kept as map[string]any so we can evolve the surface without bumping the
-	// CreateRequest schema every time Claude adds a flag.
-	Claude map[string]any `json:"claude,omitempty"`
+	IdleTimeoutSeconds int `json:"idle_timeout_seconds,omitempty" example:"1800"`
+	// Claude CLI options forwarded to the command builder. Same shape as
+	// RunRequest.claude so callers don't have to learn two schemas — the
+	// field is fully typed in OpenAPI rather than a freeform object.
+	Claude *types.ClaudeOptions `json:"claude,omitempty"`
 }
 
 // Event is one entry in the SSE stream the runtime pushes to subscribers.

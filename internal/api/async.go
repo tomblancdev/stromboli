@@ -42,6 +42,13 @@ type JobListResponse struct {
 	Jobs []*JobResponse `json:"jobs"`
 }
 
+// JobCancelResponse is returned by DELETE /jobs/{id} on a successful cancel.
+// @Description Result of a job cancel request
+type JobCancelResponse struct {
+	Cancelled bool   `json:"cancelled" example:"true"`
+	JobID     string `json:"job_id" example:"job-abc123def456"`
+}
+
 // runAsync starts Claude execution asynchronously
 // @Summary Run Claude async
 // @Description Starts Claude Code execution asynchronously and returns a job ID
@@ -222,7 +229,7 @@ func (s *Server) listJobs(c *gin.Context) {
 // @Tags jobs
 // @Produce json
 // @Param id path string true "Job ID"
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} JobCancelResponse
 // @Failure 404 {object} RunResponse "Job not found"
 // @Failure 409 {object} RunResponse "Job cannot be cancelled"
 // @Router /jobs/{id} [delete]
@@ -249,9 +256,9 @@ func (s *Server) cancelJob(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"cancelled": true,
-		"job_id":    jobID,
+	c.JSON(http.StatusOK, JobCancelResponse{
+		Cancelled: true,
+		JobID:     jobID,
 	})
 }
 

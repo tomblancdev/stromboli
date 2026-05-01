@@ -710,8 +710,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/internal_api.JobCancelResponse"
                         }
                     },
                     "404": {
@@ -1574,6 +1573,20 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_api.JobCancelResponse": {
+            "description": "Result of a job cancel request",
+            "type": "object",
+            "properties": {
+                "cancelled": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "job_id": {
+                    "type": "string",
+                    "example": "job-abc123def456"
+                }
+            }
+        },
         "internal_api.JobListResponse": {
             "description": "List of async jobs",
             "type": "object",
@@ -1962,24 +1975,31 @@ const docTemplate = `{
             }
         },
         "stromboli_internal_agent.CreateRequest": {
+            "description": "Configuration for spawning a long-lived Claude agent",
             "type": "object",
             "properties": {
                 "claude": {
-                    "description": "Free-form Claude CLI options forwarded to the command builder.\nKept as map[string]any so we can evolve the surface without bumping the\nCreateRequest schema every time Claude adds a flag.",
-                    "type": "object",
-                    "additionalProperties": {}
+                    "description": "Claude CLI options forwarded to the command builder. Same shape as\nRunRequest.claude so callers don't have to learn two schemas — the\nfield is fully typed in OpenAPI rather than a freeform object.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stromboli_internal_types.ClaudeOptions"
+                        }
+                    ]
                 },
                 "idle_timeout_seconds": {
                     "description": "Idle-timeout override in seconds. Zero means \"use the manager default\n(DefaultIdleTimeout)\". Negative values are rejected at parse time.",
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 1800
                 },
                 "prompt": {
                     "description": "Initial prompt sent as the first turn. Optional — callers can also\ncreate an empty agent and use /send for the first interaction.",
-                    "type": "string"
+                    "type": "string",
+                    "example": "You are an on-call assistant."
                 },
                 "workdir": {
                     "description": "Working directory inside the container.",
-                    "type": "string"
+                    "type": "string",
+                    "example": "/workspace"
                 }
             }
         },

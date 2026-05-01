@@ -241,6 +241,16 @@ definitions:
           $ref: '#/definitions/internal_api.ImageInfoResponse'
         type: array
     type: object
+  internal_api.JobCancelResponse:
+    description: Result of a job cancel request
+    properties:
+      cancelled:
+        example: true
+        type: boolean
+      job_id:
+        example: job-abc123def456
+        type: string
+    type: object
   internal_api.JobListResponse:
     description: List of async jobs
     properties:
@@ -515,26 +525,30 @@ definitions:
         type: string
     type: object
   stromboli_internal_agent.CreateRequest:
+    description: Configuration for spawning a long-lived Claude agent
     properties:
       claude:
-        additionalProperties: {}
+        allOf:
+        - $ref: '#/definitions/stromboli_internal_types.ClaudeOptions'
         description: |-
-          Free-form Claude CLI options forwarded to the command builder.
-          Kept as map[string]any so we can evolve the surface without bumping the
-          CreateRequest schema every time Claude adds a flag.
-        type: object
+          Claude CLI options forwarded to the command builder. Same shape as
+          RunRequest.claude so callers don't have to learn two schemas — the
+          field is fully typed in OpenAPI rather than a freeform object.
       idle_timeout_seconds:
         description: |-
           Idle-timeout override in seconds. Zero means "use the manager default
           (DefaultIdleTimeout)". Negative values are rejected at parse time.
+        example: 1800
         type: integer
       prompt:
         description: |-
           Initial prompt sent as the first turn. Optional — callers can also
           create an empty agent and use /send for the first interaction.
+        example: You are an on-call assistant.
         type: string
       workdir:
         description: Working directory inside the container.
+        example: /workspace
         type: string
     type: object
   stromboli_internal_agent.Snapshot:
@@ -1544,8 +1558,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/internal_api.JobCancelResponse'
         "404":
           description: Job not found
           schema:
