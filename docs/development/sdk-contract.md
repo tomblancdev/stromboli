@@ -39,6 +39,15 @@ The dispatch will fire whether or not the SDK has a receiver — clients that ha
 
 Drop this into the SDK's `.github/workflows/sync-stromboli.yml`. The codegen step is the only part you customize per ecosystem.
 
+!!! warning "Enable PR creation on the SDK repo first"
+    GitHub Actions is **not allowed to create or approve pull requests by default** — even with `pull-requests: write` in the workflow permissions block. The `peter-evans/create-pull-request` step will fail with `GitHub Actions is not permitted to create or approve pull requests` until you flip a repo-level setting:
+
+    1. Go to `Settings → Actions → General` on the SDK repo
+    2. Under **Workflow permissions**, check **Allow GitHub Actions to create and approve pull requests**
+    3. Save
+
+    This needs to be done **once per SDK repo** that adds a receiver. URL pattern: `https://github.com/<owner>/<sdk>/settings/actions`.
+
 ```yaml
 name: Sync OpenAPI from stromboli
 
@@ -70,12 +79,28 @@ jobs:
         id: payload
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "version=${{ inputs.version }}"           >> "$GITHUB_OUTPUT"
-            echo "swagger_url=${{ inputs.swagger_url }}"   >> "$GITHUB_OUTPUT"
+            VERSION="${{ inputs.version }}"
+            SWAGGER_URL="${{ inputs.swagger_url }}"
+            if [ -z "$VERSION" ]; then
+              # Fall back to whatever stromboli last cut. Two gotchas:
+              #   1. We use curl + REST API, not `gh release view`,
+              #      because GITHUB_TOKEN is scoped to THIS repo and
+              #      cross-repo `gh` reads come back as 404.
+              #   2. We hit /releases (plural) not /releases/latest —
+              #      the latter skips prereleases, so it 404s on a repo
+              #      that only ships -alpha / -beta tags.
+              VERSION=$(curl -fsSL https://api.github.com/repos/tomblancdev/stromboli/releases | jq -r '[.[] | select(.draft == false)][0].tag_name')
+              if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
+                echo "::error::Could not resolve latest stromboli release tag"
+                exit 1
+              fi
+            fi
           else
-            echo "version=${{ github.event.client_payload.version }}"           >> "$GITHUB_OUTPUT"
-            echo "swagger_url=${{ github.event.client_payload.swagger_url }}"   >> "$GITHUB_OUTPUT"
+            VERSION="${{ github.event.client_payload.version }}"
+            SWAGGER_URL="${{ github.event.client_payload.swagger_url }}"
           fi
+          echo "version=$VERSION"         >> "$GITHUB_OUTPUT"
+          echo "swagger_url=$SWAGGER_URL" >> "$GITHUB_OUTPUT"
 
       - name: Fetch new swagger
         run: |
