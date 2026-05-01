@@ -126,6 +126,7 @@ nav:
     - Endpoints: api/endpoints.md
     - Authentication: api/authentication.md
     - OpenAPI Spec: api/openapi.md
+  - SDKs & Integrations: sdks.md
   - Self-Hosting:
     - Docker: self-hosting/docker.md
     - Troubleshooting: self-hosting/troubleshooting.md
