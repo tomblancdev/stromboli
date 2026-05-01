@@ -25,6 +25,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -86,6 +87,42 @@ func buildAgentArgv(agentImage, credentialsFile, sessionsDir string) agent.ArgvB
 		}
 		return argv, nil
 	}
+}
+
+// buildBlacklist constructs the configured Blacklist backend, starts its
+// cleanup goroutine, and returns a closer that the shutdown path calls to
+// flush + release any underlying resources (e.g. the bolt DB file lock).
+//
+// Default: in-memory. Operators opt into durability with
+// STROMBOLI_AUTH_BLACKLIST_BACKEND=bolt.
+func buildBlacklist(cfg config.BlacklistConfig) (auth.Blacklist, func() error, error) {
+	switch cfg.Backend {
+	case "", "memory":
+		bl := auth.NewMemoryBlacklist()
+		bl.StartCleanup(cfg.CleanupInterval)
+		return bl, bl.Close, nil
+	case "bolt":
+		bl, err := auth.NewBoltBlacklist(cfg.BoltPath)
+		if err != nil {
+			return nil, nil, fmt.Errorf("bolt blacklist: %w", err)
+		}
+		bl.StartCleanup(cfg.CleanupInterval)
+		return bl, bl.Close, nil
+	default:
+		// Unreachable — config.Validate catches unknown backends — but keep
+		// a defensive branch so a future config bug doesn't silently fall
+		// back to memory.
+		return nil, nil, fmt.Errorf("unknown blacklist backend %q", cfg.Backend)
+	}
+}
+
+// blacklistBackendName returns the resolved backend label for logging
+// (treats the empty string as the default "memory").
+func blacklistBackendName(cfg config.BlacklistConfig) string {
+	if cfg.Backend == "" {
+		return "memory"
+	}
+	return cfg.Backend
 }
 
 // parseLogLevel maps a STROMBOLI_LOG_LEVEL value to a slog.Level. Unknown
@@ -355,12 +392,17 @@ func main() {
 		slog.Info("Compose stack cleanup started", "ttl", cfg.Compose.StackTTL)
 	}
 
-	// Create token blacklist for logout support
-	blacklist := auth.NewTokenBlacklist()
-
-	// Start blacklist cleanup (cleanup every hour - expired tokens are removed)
-	blacklist.StartCleanup(time.Hour)
-	slog.Info("Token blacklist started", "cleanup_interval", time.Hour)
+	// Create token blacklist for logout support. Backend selection is
+	// config-driven; in-memory is the default (zero deps, lost on restart),
+	// bolt persists across restarts via a single-file store.
+	blacklist, blacklistCloser, err := buildBlacklist(cfg.Auth.Blacklist)
+	if err != nil {
+		slog.Error("Failed to initialize token blacklist", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("Token blacklist started",
+		"backend", blacklistBackendName(cfg.Auth.Blacklist),
+		"cleanup_interval", cfg.Auth.Blacklist.CleanupInterval)
 
 	// Create health checker with credentials file and secret check
 	healthConfig := api.HealthConfig{
@@ -447,8 +489,11 @@ func main() {
 		slog.Info("Compose stack cleanup stopped")
 	}
 
-	// Stop blacklist cleanup
-	blacklist.StopCleanup()
+	// Stop blacklist cleanup and (for the bolt backend) close the underlying
+	// DB so the file lock is released.
+	if err := blacklistCloser(); err != nil {
+		slog.Warn("Token blacklist close returned error", "error", err)
+	}
 	slog.Info("Token blacklist cleanup stopped")
 
 	// Tear every persistent agent down so we don't leak podman containers

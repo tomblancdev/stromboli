@@ -69,6 +69,26 @@ type ResourceConfig struct {
 type AuthConfig struct {
 	Enabled     bool     // Enable authentication
 	ValidTokens []string // List of valid API tokens (legacy)
+	Blacklist   BlacklistConfig
+}
+
+// BlacklistConfig selects the storage backend for revoked-token tracking.
+//
+// Backends:
+//
+//   - "memory" (default): in-process map. Fast, zero deps, lost on restart.
+//     Best paired with short access-token TTLs (1 h or less) so the practical
+//     impact of "logout-doesn't-survive-restart" is bounded.
+//
+//   - "bolt": durable single-file store (bbolt). Logout survives restart.
+//     Single-process — use a shared backend (Redis, future) when scaling
+//     Stromboli horizontally.
+//
+// CleanupInterval applies to both backends.
+type BlacklistConfig struct {
+	Backend         string        // "memory" (default) or "bolt"
+	BoltPath        string        // Path to the bolt file when Backend == "bolt"
+	CleanupInterval time.Duration // How often expired entries are reaped
 }
 
 // RateLimitConfig holds rate limiting configuration
@@ -236,6 +256,11 @@ func setupViper(v *viper.Viper) {
 	// Local dev that wants to skip auth must set STROMBOLI_AUTH_ENABLED=false explicitly.
 	v.SetDefault("auth.enabled", true)
 	v.SetDefault("auth.valid_tokens", []string{})
+	// Blacklist defaults to in-memory: zero deps, fastest path. Operators
+	// who need logout to survive restart switch to bolt explicitly.
+	v.SetDefault("auth.blacklist.backend", "memory")
+	v.SetDefault("auth.blacklist.bolt_path", ".stromboli/blacklist.db")
+	v.SetDefault("auth.blacklist.cleanup_interval", time.Hour.String())
 	v.SetDefault("rate_limit.enabled", false)
 	v.SetDefault("rate_limit.rate", defaultRateLimitRate)
 	v.SetDefault("rate_limit.burst", defaultRateLimitBurst)
@@ -297,6 +322,9 @@ func setupViper(v *viper.Viper) {
 	_ = v.BindEnv("resources.timeout", "STROMBOLI_DEFAULT_TIMEOUT")
 	_ = v.BindEnv("auth.enabled", "STROMBOLI_AUTH_ENABLED")
 	_ = v.BindEnv("auth.valid_tokens", "STROMBOLI_API_TOKENS")
+	_ = v.BindEnv("auth.blacklist.backend", "STROMBOLI_AUTH_BLACKLIST_BACKEND")
+	_ = v.BindEnv("auth.blacklist.bolt_path", "STROMBOLI_AUTH_BLACKLIST_BOLT_PATH")
+	_ = v.BindEnv("auth.blacklist.cleanup_interval", "STROMBOLI_AUTH_BLACKLIST_CLEANUP_INTERVAL")
 	_ = v.BindEnv("rate_limit.enabled", "STROMBOLI_RATE_LIMIT_ENABLED")
 	_ = v.BindEnv("rate_limit.rate", "STROMBOLI_RATE_LIMIT_RPS")
 	_ = v.BindEnv("rate_limit.burst", "STROMBOLI_RATE_LIMIT_BURST")
@@ -376,6 +404,17 @@ func parseConfig(v *viper.Viper) (*Config, error) {
 		JWT: JWTConfig{
 			Secret: v.GetString("jwt.secret"),
 		},
+	}
+
+	// Parse blacklist config
+	blacklistCleanup, err := parseDuration(v.GetString("auth.blacklist.cleanup_interval"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid auth.blacklist.cleanup_interval: %w", err)
+	}
+	cfg.Auth.Blacklist = BlacklistConfig{
+		Backend:         strings.ToLower(strings.TrimSpace(v.GetString("auth.blacklist.backend"))),
+		BoltPath:        v.GetString("auth.blacklist.bolt_path"),
+		CleanupInterval: blacklistCleanup,
 	}
 
 	// Parse JWT durations
@@ -543,6 +582,22 @@ func (c *Config) Validate() error {
 		if err := validateJWTSecret(c.JWT.Secret); err != nil {
 			return err
 		}
+	}
+
+	// Validate blacklist backend selection — fail fast on a typo'd backend
+	// instead of silently falling back to memory (which would surprise an
+	// operator who set BACKEND=bolt expecting durability).
+	switch c.Auth.Blacklist.Backend {
+	case "", "memory", "bolt":
+		// ok ("" == default == memory)
+	default:
+		return fmt.Errorf("invalid auth.blacklist.backend %q: must be \"memory\" or \"bolt\"", c.Auth.Blacklist.Backend)
+	}
+	if c.Auth.Blacklist.Backend == "bolt" && strings.TrimSpace(c.Auth.Blacklist.BoltPath) == "" {
+		return fmt.Errorf("auth.blacklist.backend=bolt requires auth.blacklist.bolt_path")
+	}
+	if c.Auth.Blacklist.CleanupInterval <= 0 {
+		return fmt.Errorf("auth.blacklist.cleanup_interval must be positive")
 	}
 
 	// Validate job cleanup config

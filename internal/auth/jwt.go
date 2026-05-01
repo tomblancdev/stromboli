@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"log/slog"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -23,9 +24,11 @@ type Config struct {
 	// JWTConfig holds JWT-specific configuration
 	// If JWTConfig.Secret is set, JWT validation is enabled
 	JWTConfig JWTConfig
-	// Blacklist holds the token blacklist for logout support
-	// If set, tokens will be checked against the blacklist
-	Blacklist *TokenBlacklist
+	// Blacklist holds the token blacklist for logout support.
+	// If set, tokens are checked against the blacklist on every authenticated
+	// request. Programs against the Blacklist interface so the backend
+	// (memory / bolt / future Redis) is swappable via config.
+	Blacklist Blacklist
 }
 
 // Middleware returns a Gin middleware that validates JWT tokens
@@ -65,10 +68,21 @@ func Middleware(cfg Config) gin.HandlerFunc {
 		if !valid && cfg.JWTConfig.Secret != "" {
 			claims, err := ValidateToken(token, cfg.JWTConfig)
 			if err == nil && claims != nil {
-				// Check if token is blacklisted (logout support)
-				if cfg.Blacklist != nil && claims.ID != "" && cfg.Blacklist.IsBlacklisted(claims.ID) {
-					c.AbortWithStatusJSON(401, gin.H{"error": "token revoked"})
-					return
+				// Check if token is blacklisted (logout support).
+				// Fail closed: if the blacklist backend is unreachable
+				// (e.g. bolt I/O error), reject the request rather than
+				// admit a potentially-revoked token.
+				if cfg.Blacklist != nil && claims.ID != "" {
+					blocked, err := cfg.Blacklist.IsBlacklisted(claims.ID)
+					if err != nil {
+						slog.Error("blacklist lookup failed; failing closed", "jti", claims.ID, "error", err)
+						c.AbortWithStatusJSON(503, gin.H{"error": "auth backend unavailable"})
+						return
+					}
+					if blocked {
+						c.AbortWithStatusJSON(401, gin.H{"error": "token revoked"})
+						return
+					}
 				}
 				valid = true
 				// Store claims in context for handlers to use
