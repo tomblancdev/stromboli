@@ -49,12 +49,16 @@ data:
   STROMBOLI_RATE_LIMIT_BURST: "20"
 
   # ---------------------------------------------------------------------------
-  # Metrics — bound to 0.0.0.0:9090 inside the pod, but the Service does not
-  # expose it externally. Reach it from a Prometheus scrape sidecar / pod, or
-  # add a separate ClusterIP Service if you need cross-namespace scraping.
+  # Metrics — bound to 127.0.0.1:9090 inside the pod by default. The Service
+  # does not expose it externally; scrape it via a Prometheus sidecar in the
+  # same pod (loopback access) or run a `kubectl port-forward` for local debug.
+  # If you genuinely need cross-pod scraping (e.g. an in-cluster Prometheus
+  # without sidecar injection), override this to "0.0.0.0:9090" AND add a
+  # NetworkPolicy that restricts ingress on 9090 to the Prometheus pod only —
+  # otherwise any compromised workload in the cluster can scrape the metrics.
   # ---------------------------------------------------------------------------
   STROMBOLI_METRICS_ENABLED: "true"
-  STROMBOLI_METRICS_ADDRESS: "0.0.0.0:9090"
+  STROMBOLI_METRICS_ADDRESS: "127.0.0.1:9090"
 
   # ---------------------------------------------------------------------------
   # Job cleanup

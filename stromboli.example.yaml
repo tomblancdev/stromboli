@@ -17,7 +17,7 @@ server:
 agent:
   image: "stromboli-agent"  # Container image to use (without tag)
   image_tag: "latest"  # Container image tag (pin to specific version for production, e.g., "v1.0.0")
-  secrets_file: ".claude-secrets"  # Path to Claude API secrets file
+  credentials_file: ".claude-secrets"  # Path to Claude credentials JSON (~/.claude/.credentials.json by default)
   sessions_dir: ".stromboli/sessions"  # Directory for session data
   token_cache:
     enabled: true  # Enable token caching (reduces file reads)
@@ -31,7 +31,8 @@ resources:
 
 # Authentication Configuration
 auth:
-  enabled: false  # Enable authentication (recommended for production)
+  enabled: true   # Auth is on by default. Server fails fast at startup without a
+                  # real JWT secret — disable only for local dev/testing.
   valid_tokens:   # List of valid API tokens (legacy, use JWT in production)
     # - "token1"
     # - "token2"
@@ -58,7 +59,7 @@ tracing:
   enabled: false             # Enable distributed tracing
   service_name: "stromboli"  # Service name in traces
   endpoint: "localhost:4317" # OTLP collector endpoint (gRPC)
-  insecure: true             # Use insecure connection (no TLS)
+  insecure: false            # TLS by default — set to true only for local dev collectors
 
 # Compose Environment Configuration
 # Enables running Claude agents in multi-service environments defined by Docker/Podman Compose files
@@ -105,7 +106,7 @@ compose:
 # agent:
 #   image: "ghcr.io/your-org/stromboli-agent"
 #   image_tag: "v1.0.0"
-#   secrets_file: "/secrets/claude-api-key"
+#   credentials_file: "/secrets/claude-api-key"
 #   sessions_dir: "/data/sessions"
 #   token_cache:
 #     enabled: true

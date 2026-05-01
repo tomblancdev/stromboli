@@ -218,19 +218,26 @@ curl -X POST http://localhost:8080/run \
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `STROMBOLI_AUTH_ENABLED` | `false` | Enable token-based authentication |
+| `STROMBOLI_AUTH_ENABLED` | `true` | Enable token-based authentication. Server fails fast on startup if a JWT secret is missing/empty/placeholder. |
 | `STROMBOLI_API_TOKENS` | - | Comma-separated list of valid API tokens |
-| `STROMBOLI_JWT_SECRET` | - | Secret key for JWT signing (enables JWT auth) |
+| `STROMBOLI_JWT_SECRET` | - | Secret key for JWT signing (required when auth is enabled — must be ≥32 chars, no placeholders) |
 | `STROMBOLI_JWT_EXPIRY` | `24h` | JWT access token lifetime |
 | `STROMBOLI_RATE_LIMIT_ENABLED` | `false` | Enable rate limiting |
 | `STROMBOLI_RATE_LIMIT_RPS` | `10` | Requests per second limit |
 | `STROMBOLI_RATE_LIMIT_BURST` | `20` | Maximum burst size |
 | `STROMBOLI_TRACING_ENABLED` | `false` | Enable OpenTelemetry tracing |
 | `STROMBOLI_TRACING_ENDPOINT` | `localhost:4317` | OTLP collector endpoint |
+| `STROMBOLI_TRACING_INSECURE` | `false` | Disable TLS for the OTLP exporter (insecure — dev only) |
+| `STROMBOLI_METRICS_ENABLED` | `true` | Expose Prometheus metrics on a separate listener |
+| `STROMBOLI_METRICS_ADDRESS` | `127.0.0.1:9090` | Metrics listener bind address (localhost-only by default; never share-listen on `0.0.0.0`) |
+| `STROMBOLI_LOG_FORMAT` | `json` | Log encoder (`json` or `text`) |
+| `STROMBOLI_LOG_LEVEL` | `info` | Log level (`debug`, `info`, `warn`, `error`) |
 
 ### Authentication
 
-When `STROMBOLI_AUTH_ENABLED=true`, include a Bearer token:
+Auth is **enabled by default**. Stromboli refuses to start if `STROMBOLI_JWT_SECRET` is missing/empty or a known placeholder — set a real secret (`openssl rand -base64 32`) before launching. Set `STROMBOLI_AUTH_ENABLED=false` only for local dev.
+
+Include a Bearer token on every request:
 
 ```bash
 curl -X POST http://localhost:8080/run \

@@ -6,6 +6,34 @@ All notable changes to Stromboli will be documented here.
 
 ### Added
 
+#### Persistent Agents
+- New `/agents/*` endpoint family for long-lived Claude processes with stream-json I/O — sub-second turn latency for event-driven workloads (sensor buses, on-call bots). See [API endpoints](api/endpoints.md#persistent-agents). (#60, #73)
+- Per-session token usage and estimated USD cost surfaced on `RunResponse.usage` (read from session JSONL, best-effort). (#56, #72)
+- `claude.effort` request field exposes the upstream CLI's thinking/agentic complexity level (`low`, `medium`, `high`, `xhigh`, `max` — accepted subset depends on model). (#74, #84)
+- Env-var passthrough for runtime tuning: `claude.prompt_caching_ttl` (`5m`/`1h`), `claude.bedrock_service_tier`, `claude.enable_powershell_tool`. (#76, #77, #81, #85)
+- Session titles surfaced from a `UserPromptSubmit` hook returning `hookSpecificOutput.sessionTitle`. `GET /sessions` now returns `{id, title}` records. (#83, #86)
+- New `GET /sessions/:id/messages/:message_id` endpoint to fetch a single message without re-reading the whole transcript.
+
+### Changed
+
+- **BREAKING (operational): Auth enabled by default.** `STROMBOLI_AUTH_ENABLED` now defaults to `true`. The server fails fast at startup if `STROMBOLI_JWT_SECRET` is empty, shorter than 32 chars, or matches a known placeholder. Existing setups must either set a real JWT secret or explicitly opt out with `STROMBOLI_AUTH_ENABLED=false`. (#45, #64)
+- **Logs are JSON by default** so log aggregators can parse them without preprocessing. Set `STROMBOLI_LOG_FORMAT=text` for human-friendly output during local dev. (#47, #65)
+- **Log level configurable** via `STROMBOLI_LOG_LEVEL` (`debug`/`info`/`warn`/`error`). (#48, #67)
+- **Tracing TLS by default**: `STROMBOLI_TRACING_INSECURE` now defaults to `false`. Plaintext OTLP only in dev. (#49, #70)
+- **Metrics on a separate listener bound to localhost** (`127.0.0.1:9090` by default) — never co-located with the public API port. Run a Prometheus sidecar or override `STROMBOLI_METRICS_ADDRESS` if you need cross-pod scraping. (#46, #66)
+
+### Fixed
+
+- Dev compose now uses a named volume for sessions (was a bind mount that dropped state across `compose down`). (#50, #69)
+- `.dockerignore` slims the build context. (#51, #68)
+
+### Infra
+
+- Kubernetes manifests under `deployments/kubernetes/` (namespace, ConfigMap, Secret example, Deployment, Service, Kustomization).
+- Prometheus alert rules under `deployments/grafana/`.
+- Dev image notes in `deployments/`. (#53, #54, #55, #71)
+- CI pipeline for lint, tests, and Docker build. (#44, #63)
+
 #### Lifecycle Hooks
 - **OnCreateCommand**: Run commands once when session is first created (e.g., `pip install`)
 - **PostCreate**: Run commands after OnCreateCommand completes (e.g., build steps)
