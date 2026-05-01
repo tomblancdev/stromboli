@@ -4,6 +4,12 @@ All notable changes to Stromboli will be documented here.
 
 ## [Unreleased]
 
+_(empty — add new entries here as PRs land)_
+
+---
+
+## [0.5.0-alpha] - 2026-05-01
+
 ### Added
 
 #### Persistent Agents
