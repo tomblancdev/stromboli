@@ -42,10 +42,10 @@ type Runner interface {
 
 // Request contains the parameters for running Claude
 type Request struct {
-	Prompt    string
+	Prompt  string
 	Workdir string
-	Claude    types.ClaudeOptions
-	Podman    types.PodmanOptions
+	Claude  types.ClaudeOptions
+	Podman  types.PodmanOptions
 }
 
 // Result contains the output from running Claude
@@ -276,7 +276,7 @@ func (r *PodmanRunner) Run(ctx context.Context, req Request) (*Result, error) {
 	}
 
 	// Apply all other Claude options
-	r.applyClaudeOptions(claudeBuilder, req.Claude)
+	claude.ApplyOptions(claudeBuilder, req.Claude)
 
 	claudeCmd := claudeBuilder.Build()
 
@@ -481,7 +481,7 @@ func (r *PodmanRunner) RunStream(ctx context.Context, req Request, output chan<-
 	}
 
 	// Apply all other Claude options
-	r.applyClaudeOptions(claudeBuilder, req.Claude)
+	claude.ApplyOptions(claudeBuilder, req.Claude)
 
 	claudeCmd := claudeBuilder.Build()
 
@@ -736,18 +736,20 @@ func (r *PodmanRunner) applyRequestConfig(req Request, podmanBuilder *podman.Com
 // applyClaudeEnvVars translates Claude-side env-var-only options into podman
 // `-e KEY=VALUE` injections. Each option is opt-in — empty string / false
 // leaves the variable unset so the CLI sees its native default.
+//
+// The flag-pair format produced by claude.EnvVars (`-e KEY=VALUE`) is
+// converted here into the podman.CommandBuilder's WithEnv calls so the
+// existing builder API stays the same.
 func applyClaudeEnvVars(b *podman.CommandBuilder, opts types.ClaudeOptions) {
-	switch opts.PromptCachingTTL {
-	case "1h":
-		b.WithEnv("ENABLE_PROMPT_CACHING_1H", "1")
-	case "5m":
-		b.WithEnv("FORCE_PROMPT_CACHING_5M", "1")
-	}
-	if opts.BedrockServiceTier != "" {
-		b.WithEnv("ANTHROPIC_BEDROCK_SERVICE_TIER", opts.BedrockServiceTier)
-	}
-	if opts.EnablePowerShellTool {
-		b.WithEnv("CLAUDE_CODE_USE_POWERSHELL_TOOL", "1")
+	pairs := claude.EnvVars(opts)
+	for i := 0; i+1 < len(pairs); i += 2 {
+		// pairs is [-e, K=V, -e, K=V, ...]; split each K=V on the first '='.
+		kv := pairs[i+1]
+		eq := strings.IndexByte(kv, '=')
+		if eq < 0 {
+			continue
+		}
+		b.WithEnv(kv[:eq], kv[eq+1:])
 	}
 }
 
@@ -773,152 +775,10 @@ func (r *PodmanRunner) RunAsync(ctx context.Context, req Request, jobID string, 
 	}()
 }
 
-// applyClaudeOptions applies all Claude options to the builder
-func (r *PodmanRunner) applyClaudeOptions(b *claude.CommandBuilder, opts types.ClaudeOptions) {
-	// Note: SessionID is handled separately in Run()
-	r.applySessionOptions(b, opts)
-	r.applyModelOptions(b, opts)
-	r.applyPromptOptions(b, opts)
-	r.applyToolsOptions(b, opts)
-	r.applyPermissionOptions(b, opts)
-	r.applyIOOptions(b, opts)
-	r.applyResourceOptions(b, opts)
-	r.applyMiscOptions(b, opts)
-}
-
-// applySessionOptions handles Continue, ForkSession, NoPersistence options
-func (r *PodmanRunner) applySessionOptions(b *claude.CommandBuilder, opts types.ClaudeOptions) {
-	if opts.Continue {
-		b.WithContinue()
-	}
-	if opts.ForkSession {
-		b.WithForkSession()
-	}
-	if opts.NoPersistence {
-		b.WithNoSessionPersistence()
-	}
-}
-
-// applyModelOptions handles Model, FallbackModel, Effort options
-func (r *PodmanRunner) applyModelOptions(b *claude.CommandBuilder, opts types.ClaudeOptions) {
-	if opts.Model != "" {
-		b.WithModel(opts.Model)
-	}
-	if opts.FallbackModel != "" {
-		b.WithFallbackModel(opts.FallbackModel)
-	}
-	if opts.Effort != "" {
-		b.WithEffort(opts.Effort)
-	}
-}
-
-// applyPromptOptions handles SystemPrompt, AppendSystemPrompt options
-func (r *PodmanRunner) applyPromptOptions(b *claude.CommandBuilder, opts types.ClaudeOptions) {
-	if opts.SystemPrompt != "" {
-		b.WithSystemPrompt(opts.SystemPrompt)
-	}
-	if opts.AppendSystemPrompt != "" {
-		b.WithAppendSystemPrompt(opts.AppendSystemPrompt)
-	}
-}
-
-// applyToolsOptions handles Tools, AllowedTools, DisallowedTools options
-func (r *PodmanRunner) applyToolsOptions(b *claude.CommandBuilder, opts types.ClaudeOptions) {
-	if len(opts.Tools) > 0 {
-		b.WithTools(opts.Tools...)
-	}
-	if len(opts.AllowedTools) > 0 {
-		b.WithAllowedTools(opts.AllowedTools...)
-	}
-	if len(opts.DisallowedTools) > 0 {
-		b.WithDisallowedTools(opts.DisallowedTools...)
-	}
-}
-
-// applyPermissionOptions handles PermissionMode, DangerouslySkipPermissions, AllowDangerouslySkipPermissions options
-func (r *PodmanRunner) applyPermissionOptions(b *claude.CommandBuilder, opts types.ClaudeOptions) {
-	if opts.PermissionMode != "" {
-		b.WithPermissionMode(opts.PermissionMode)
-	}
-	if opts.DangerouslySkipPermissions {
-		b.WithDangerouslySkipPermissions()
-	}
-	if opts.AllowDangerouslySkipPermissions {
-		b.WithAllowDangerouslySkipPermissions()
-	}
-}
-
-// applyIOOptions handles InputFormat, OutputFormat, IncludePartialMessages, ReplayUserMessages, JSONSchema options
-func (r *PodmanRunner) applyIOOptions(b *claude.CommandBuilder, opts types.ClaudeOptions) {
-	if opts.InputFormat != "" {
-		b.WithInputFormat(opts.InputFormat)
-	}
-	if opts.OutputFormat != "" {
-		b.WithOutputFormat(opts.OutputFormat)
-	}
-	if opts.IncludePartialMessages {
-		b.WithIncludePartialMessages()
-	}
-	if opts.ReplayUserMessages {
-		b.WithReplayUserMessages()
-	}
-	if opts.JSONSchema != "" {
-		b.WithJSONSchema(opts.JSONSchema)
-	}
-}
-
-// applyResourceOptions handles MaxBudgetUSD, MCPConfigs, StrictMCPConfig, Agent, Agents, AddDirs, PluginDirs, Files, Settings, SettingSources, Betas options
-func (r *PodmanRunner) applyResourceOptions(b *claude.CommandBuilder, opts types.ClaudeOptions) {
-	if opts.MaxBudgetUSD != nil {
-		b.WithMaxBudgetUSD(*opts.MaxBudgetUSD)
-	}
-	if opts.MaxTurns != nil {
-		b.WithMaxTurns(*opts.MaxTurns)
-	}
-	if len(opts.MCPConfigs) > 0 {
-		b.WithMCPConfig(opts.MCPConfigs...)
-	}
-	if opts.StrictMCPConfig {
-		b.WithStrictMCPConfig()
-	}
-	if opts.Agent != "" {
-		b.WithAgent(opts.Agent)
-	}
-	if opts.Agents != nil {
-		b.WithAgents(opts.Agents)
-	}
-	if len(opts.AddDirs) > 0 {
-		b.WithAddDir(opts.AddDirs...)
-	}
-	if len(opts.PluginDirs) > 0 {
-		b.WithPluginDir(opts.PluginDirs...)
-	}
-	if len(opts.Files) > 0 {
-		b.WithFiles(opts.Files...)
-	}
-	if opts.Settings != "" {
-		b.WithSettings(opts.Settings)
-	}
-	if len(opts.SettingSources) > 0 {
-		b.WithSettingSources(opts.SettingSources...)
-	}
-	if len(opts.Betas) > 0 {
-		b.WithBetas(opts.Betas...)
-	}
-}
-
-// applyMiscOptions handles Verbose, Debug, DisableSlashCommands options
-func (r *PodmanRunner) applyMiscOptions(b *claude.CommandBuilder, opts types.ClaudeOptions) {
-	if opts.Verbose {
-		b.WithVerbose()
-	}
-	if opts.Debug != "" {
-		b.WithDebug(opts.Debug)
-	}
-	if opts.DisableSlashCommands {
-		b.WithDisableSlashCommands()
-	}
-}
+// applyClaudeOptions and its sub-appliers were lifted into
+// internal/claude/options.go (claude.ApplyOptions) so the persistent-agent
+// path in cmd/stromboli can share the exact same translation. Keep using
+// claude.ApplyOptions(builder, opts) at every callsite.
 
 // generateRunID creates a unique run ID
 func generateRunID() string {
