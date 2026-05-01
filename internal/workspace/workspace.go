@@ -1,7 +1,9 @@
 package workspace
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"strings"
 )
@@ -47,11 +49,17 @@ func (v *Validator) Validate(path string) (string, error) {
 	// Clean the path to prevent traversal
 	absPath = filepath.Clean(absPath)
 
-	// Resolve symlinks to prevent symlink-based traversal attacks
+	// Resolve symlinks to prevent symlink-based traversal attacks. We tolerate
+	// a missing target (the workspace is created later) but reject every other
+	// EvalSymlinks failure — symlink loops, permission errors, or unreadable
+	// intermediate directories are exactly the kind of edge cases an attacker
+	// would use to bypass the allowlist by making validation fall back to the
+	// pre-resolution path.
 	resolvedPath, err := filepath.EvalSymlinks(absPath)
 	if err != nil {
-		// If symlink resolution fails (path doesn't exist yet), use the cleaned path
-		// but verify it doesn't contain suspicious patterns
+		if !errors.Is(err, fs.ErrNotExist) {
+			return "", fmt.Errorf("cannot validate workspace path %q: %w", path, err)
+		}
 		if !filepath.IsAbs(absPath) {
 			return "", fmt.Errorf("path must be absolute after resolution")
 		}

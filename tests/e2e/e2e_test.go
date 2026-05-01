@@ -133,6 +133,7 @@ func setupE2EEnv(t *testing.T) *testEnv {
 		secretsRegistry, // Secrets registry for managing Podman secrets
 		imagesRegistry,  // Images registry for image discovery API
 		nil,             // Persistent agents handler not exercised in current E2E tests
+		"",              // No webhook signing secret in E2E tests
 	)
 
 	// Find available port

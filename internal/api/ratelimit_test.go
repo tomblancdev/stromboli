@@ -219,6 +219,121 @@ func TestRateLimit_RemainingHeaderReportsAvailableTokens(t *testing.T) {
 	assert.LessOrEqual(t, remainings[2], remainings[1], "remaining must not increase between bursts")
 }
 
+func TestRateLimit_TrustedProxies(t *testing.T) {
+	// Without a trusted-proxy allowlist, X-Forwarded-For must be ignored — the
+	// internet-facing client could otherwise spoof its rate-limit identity.
+	gin.SetMode(gin.TestMode)
+
+	cfg := RateLimitConfig{
+		Enabled: true,
+		Rate:    1,
+		Period:  time.Second,
+		Burst:   1,
+	}
+
+	t.Run("ignores X-Forwarded-For when no proxy is trusted", func(t *testing.T) {
+		router := gin.New()
+		router.Use(RateLimitMiddleware(cfg))
+		router.GET("/", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{}) })
+
+		// Two different spoofed forwarding headers but the same RemoteAddr.
+		// Both must hit the same bucket — the second is rate-limited.
+		req1 := httptest.NewRequest("GET", "/", nil)
+		req1.RemoteAddr = "192.0.2.10:1234"
+		req1.Header.Set("X-Forwarded-For", "1.2.3.4")
+		w1 := httptest.NewRecorder()
+		router.ServeHTTP(w1, req1)
+		assert.Equal(t, http.StatusOK, w1.Code)
+
+		req2 := httptest.NewRequest("GET", "/", nil)
+		req2.RemoteAddr = "192.0.2.10:1234"
+		req2.Header.Set("X-Forwarded-For", "5.6.7.8") // different spoof, same peer
+		w2 := httptest.NewRecorder()
+		router.ServeHTTP(w2, req2)
+		assert.Equal(t, http.StatusTooManyRequests, w2.Code)
+	})
+
+	t.Run("honors X-Forwarded-For when peer is in trusted CIDR", func(t *testing.T) {
+		trusted := cfg
+		trusted.TrustedProxies = []string{"192.0.2.0/24"}
+
+		router := gin.New()
+		router.Use(RateLimitMiddleware(trusted))
+		router.GET("/", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{}) })
+
+		// Same trusted peer, different forwarded clients — each gets its own
+		// bucket, so neither is rate-limited.
+		req1 := httptest.NewRequest("GET", "/", nil)
+		req1.RemoteAddr = "192.0.2.10:1234"
+		req1.Header.Set("X-Forwarded-For", "1.2.3.4")
+		w1 := httptest.NewRecorder()
+		router.ServeHTTP(w1, req1)
+		assert.Equal(t, http.StatusOK, w1.Code)
+
+		req2 := httptest.NewRequest("GET", "/", nil)
+		req2.RemoteAddr = "192.0.2.10:1234"
+		req2.Header.Set("X-Forwarded-For", "5.6.7.8")
+		w2 := httptest.NewRecorder()
+		router.ServeHTTP(w2, req2)
+		assert.Equal(t, http.StatusOK, w2.Code)
+
+		// And replaying 1.2.3.4 immediately is rate-limited because that
+		// client's bucket already spent its single token.
+		req3 := httptest.NewRequest("GET", "/", nil)
+		req3.RemoteAddr = "192.0.2.10:1234"
+		req3.Header.Set("X-Forwarded-For", "1.2.3.4")
+		w3 := httptest.NewRecorder()
+		router.ServeHTTP(w3, req3)
+		assert.Equal(t, http.StatusTooManyRequests, w3.Code)
+	})
+
+	t.Run("XFF chain takes the leftmost (original client) entry", func(t *testing.T) {
+		trusted := cfg
+		trusted.TrustedProxies = []string{"192.0.2.0/24"}
+
+		router := gin.New()
+		router.Use(RateLimitMiddleware(trusted))
+		router.GET("/", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{}) })
+
+		req1 := httptest.NewRequest("GET", "/", nil)
+		req1.RemoteAddr = "192.0.2.10:1234"
+		req1.Header.Set("X-Forwarded-For", "9.9.9.9, 192.0.2.5")
+		w1 := httptest.NewRecorder()
+		router.ServeHTTP(w1, req1)
+		assert.Equal(t, http.StatusOK, w1.Code)
+
+		req2 := httptest.NewRequest("GET", "/", nil)
+		req2.RemoteAddr = "192.0.2.10:1234"
+		req2.Header.Set("X-Forwarded-For", "9.9.9.9, 192.0.2.99") // same client, different chain
+		w2 := httptest.NewRecorder()
+		router.ServeHTTP(w2, req2)
+		assert.Equal(t, http.StatusTooManyRequests, w2.Code, "leftmost (9.9.9.9) is the same client; bucket must be shared")
+	})
+
+	t.Run("untrusted peer with XFF still uses RemoteAddr", func(t *testing.T) {
+		trusted := cfg
+		trusted.TrustedProxies = []string{"10.0.0.0/8"}
+
+		router := gin.New()
+		router.Use(RateLimitMiddleware(trusted))
+		router.GET("/", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{}) })
+
+		req1 := httptest.NewRequest("GET", "/", nil)
+		req1.RemoteAddr = "203.0.113.7:1234" // not in 10.0.0.0/8
+		req1.Header.Set("X-Forwarded-For", "1.2.3.4")
+		w1 := httptest.NewRecorder()
+		router.ServeHTTP(w1, req1)
+		assert.Equal(t, http.StatusOK, w1.Code)
+
+		req2 := httptest.NewRequest("GET", "/", nil)
+		req2.RemoteAddr = "203.0.113.7:1234"
+		req2.Header.Set("X-Forwarded-For", "5.6.7.8") // spoofing attempt
+		w2 := httptest.NewRecorder()
+		router.ServeHTTP(w2, req2)
+		assert.Equal(t, http.StatusTooManyRequests, w2.Code)
+	})
+}
+
 func TestRateLimitErrorResponse(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

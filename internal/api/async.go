@@ -120,9 +120,11 @@ func (s *Server) runAsync(c *gin.Context) {
 			s.jobMgr.SetUsage(jobID, usage)
 		}
 
-		// Send webhook notification if URL provided
+		// Send webhook notification if URL provided. When webhookSecret is set
+		// the notifier signs every payload so the receiver can verify
+		// authenticity; an empty secret falls back to unsigned (legacy).
 		if webhookURL != "" {
-			notifier := webhook.NewNotifier()
+			notifier := webhook.NewSignedNotifier(s.webhookSecret)
 			payload := webhook.JobResult{
 				JobID:     jobID,
 				Status:    string(status),

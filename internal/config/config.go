@@ -25,6 +25,7 @@ type Config struct {
 	Tracing   TracingConfig
 	Compose   ComposeConfig
 	Metrics   MetricsConfig
+	Webhook   WebhookConfig
 }
 
 // ServerConfig holds HTTP server configuration
@@ -76,6 +77,21 @@ type RateLimitConfig struct {
 	Rate    int           // Requests per second
 	Burst   int           // Maximum burst size
 	Period  time.Duration // Period for rate limit (always 1 second)
+	// TrustedProxies is the set of CIDR blocks whose X-Forwarded-For /
+	// X-Real-IP headers will be honored when bucketing requests by IP.
+	// When empty (default), Stromboli ignores forwarding headers entirely
+	// and uses the immediate peer's address — this is the safe behavior
+	// when not behind a proxy, since otherwise any client can spoof its
+	// rate-limit identity.
+	TrustedProxies []string
+}
+
+// WebhookConfig holds outgoing webhook signing configuration. When
+// SigningSecret is set, every async job webhook is HMAC-SHA256-signed and
+// the receiver can verify authenticity via webhook.Verify. An empty secret
+// disables signing — acceptable for local dev, never for production.
+type WebhookConfig struct {
+	SigningSecret string // Secret used to HMAC-sign outgoing webhook bodies
 }
 
 // JWTConfig holds JWT authentication configuration
@@ -223,6 +239,8 @@ func setupViper(v *viper.Viper) {
 	v.SetDefault("rate_limit.enabled", false)
 	v.SetDefault("rate_limit.rate", defaultRateLimitRate)
 	v.SetDefault("rate_limit.burst", defaultRateLimitBurst)
+	v.SetDefault("rate_limit.trusted_proxies", []string{})
+	v.SetDefault("webhook.signing_secret", "")
 	v.SetDefault("jwt.secret", "")
 	v.SetDefault("jwt.access_expiry", defaultJWTAccessExpiry.String())
 	v.SetDefault("jwt.refresh_expiry", defaultJWTRefresh.String())
@@ -282,6 +300,8 @@ func setupViper(v *viper.Viper) {
 	_ = v.BindEnv("rate_limit.enabled", "STROMBOLI_RATE_LIMIT_ENABLED")
 	_ = v.BindEnv("rate_limit.rate", "STROMBOLI_RATE_LIMIT_RPS")
 	_ = v.BindEnv("rate_limit.burst", "STROMBOLI_RATE_LIMIT_BURST")
+	_ = v.BindEnv("rate_limit.trusted_proxies", "STROMBOLI_RATE_LIMIT_TRUSTED_PROXIES")
+	_ = v.BindEnv("webhook.signing_secret", "STROMBOLI_WEBHOOK_SIGNING_SECRET")
 	_ = v.BindEnv("jwt.secret", "STROMBOLI_JWT_SECRET")
 	_ = v.BindEnv("jwt.access_expiry", "STROMBOLI_JWT_EXPIRY")
 	_ = v.BindEnv("jwt.refresh_expiry", "STROMBOLI_JWT_REFRESH_EXPIRY")
@@ -347,10 +367,11 @@ func parseConfig(v *viper.Viper) (*Config, error) {
 			ValidTokens: getValidTokens(v),
 		},
 		RateLimit: RateLimitConfig{
-			Enabled: v.GetBool("rate_limit.enabled"),
-			Rate:    v.GetInt("rate_limit.rate"),
-			Burst:   v.GetInt("rate_limit.burst"),
-			Period:  time.Second,
+			Enabled:        v.GetBool("rate_limit.enabled"),
+			Rate:           v.GetInt("rate_limit.rate"),
+			Burst:          v.GetInt("rate_limit.burst"),
+			Period:         time.Second,
+			TrustedProxies: getStringSliceOrSplit(v, "rate_limit.trusted_proxies"),
 		},
 		JWT: JWTConfig{
 			Secret: v.GetString("jwt.secret"),
@@ -417,6 +438,10 @@ func parseConfig(v *viper.Viper) (*Config, error) {
 	cfg.Metrics = MetricsConfig{
 		Enabled: v.GetBool("metrics.enabled"),
 		Address: v.GetString("metrics.address"),
+	}
+
+	cfg.Webhook = WebhookConfig{
+		SigningSecret: v.GetString("webhook.signing_secret"),
 	}
 
 	// Validate configuration

@@ -300,16 +300,29 @@ func main() {
 
 	// Build rate limit config
 	rateLimitConfig := api.RateLimitConfig{
-		Enabled: cfg.RateLimit.Enabled,
-		Rate:    cfg.RateLimit.Rate,
-		Period:  cfg.RateLimit.Period,
-		Burst:   cfg.RateLimit.Burst,
+		Enabled:        cfg.RateLimit.Enabled,
+		Rate:           cfg.RateLimit.Rate,
+		Period:         cfg.RateLimit.Period,
+		Burst:          cfg.RateLimit.Burst,
+		TrustedProxies: cfg.RateLimit.TrustedProxies,
 	}
 
 	if rateLimitConfig.Enabled {
-		slog.Info("Rate limiting enabled", "rate", rateLimitConfig.Rate, "burst", rateLimitConfig.Burst)
+		slog.Info("Rate limiting enabled",
+			"rate", rateLimitConfig.Rate,
+			"burst", rateLimitConfig.Burst,
+			"trusted_proxies", len(rateLimitConfig.TrustedProxies))
 	} else {
 		slog.Info("Rate limiting disabled")
+	}
+
+	// Webhook signing — when no secret is configured, outgoing async-job
+	// webhooks ship unsigned. Loud about it so an operator can spot the
+	// missing setting before someone forges a callback.
+	if cfg.Webhook.SigningSecret == "" {
+		slog.Warn("Webhook signing disabled: STROMBOLI_WEBHOOK_SIGNING_SECRET is empty — outgoing job webhooks will be unsigned and unverifiable")
+	} else {
+		slog.Info("Webhook signing enabled (HMAC-SHA256)")
 	}
 
 	// Create job manager for async execution
@@ -379,7 +392,7 @@ func main() {
 	agentsHandler := api.NewAgentsHandler(agentManager, agentArgvBuilder)
 
 	// Create the API server
-	server := api.NewServer(podmanRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, blacklist, cfg.Tracing.Enabled, cfg.Agent.SessionsDir, secretsRegistry, imagesRegistry, agentsHandler)
+	server := api.NewServer(podmanRunner, claudeClient, authConfig, rateLimitConfig, jobMgr, healthChecker, blacklist, cfg.Tracing.Enabled, cfg.Agent.SessionsDir, secretsRegistry, imagesRegistry, agentsHandler, cfg.Webhook.SigningSecret)
 
 	srv := &http.Server{
 		Addr:              cfg.Server.Address,
