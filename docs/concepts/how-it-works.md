@@ -59,15 +59,16 @@ This split means you can use any language runtime without rebuilding Claude into
 
 ## Execution modes
 
-Stromboli supports three ways to run agents:
+Stromboli supports four ways to run agents:
 
 | Mode | Endpoint | Use case |
 |------|----------|----------|
 | **Sync** | `POST /run` | Short tasks — get the result in the response |
 | **Async** | `POST /run/async` | Long tasks — get a `job_id`, poll for results |
 | **Streaming** | `GET /run/stream` | Real-time output via Server-Sent Events |
+| **Persistent** | `POST /agents` then `/agents/:id/send` | Many short turns against a warm process — sub-second latency |
 
-All three modes create the same container behind the scenes. The difference is how you receive the output.
+The first three create a container per request and tear it down when the run ends. The persistent mode keeps a single container alive across many turns; you pay the 2–3 s spawn cost once instead of every call. See the [persistent agents guide](../guides/persistent-agents.md).
 
 ## Sessions
 

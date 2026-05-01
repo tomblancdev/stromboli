@@ -108,11 +108,14 @@ nav:
     - Configuration: getting-started/configuration.md
   - Guides:
     - Running Agents: guides/running-agents.md
+    - Persistent Agents: guides/persistent-agents.md
     - Sessions: guides/sessions.md
     - Secrets: guides/secrets.md
     - Custom Images: guides/custom-images.md
     - Lifecycle Hooks: guides/lifecycle-hooks.md
     - Compose Environments: guides/compose-environments.md
+    - Performance & Cost Tuning: guides/performance-tuning.md
+    - Webhook Security: guides/webhook-security.md
     - Client Examples: guides/client-examples.md
   - Security:
     - Overview: security/overview.md

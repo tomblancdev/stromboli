@@ -140,3 +140,20 @@ graph TB
 ```
 
 If `SESSIONS_HOST_DIR` is not set, it defaults to `SESSIONS_DIR`. This only works when running Stromboli directly on the host.
+
+## Session titles
+
+`GET /sessions` returns each session's ID **and** an optional human title:
+
+```json
+{
+  "sessions": [
+    {"id": "550e8400-...", "title": "Refactor billing service"},
+    {"id": "6ba7b810-...", "title": ""}
+  ]
+}
+```
+
+Titles are populated when an agent's `UserPromptSubmit` hook returns `hookSpecificOutput.sessionTitle`. Claude Code's interactive `/rename` command does this automatically; headless callers can replicate the behaviour by configuring a hook in the agent's settings file.
+
+Title lookup is best-effort — a missing or unreadable session JSONL surfaces an empty title rather than failing the whole list response.
