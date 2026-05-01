@@ -1,0 +1,734 @@
+/* ==========================================================================
+   STROMBOLI — Brutalist Theme for Material for MkDocs
+   Aesthetic: dark bg, JetBrains Mono, orange/red neon, grid overlay,
+   glow blobs, hard offset shadows, zero border-radius.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. CSS Custom Properties — Override Material design tokens
+   -------------------------------------------------------------------------- */
+:root,
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #f97316;
+  --md-primary-fg-color--light: #fb923c;
+  --md-primary-fg-color--dark: #ea580c;
+  /* NOTE: Material uses primary-bg as text-on-primary (header, tabs text).
+     Keep it light so header/tab text is visible on our dark overrides. */
+  --md-primary-bg-color: #e4e4e7;
+  --md-primary-bg-color--light: rgba(228, 228, 231, 0.7);
+
+  --md-accent-fg-color: #f97316;
+  --md-accent-fg-color--transparent: rgba(249, 115, 22, 0.1);
+  --md-accent-bg-color: #0a0a0a;
+
+  --md-default-fg-color: #e4e4e7;
+  --md-default-fg-color--light: #a1a1aa;
+  --md-default-fg-color--lighter: #71717a;
+  --md-default-fg-color--lightest: #3f3f46;
+  --md-default-bg-color: #0a0a0a;
+  --md-default-bg-color--light: #18181b;
+  --md-default-bg-color--lighter: #27272a;
+  --md-default-bg-color--lightest: #3f3f46;
+
+  --md-code-fg-color: #e4e4e7;
+  --md-code-bg-color: rgba(249, 115, 22, 0.06);
+  --md-code-hl-color: rgba(249, 115, 22, 0.15);
+  --md-code-hl-number-color: #fb923c;
+  --md-code-hl-special-color: #ef4444;
+  --md-code-hl-function-color: #f97316;
+  --md-code-hl-constant-color: #fb923c;
+  --md-code-hl-keyword-color: #ef4444;
+  --md-code-hl-string-color: #22c55e;
+  --md-code-hl-name-color: #e4e4e7;
+  --md-code-hl-operator-color: #f97316;
+  --md-code-hl-punctuation-color: #a1a1aa;
+  --md-code-hl-comment-color: #71717a;
+  --md-code-hl-generic-color: #f97316;
+  --md-code-hl-variable-color: #e4e4e7;
+
+  --md-typeset-color: #e4e4e7;
+  --md-typeset-a-color: #f97316;
+
+  --md-admonition-fg-color: #e4e4e7;
+  --md-admonition-bg-color: rgba(24, 24, 27, 0.8);
+
+  --md-footer-fg-color: #a1a1aa;
+  --md-footer-fg-color--light: #71717a;
+  --md-footer-fg-color--lighter: #3f3f46;
+  --md-footer-bg-color: #0a0a0a;
+  --md-footer-bg-color--dark: #0a0a0a;
+
+  --md-shadow-z1: 0 0 0 transparent;
+  --md-shadow-z2: 0 0 0 transparent;
+  --md-shadow-z3: 0 0 0 transparent;
+}
+
+/* --------------------------------------------------------------------------
+   2. Typography
+   -------------------------------------------------------------------------- */
+.md-typeset {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.8rem;
+  line-height: 1.7;
+}
+
+.md-typeset h1 {
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, #f97316, #ef4444, #f97316);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: brutalist-gradient-shift 4s ease infinite;
+}
+
+.md-typeset h2 {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #fafafa;
+  border-bottom: 2px solid #27272a;
+  padding-bottom: 8px;
+}
+
+.md-typeset h3,
+.md-typeset h4,
+.md-typeset h5,
+.md-typeset h6 {
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+@keyframes brutalist-gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* --------------------------------------------------------------------------
+   3. Kill All Border-Radius
+   -------------------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+
+/* Exception for glow blobs */
+.brutalist-glow,
+body::after {
+  border-radius: 50% !important;
+}
+
+/* --------------------------------------------------------------------------
+   4. Links & Buttons
+   -------------------------------------------------------------------------- */
+.md-typeset a {
+  color: #f97316;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.md-typeset a:hover {
+  color: #0a0a0a;
+  background: #f97316;
+  box-shadow: 4px 4px 0 0 rgba(249, 115, 22, 0.4);
+  padding: 0 4px;
+}
+
+.md-typeset a:focus {
+  outline: 2px solid #f97316;
+  outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   5. Header & Tabs
+   -------------------------------------------------------------------------- */
+.md-header {
+  background: rgba(10, 10, 10, 0.9) !important;
+  color: #e4e4e7 !important;
+  backdrop-filter: blur(12px);
+  border-bottom: 2px solid #27272a;
+  box-shadow: none;
+}
+
+.md-header__title {
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.md-tabs {
+  background: rgba(10, 10, 10, 0.95) !important;
+  color: #e4e4e7 !important;
+  border-bottom: 1px solid #27272a;
+}
+
+.md-tabs__link {
+  color: #a1a1aa !important;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 600;
+  opacity: 1 !important;
+  transition: color 0.2s ease;
+}
+
+.md-tabs__link--active,
+.md-tabs__link:hover {
+  color: #f97316 !important;
+  opacity: 1 !important;
+}
+
+.md-tabs__item--active .md-tabs__link {
+  color: #f97316 !important;
+  opacity: 1 !important;
+  border-bottom: 2px solid #f97316;
+}
+
+/* --------------------------------------------------------------------------
+   6. Sidebar Navigation
+   -------------------------------------------------------------------------- */
+.md-sidebar {
+  background: transparent;
+}
+
+.md-nav__title {
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #71717a;
+  font-weight: 700;
+}
+
+.md-nav__link {
+  font-size: 0.75rem;
+  color: #a1a1aa;
+  transition: all 0.2s ease;
+  border-left: 2px solid transparent;
+  padding-left: 12px;
+}
+
+.md-nav__link:hover {
+  color: #f97316;
+  border-left-color: #f97316;
+}
+
+.md-nav__link--active,
+.md-nav__item--active > .md-nav__link {
+  color: #f97316;
+  border-left: 2px solid #f97316;
+  font-weight: 600;
+}
+
+/* Sidebar section labels */
+.md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link,
+.md-nav--primary > .md-nav__list > .md-nav__item > label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  font-size: 0.7rem;
+}
+
+/* --------------------------------------------------------------------------
+   7. Code Blocks
+   -------------------------------------------------------------------------- */
+.md-typeset code,
+.md-typeset kbd {
+  background: rgba(249, 115, 22, 0.08);
+  color: #fb923c;
+  border: 1px solid rgba(249, 115, 22, 0.15);
+  font-size: 0.85em;
+  padding: 2px 6px;
+}
+
+.md-typeset pre {
+  border: 2px solid #27272a;
+  background: rgba(249, 115, 22, 0.04);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.md-typeset pre:hover {
+  border-color: #f97316;
+  box-shadow: 4px 4px 0 0 rgba(249, 115, 22, 0.2);
+  transform: translate(-2px, -2px);
+}
+
+.md-typeset pre > code {
+  background: transparent;
+  border: none;
+  color: #e4e4e7;
+  padding: 0;
+  font-size: 0.85em;
+}
+
+/* Code copy button */
+.md-clipboard {
+  color: #71717a;
+  transition: color 0.2s ease;
+}
+
+.md-clipboard:hover {
+  color: #f97316;
+}
+
+/* Code annotations */
+.md-annotation__index {
+  background: #f97316 !important;
+  color: #0a0a0a !important;
+  font-weight: 700;
+}
+
+/* --------------------------------------------------------------------------
+   8. Admonitions
+   -------------------------------------------------------------------------- */
+.md-typeset .admonition,
+.md-typeset details {
+  background: rgba(24, 24, 27, 0.8);
+  backdrop-filter: blur(8px);
+  border: 2px solid #27272a;
+  border-left: 4px solid #f97316;
+  box-shadow: none;
+  font-size: 0.8rem;
+}
+
+.md-typeset .admonition-title,
+.md-typeset summary {
+  background: rgba(249, 115, 22, 0.08);
+  border-bottom: 1px solid #27272a;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}
+
+.md-typeset .admonition-title::before,
+.md-typeset summary::before {
+  color: #f97316 !important;
+}
+
+/* Specific admonition types — keep the accent consistent */
+.md-typeset .admonition.warning,
+.md-typeset details.warning {
+  border-left-color: #ef4444;
+}
+
+.md-typeset .admonition.danger,
+.md-typeset details.danger {
+  border-left-color: #ef4444;
+}
+
+.md-typeset .admonition.tip,
+.md-typeset details.tip {
+  border-left-color: #22c55e;
+}
+
+.md-typeset .admonition.info,
+.md-typeset details.info,
+.md-typeset .admonition.note,
+.md-typeset details.note {
+  border-left-color: #f97316;
+}
+
+/* --------------------------------------------------------------------------
+   9. Tables
+   -------------------------------------------------------------------------- */
+.md-typeset table:not([class]) {
+  border: 2px solid #27272a;
+  font-size: 0.8rem;
+}
+
+.md-typeset table:not([class]) th {
+  background: rgba(249, 115, 22, 0.12);
+  color: #f97316;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.7rem;
+  border-bottom: 2px solid #f97316;
+}
+
+.md-typeset table:not([class]) td {
+  border-bottom: 1px solid #27272a;
+}
+
+.md-typeset table:not([class]) tr:hover td {
+  background: rgba(249, 115, 22, 0.04);
+}
+
+/* --------------------------------------------------------------------------
+   10. Grid Cards (index.md)
+   -------------------------------------------------------------------------- */
+.md-typeset .grid.cards > ul > li,
+.md-typeset .grid.cards > ol > li {
+  border: 2px solid #27272a;
+  background: rgba(24, 24, 27, 0.6);
+  backdrop-filter: blur(8px);
+  transition: all 0.3s ease;
+  padding: 20px;
+}
+
+.md-typeset .grid.cards > ul > li:hover,
+.md-typeset .grid.cards > ol > li:hover {
+  border-color: #f97316;
+  box-shadow: 6px 6px 0 0 rgba(249, 115, 22, 0.3);
+  transform: translate(-3px, -3px);
+}
+
+/* --------------------------------------------------------------------------
+   11. Search
+   -------------------------------------------------------------------------- */
+.md-search__input {
+  background: #18181b;
+  border: 2px solid #27272a;
+  color: #e4e4e7;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.md-search__input:focus,
+.md-search__input:hover {
+  border-color: #f97316;
+}
+
+.md-search__input::placeholder {
+  color: #71717a;
+}
+
+.md-search-result__link {
+  transition: all 0.2s ease;
+}
+
+.md-search-result__link:hover {
+  background: rgba(249, 115, 22, 0.08);
+}
+
+.md-search-result mark {
+  background: rgba(249, 115, 22, 0.3);
+  color: #f97316;
+}
+
+.md-search-result__meta {
+  color: #71717a;
+}
+
+.md-search-result__teaser {
+  color: #a1a1aa;
+}
+
+/* --------------------------------------------------------------------------
+   12. Mermaid Diagrams
+   -------------------------------------------------------------------------- */
+.mermaid {
+  background: transparent;
+}
+
+/* Override mermaid node styles via CSS variables */
+.mermaid .node rect,
+.mermaid .node circle,
+.mermaid .node polygon {
+  fill: rgba(249, 115, 22, 0.1) !important;
+  stroke: #f97316 !important;
+  stroke-width: 2px !important;
+}
+
+.mermaid .node .label {
+  color: #e4e4e7 !important;
+  fill: #e4e4e7 !important;
+}
+
+.mermaid .edgePath .path {
+  stroke: #ef4444 !important;
+  stroke-width: 2px !important;
+}
+
+.mermaid .edgeLabel {
+  background: #18181b !important;
+  color: #a1a1aa !important;
+}
+
+.mermaid .cluster rect {
+  fill: rgba(39, 39, 42, 0.5) !important;
+  stroke: #3f3f46 !important;
+}
+
+/* --------------------------------------------------------------------------
+   13. Content Tabs
+   -------------------------------------------------------------------------- */
+.md-typeset .tabbed-labels > label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  color: #71717a;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.md-typeset .tabbed-labels > label:hover {
+  color: #f97316;
+}
+
+.md-typeset .tabbed-labels > .tabbed-alternate .tabbed-labels > label:has(> input:checked),
+.md-typeset .tabbed-set > input:checked + label {
+  color: #f97316;
+  border-bottom-color: #f97316;
+}
+
+/* --------------------------------------------------------------------------
+   14. Grid Overlay (body::before)
+   -------------------------------------------------------------------------- */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* --------------------------------------------------------------------------
+   15. Glow Blob #1 (body::after — orange)
+   -------------------------------------------------------------------------- */
+body::after {
+  content: "";
+  position: fixed;
+  width: 600px;
+  height: 600px;
+  background: #f97316;
+  top: -200px;
+  right: -100px;
+  filter: blur(120px);
+  opacity: 0.12;
+  pointer-events: none;
+  z-index: -1;
+  animation: brutalist-float1 8s ease-in-out infinite;
+}
+
+@keyframes brutalist-float1 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-40px, 40px); }
+}
+
+/* --------------------------------------------------------------------------
+   16. Glow Blob #2 (.brutalist-glow — red, injected via template)
+   -------------------------------------------------------------------------- */
+.brutalist-glow {
+  position: fixed;
+  width: 400px;
+  height: 400px;
+  background: #ef4444;
+  bottom: -100px;
+  left: -100px;
+  filter: blur(120px);
+  opacity: 0.10;
+  pointer-events: none;
+  z-index: -1;
+  animation: brutalist-float2 10s ease-in-out infinite;
+}
+
+@keyframes brutalist-float2 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(30px, -30px); }
+}
+
+/* --------------------------------------------------------------------------
+   17. Scrollbar
+   -------------------------------------------------------------------------- */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #f97316;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3f3f46 #0a0a0a;
+}
+
+/* --------------------------------------------------------------------------
+   18. Footer
+   -------------------------------------------------------------------------- */
+.md-footer {
+  background: #0a0a0a;
+  border-top: 2px solid #27272a;
+}
+
+.md-footer-meta {
+  background: #0a0a0a;
+}
+
+.md-footer__link {
+  color: #a1a1aa;
+  transition: color 0.2s ease;
+}
+
+.md-footer__link:hover {
+  color: #f97316;
+}
+
+/* Social links */
+.md-footer__inner .md-social__link {
+  color: #71717a;
+  transition: color 0.2s ease;
+}
+
+.md-footer__inner .md-social__link:hover {
+  color: #f97316;
+}
+
+/* --------------------------------------------------------------------------
+   19. Content Area
+   -------------------------------------------------------------------------- */
+
+/* --------------------------------------------------------------------------
+   20. Misc Overrides
+   -------------------------------------------------------------------------- */
+
+/* Version selector */
+.md-version__current {
+  color: #a1a1aa;
+}
+
+.md-version__link {
+  color: #a1a1aa;
+}
+
+.md-version__link:hover {
+  color: #f97316;
+}
+
+/* TOC (right sidebar) */
+.md-nav__link--passed {
+  color: #71717a;
+}
+
+/* Horizontal rules */
+.md-typeset hr {
+  border-color: #27272a;
+}
+
+/* Task list checkboxes */
+.md-typeset .task-list-indicator::before {
+  border-color: #f97316;
+}
+
+.md-typeset [type="checkbox"]:checked + .task-list-indicator::before {
+  background: #f97316;
+}
+
+/* Blockquotes */
+.md-typeset blockquote {
+  border-left: 4px solid #f97316;
+  color: #a1a1aa;
+}
+
+/* Keyboard keys */
+.md-typeset kbd {
+  border: 2px solid #3f3f46;
+  background: #18181b;
+  color: #e4e4e7;
+  box-shadow: 2px 2px 0 0 #27272a;
+}
+
+/* Mark/highlight */
+.md-typeset mark {
+  background: rgba(249, 115, 22, 0.25);
+  color: #f97316;
+}
+
+/* Definition lists */
+.md-typeset dd {
+  border-left: 2px solid #27272a;
+  padding-left: 16px;
+}
+
+/* Navigation toggle icon color */
+.md-header .md-icon {
+  color: #a1a1aa;
+}
+
+.md-header .md-icon:hover {
+  color: #f97316;
+}
+
+/* Ensure header/tab bar above glow overlays —
+   position: relative is required for z-index to take effect */
+.md-header {
+  position: sticky;
+  z-index: 4;
+}
+
+.md-tabs {
+  position: relative;
+  z-index: 3;
+  pointer-events: auto;
+}
+
+/* Source link in header */
+.md-source {
+  color: #a1a1aa;
+}
+
+.md-source:hover {
+  opacity: 1;
+  color: #f97316;
+}
+
+/* Edit button */
+.md-content__button {
+  color: #71717a;
+}
+
+.md-content__button:hover {
+  color: #f97316;
+}
+
+/* Footnotes */
+.md-typeset .footnote-ref {
+  color: #f97316;
+}
+
+/* Abbreviations */
+.md-typeset abbr {
+  border-bottom: 1px dashed #f97316;
+}
+
+/* --------------------------------------------------------------------------
+   21. Mobile Responsive
+   -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  body::after {
+    width: 300px;
+    height: 300px;
+    opacity: 0.08;
+  }
+
+  .brutalist-glow {
+    width: 200px;
+    height: 200px;
+    opacity: 0.06;
+  }
+
+  .md-typeset h1 {
+    font-size: 1.6rem;
+  }
+}
