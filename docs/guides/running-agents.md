@@ -152,10 +152,17 @@ Tips:
 - Make sure `workdir` matches where your volume is mounted
 - Mount specific project directories, not entire home folders
 
+## When to keep an agent warm
+
+If you're calling `/run` repeatedly with similar context (same system prompt, same workspace, prompts arriving every few seconds), the 2–3 s spawn cost dominates. [Persistent agents](persistent-agents.md) keep the container open across many turns — sub-second turn latency, same `claude` schema, with an idle timeout to keep cost bounded.
+
 ## What's next
 
+- [Persistent agents](persistent-agents.md) — Long-lived Claude processes for event-driven workloads
 - [Sessions](sessions.md) — Resume conversations across requests
 - [Secrets](secrets.md) — Inject tokens for GitHub, GitLab, etc.
 - [Custom images](custom-images.md) — Use Python, Node, Go, or any glibc image
 - [Lifecycle hooks](lifecycle-hooks.md) — Install deps, start services before Claude runs
 - [Compose environments](compose-environments.md) — Multi-service stacks with databases
+- [Performance & cost tuning](performance-tuning.md) — Caching, effort levels, budget caps
+- [Webhook security](webhook-security.md) — Verify async callbacks with HMAC-SHA256

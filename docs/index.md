@@ -86,6 +86,14 @@ curl -X POST http://localhost:8080/run \
 
     Multi-service stacks with databases, caches, and more.
 
+- :material-clock-fast: **Persistent Agents**
+
+    Long-lived Claude processes for [event-driven workloads](guides/persistent-agents.md) — sub-second turn latency.
+
+- :material-shield-check: **Signed Webhooks**
+
+    HMAC-SHA256 callbacks so receivers can [verify authenticity](guides/webhook-security.md).
+
 </div>
 
 ## Get started
