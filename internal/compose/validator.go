@@ -34,30 +34,24 @@ func NewFileValidator(cfg Config) *FileValidator {
 // Validate checks if a compose file is valid and compliant with security settings.
 // It returns nil if the file is valid, or an error describing the issue.
 func (v *FileValidator) Validate(path string) error {
-	// Validate path
 	if err := v.validatePath(path); err != nil {
-		return err
+		return fmt.Errorf("compose: validate path %q: %w", path, err)
 	}
-
-	// Parse and validate compose file contents
 	if err := v.validateContents(path); err != nil {
-		return err
+		return fmt.Errorf("compose: validate contents of %q: %w", path, err)
 	}
-
 	return nil
 }
 
 // ValidateWithService validates a compose file and checks that the specified service exists
 func (v *FileValidator) ValidateWithService(path, service string) error {
-	// First validate the file itself
 	if err := v.Validate(path); err != nil {
-		return err
+		return err // already wrapped by Validate
 	}
 
-	// Then check the service exists
 	compose, err := v.parseComposeFile(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("compose: parse %q for service lookup: %w", path, err)
 	}
 
 	if _, ok := compose.Services[service]; !ok {

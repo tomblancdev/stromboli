@@ -136,8 +136,11 @@ func RateLimitMiddleware(config RateLimitConfig) gin.HandlerFunc {
 			return
 		}
 
-		// Calculate remaining requests
-		remaining := l.Burst() - int(l.Tokens())
+		// Calculate remaining requests as the number of tokens currently in
+		// the bucket, floored at zero. The previous formula `Burst()-Tokens()`
+		// reported the *consumed* count, which is the inverse of what
+		// X-RateLimit-Remaining is supposed to convey to the client.
+		remaining := int(l.Tokens())
 		if remaining < 0 {
 			remaining = 0
 		}

@@ -86,6 +86,7 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest, build ArgvBuild
 		lastActivityAt: now,
 		idleTimeout:    idleTimeout,
 		subscribers:    map[int]chan Event{},
+		done:           make(chan struct{}),
 	}
 
 	// Buffered: stdout reader runs ahead of the dispatcher; the buffer absorbs
@@ -327,19 +328,27 @@ func (a *Agent) dispatch(sink <-chan string) {
 func (a *Agent) watchIdle(m *Manager) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
-	for range ticker.C {
-		a.mu.Lock()
-		if a.status == StatusExited {
+	for {
+		select {
+		case <-a.done:
+			// Agent already exited (clean stop, crash, idle timeout from a
+			// previous tick). Bail immediately instead of holding a goroutine
+			// alive for up to 30s waiting for the next tick.
+			return
+		case <-ticker.C:
+			a.mu.Lock()
+			if a.status == StatusExited {
+				a.mu.Unlock()
+				return
+			}
+			idle := time.Since(a.lastActivityAt)
+			timeout := a.idleTimeout
 			a.mu.Unlock()
-			return
-		}
-		idle := time.Since(a.lastActivityAt)
-		timeout := a.idleTimeout
-		a.mu.Unlock()
-		if idle >= timeout {
-			a.fanout(Event{Type: "exited", Error: ErrIdleTimedOut.Error(), At: time.Now()})
-			_ = m.Stop(a.ID)
-			return
+			if idle >= timeout {
+				a.fanout(Event{Type: "exited", Error: ErrIdleTimedOut.Error(), At: time.Now()})
+				_ = m.Stop(a.ID)
+				return
+			}
 		}
 	}
 }
@@ -347,7 +356,7 @@ func (a *Agent) watchIdle(m *Manager) {
 func (a *Agent) fanout(ev Event) {
 	a.subsMu.Lock()
 	defer a.subsMu.Unlock()
-	for id, ch := range a.subscribers {
+	for _, ch := range a.subscribers {
 		select {
 		case ch <- ev:
 		default:
@@ -361,7 +370,6 @@ func (a *Agent) fanout(ev Event) {
 			default:
 				// Still full somehow — give up rather than block. Subscriber
 				// will see a gap; that's the contract.
-				_ = id
 			}
 		}
 	}
@@ -404,6 +412,11 @@ func (a *Agent) markExited(err error) {
 	a.status = StatusExited
 	a.exitErr = err
 	a.mu.Unlock()
+
+	// Signal background goroutines (watchIdle) that they should exit. Done
+	// before the fan-out so the next tick after this call sees the channel
+	// already closed.
+	a.doneOnce.Do(func() { close(a.done) })
 
 	errStr := ""
 	if err != nil {
