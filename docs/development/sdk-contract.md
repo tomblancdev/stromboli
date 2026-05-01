@@ -79,12 +79,25 @@ jobs:
         id: payload
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "version=${{ inputs.version }}"           >> "$GITHUB_OUTPUT"
-            echo "swagger_url=${{ inputs.swagger_url }}"   >> "$GITHUB_OUTPUT"
+            VERSION="${{ inputs.version }}"
+            SWAGGER_URL="${{ inputs.swagger_url }}"
+            if [ -z "$VERSION" ]; then
+              # Fall back to the latest stromboli release. Use the public
+              # REST API (curl, not `gh`) — GITHUB_TOKEN is scoped to THIS
+              # repo, so cross-repo `gh release view` returns "release not
+              # found" even though the release exists.
+              VERSION=$(curl -fsSL https://api.github.com/repos/tomblancdev/stromboli/releases/latest | jq -r .tag_name)
+              if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
+                echo "::error::Could not resolve latest stromboli release tag"
+                exit 1
+              fi
+            fi
           else
-            echo "version=${{ github.event.client_payload.version }}"           >> "$GITHUB_OUTPUT"
-            echo "swagger_url=${{ github.event.client_payload.swagger_url }}"   >> "$GITHUB_OUTPUT"
+            VERSION="${{ github.event.client_payload.version }}"
+            SWAGGER_URL="${{ github.event.client_payload.swagger_url }}"
           fi
+          echo "version=$VERSION"         >> "$GITHUB_OUTPUT"
+          echo "swagger_url=$SWAGGER_URL" >> "$GITHUB_OUTPUT"
 
       - name: Fetch new swagger
         run: |
