@@ -1,0 +1,2689 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Claude Code container orchestration API - secure, isolated AI execution",
+        "title": "Stromboli API",
+        "termsOfService": "https://github.com/tomblanc/stromboli",
+        "contact": {
+            "name": "API Support",
+            "url": "https://stromboli/issues"
+        },
+        "license": {
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+        },
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/",
+    "paths": {
+        "/agents": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "List persistent agents",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/stromboli_internal_agent.Snapshot"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Launches a long-lived Claude container with stream-json I/O.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Spawn a persistent agent",
+                "parameters": [
+                    {
+                        "description": "Agent configuration",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/stromboli_internal_agent.CreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.CreateAgentResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.errorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Spawn failed",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.errorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/agents/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Get persistent agent",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/stromboli_internal_agent.Snapshot"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.errorBody"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Stop a persistent agent",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.errorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/agents/{id}/send": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Send a turn to a persistent agent",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Prompt",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SendAgentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SendAgentResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.errorBody"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.errorBody"
+                        }
+                    },
+                    "409": {
+                        "description": "Turn already in progress",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.errorBody"
+                        }
+                    },
+                    "410": {
+                        "description": "Agent has exited",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.errorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/agents/{id}/stream": {
+            "get": {
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "agents"
+                ],
+                "summary": "Stream a persistent agent's events (SSE)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SSE stream of agent.Event objects",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.errorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/logout": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Invalidates a JWT token by adding it to the blacklist",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Logout (invalidate token)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.LogoutResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/refresh": {
+            "post": {
+                "description": "Generate a new access token using a valid refresh token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Refresh access token",
+                "parameters": [
+                    {
+                        "description": "Refresh request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.RefreshRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.TokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/token": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Generate new JWT access and refresh tokens using API credentials",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Generate JWT tokens",
+                "parameters": [
+                    {
+                        "description": "Token request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.TokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.TokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/validate": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Validate a JWT token and return its claims",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Validate JWT token",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ValidateResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/claude/status": {
+            "get": {
+                "description": "Checks if Claude credentials are configured",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Claude status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ClaudeStatusResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/health": {
+            "get": {
+                "description": "Returns the health status of the API with component checks",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Health check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.HealthResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/images": {
+            "get": {
+                "description": "Returns all local container images sorted by compatibility rank. Images with rank 1-2 are verified compatible, rank 3 is standard glibc (compatible), rank 4 is incompatible (Alpine/musl).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "images"
+                ],
+                "summary": "List images",
+                "responses": {
+                    "200": {
+                        "description": "List of images (empty array if none exist)",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ImagesListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/images/pull": {
+            "post": {
+                "description": "Pulls a container image from a registry. This operation may take some time for large images.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "images"
+                ],
+                "summary": "Pull image",
+                "parameters": [
+                    {
+                        "description": "Pull request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ImagePullRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Image pulled successfully",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ImagePullResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Pull failed",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/images/search": {
+            "get": {
+                "description": "Searches container registries for images matching the query. Returns results from Docker Hub and other configured registries.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "images"
+                ],
+                "summary": "Search images",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "python",
+                        "description": "Search query",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 10,
+                        "description": "Maximum number of results (default 25, max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": true,
+                        "description": "Don't truncate output (show full descriptions)",
+                        "name": "no_trunc",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Search results",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ImageSearchResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request (missing query)",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Registry search failed",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/images/{name}": {
+            "get": {
+                "description": "Returns detailed information about a specific container image including all labels and compatibility information.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "images"
+                ],
+                "summary": "Inspect image",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "python:3.12-slim",
+                        "description": "Image name with optional tag",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Image details",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ImageDetailResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid image name",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Image not found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/jobs": {
+            "get": {
+                "description": "Returns all async jobs",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "jobs"
+                ],
+                "summary": "List jobs",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.JobListResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/jobs/{id}": {
+            "get": {
+                "description": "Returns the status and result of an async job",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "jobs"
+                ],
+                "summary": "Get job status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.JobResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Job not found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.RunResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Cancels a pending or running job",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "jobs"
+                ],
+                "summary": "Cancel job",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Job not found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.RunResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Job cannot be cancelled",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.RunResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/run": {
+            "post": {
+                "description": "Executes Claude Code in an isolated Podman container",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "execution"
+                ],
+                "summary": "Run Claude",
+                "parameters": [
+                    {
+                        "description": "Run request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.RunRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.RunResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.RunResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Execution failed",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.RunResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Claude not configured",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.RunResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/run/async": {
+            "post": {
+                "description": "Starts Claude Code execution asynchronously and returns a job ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "execution"
+                ],
+                "summary": "Run Claude async",
+                "parameters": [
+                    {
+                        "description": "Run request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.RunRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.AsyncRunResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.RunResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Claude not configured",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.RunResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/run/stream": {
+            "get": {
+                "description": "Executes Claude and streams output in real-time using SSE",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "execution"
+                ],
+                "summary": "Stream Claude output",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The prompt to send to Claude",
+                        "name": "prompt",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Working directory inside container",
+                        "name": "workdir",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Session ID for conversation continuation",
+                        "name": "session_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Event stream of output lines",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "503": {
+                        "description": "Claude not configured",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/secrets": {
+            "get": {
+                "description": "Returns metadata for all available Podman secrets that can be injected into agents. Secret values are never returned - only IDs, names, and creation times.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "secrets"
+                ],
+                "summary": "List secrets",
+                "responses": {
+                    "200": {
+                        "description": "List of secrets (empty array if none exist)",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SecretsListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SecretsListResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Creates a new Podman secret that can be injected into agents. Secret names must be alphanumeric (with dashes and underscores), max 253 characters. Values are limited to 1MB.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "secrets"
+                ],
+                "summary": "Create secret",
+                "parameters": [
+                    {
+                        "description": "Create secret request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.CreateSecretRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Secret created successfully",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.CreateSecretResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request (missing/invalid name or value)",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.CreateSecretResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Secret with this name already exists",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.CreateSecretResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.CreateSecretResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/secrets/{name}": {
+            "get": {
+                "description": "Returns metadata about a specific Podman secret. For security, the actual secret value is never returned - only the ID, name, and creation time.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "secrets"
+                ],
+                "summary": "Get secret metadata",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "github-token",
+                        "description": "Secret name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Secret metadata",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SecretInfoResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid secret name",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Secret not found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Permanently deletes a Podman secret. This action cannot be undone. Secrets currently in use by running containers may cause those containers to fail.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "secrets"
+                ],
+                "summary": "Delete secret",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "github-token",
+                        "description": "Secret name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Secret deleted successfully",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.DeleteSecretResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid secret name",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.DeleteSecretResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Secret not found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.DeleteSecretResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.DeleteSecretResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions": {
+            "get": {
+                "description": "Returns all existing session IDs",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sessions"
+                ],
+                "summary": "List sessions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionListResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{id}": {
+            "delete": {
+                "description": "Removes a session and all its stored data",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sessions"
+                ],
+                "summary": "Destroy session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionDestroyResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionDestroyResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionDestroyResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{id}/messages": {
+            "get": {
+                "description": "Returns paginated conversation history for a session including all messages, tool calls, and results",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sessions"
+                ],
+                "summary": "List session messages",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset for pagination (default: 0)",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of messages to return (default: 50, max: 200)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionMessagesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid parameters",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionMessagesResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Session not found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionMessagesResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionMessagesResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{id}/messages/{message_id}": {
+            "get": {
+                "description": "Returns a specific message from session history by UUID, including full content, tool calls, and results",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sessions"
+                ],
+                "summary": "Get session message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Message UUID",
+                        "name": "message_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionMessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid parameters",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionMessageResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Message not found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionMessageResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_api.SessionMessageResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "internal_api.AsyncRunResponse": {
+            "description": "Response from starting an async Claude execution",
+            "type": "object",
+            "properties": {
+                "job_id": {
+                    "type": "string",
+                    "example": "job-abc123def456"
+                },
+                "session_id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                }
+            }
+        },
+        "internal_api.ClaudeStatusResponse": {
+            "description": "Claude configuration status",
+            "type": "object",
+            "properties": {
+                "configured": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Claude is configured"
+                }
+            }
+        },
+        "internal_api.ComponentHealth": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "description": "Error message if status is \"error\"",
+                    "type": "string",
+                    "example": ""
+                },
+                "name": {
+                    "description": "Name of the component",
+                    "type": "string",
+                    "example": "podman"
+                },
+                "status": {
+                    "description": "Status is \"ok\" or \"error\"",
+                    "type": "string",
+                    "example": "ok"
+                }
+            }
+        },
+        "internal_api.CreateAgentResponse": {
+            "description": "Created agent metadata",
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "exit_error": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "idle_timeout_seconds": {
+                    "type": "integer"
+                },
+                "last_activity_at": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/stromboli_internal_agent.Status"
+                },
+                "turns_completed": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_api.CreateSecretRequest": {
+            "description": "Request to create a new Podman secret",
+            "type": "object",
+            "required": [
+                "name",
+                "value"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "example": "github-token"
+                },
+                "value": {
+                    "type": "string",
+                    "example": "ghp_xxxxxxxxxxxx"
+                }
+            }
+        },
+        "internal_api.CreateSecretResponse": {
+            "description": "Result of secret creation",
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "github-token"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "internal_api.DeleteSecretResponse": {
+            "description": "Result of secret deletion",
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "github-token"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "internal_api.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_api.HealthResponse": {
+            "description": "Health check response",
+            "type": "object",
+            "properties": {
+                "components": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_api.ComponentHealth"
+                    }
+                },
+                "name": {
+                    "type": "string",
+                    "example": "stromboli"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "ok"
+                },
+                "version": {
+                    "type": "string",
+                    "example": "0.1.4"
+                }
+            }
+        },
+        "internal_api.ImageDetailResponse": {
+            "description": "Detailed container image information including labels",
+            "type": "object",
+            "properties": {
+                "compatibility_rank": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "compatible": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "created": {
+                    "type": "string",
+                    "example": "2024-01-15T10:30:00Z"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Python development image"
+                },
+                "has_claude_cli": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "id": {
+                    "type": "string",
+                    "example": "sha256:abc123def456"
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "rank_description": {
+                    "type": "string",
+                    "example": "Standard glibc-based (compatible)"
+                },
+                "repository": {
+                    "type": "string",
+                    "example": "python"
+                },
+                "size": {
+                    "type": "integer",
+                    "example": 125000000
+                },
+                "tag": {
+                    "type": "string",
+                    "example": "3.12-slim"
+                },
+                "tools": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "python",
+                        "pip"
+                    ]
+                }
+            }
+        },
+        "internal_api.ImageInfoResponse": {
+            "description": "Container image metadata with compatibility information",
+            "type": "object",
+            "properties": {
+                "compatibility_rank": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "compatible": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "created": {
+                    "type": "string",
+                    "example": "2024-01-15T10:30:00Z"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Python development image"
+                },
+                "has_claude_cli": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "id": {
+                    "type": "string",
+                    "example": "sha256:abc123def456"
+                },
+                "repository": {
+                    "type": "string",
+                    "example": "python"
+                },
+                "size": {
+                    "type": "integer",
+                    "example": 125000000
+                },
+                "tag": {
+                    "type": "string",
+                    "example": "3.12-slim"
+                },
+                "tools": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "python",
+                        "pip"
+                    ]
+                }
+            }
+        },
+        "internal_api.ImagePullRequest": {
+            "description": "Request to pull a container image from a registry",
+            "type": "object",
+            "required": [
+                "image"
+            ],
+            "properties": {
+                "image": {
+                    "type": "string",
+                    "example": "python:3.12-slim"
+                },
+                "platform": {
+                    "type": "string",
+                    "example": "linux/amd64"
+                },
+                "quiet": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "internal_api.ImagePullResponse": {
+            "description": "Result of image pull operation",
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "string",
+                    "example": "python:3.12-slim"
+                },
+                "image_id": {
+                    "type": "string",
+                    "example": "sha256:abc123def456"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "internal_api.ImageSearchResponse": {
+            "description": "Search results from container registries",
+            "type": "object",
+            "properties": {
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_api.SearchResultResponse"
+                    }
+                }
+            }
+        },
+        "internal_api.ImagesListResponse": {
+            "description": "List of local container images sorted by compatibility",
+            "type": "object",
+            "properties": {
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_api.ImageInfoResponse"
+                    }
+                }
+            }
+        },
+        "internal_api.JobListResponse": {
+            "description": "List of async jobs",
+            "type": "object",
+            "properties": {
+                "jobs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_api.JobResponse"
+                    }
+                }
+            }
+        },
+        "internal_api.JobResponse": {
+            "description": "Job status and result",
+            "type": "object",
+            "properties": {
+                "crash_info": {
+                    "$ref": "#/definitions/stromboli_internal_job.CrashInfo"
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2024-01-15T10:30:00Z"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "job-abc123def456"
+                },
+                "output": {
+                    "type": "string",
+                    "example": "Hello!"
+                },
+                "session_id": {
+                    "type": "string",
+                    "example": "sess-abc123def456"
+                },
+                "status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stromboli_internal_job.Status"
+                        }
+                    ],
+                    "example": "running"
+                },
+                "structured_output": {
+                    "type": "object"
+                },
+                "updated_at": {
+                    "type": "string",
+                    "example": "2024-01-15T10:31:00Z"
+                }
+            }
+        },
+        "internal_api.LogoutResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "internal_api.RefreshRequest": {
+            "type": "object",
+            "required": [
+                "refresh_token"
+            ],
+            "properties": {
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_api.RunRequest": {
+            "description": "Request to execute Claude Code in an isolated container",
+            "type": "object",
+            "required": [
+                "prompt"
+            ],
+            "properties": {
+                "claude": {
+                    "description": "Claude configuration - all CLI options exposed",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stromboli_internal_types.ClaudeOptions"
+                        }
+                    ]
+                },
+                "podman": {
+                    "description": "Podman configuration",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stromboli_internal_types.PodmanOptions"
+                        }
+                    ]
+                },
+                "prompt": {
+                    "description": "Required: the prompt to send to Claude",
+                    "type": "string",
+                    "example": "Analyze this code and suggest improvements"
+                },
+                "webhook_url": {
+                    "description": "Webhook URL to notify when job completes (async only)",
+                    "type": "string",
+                    "example": "https://example.com/webhook"
+                },
+                "workdir": {
+                    "description": "Working directory inside the container where Claude will spawn\nUse podman.volumes to mount host paths into the container",
+                    "type": "string",
+                    "example": "/workspace"
+                }
+            }
+        },
+        "internal_api.RunResponse": {
+            "description": "Response from Claude execution",
+            "type": "object",
+            "properties": {
+                "crash_info": {
+                    "description": "Crash details (when status is \"crashed\")",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stromboli_internal_job.CrashInfo"
+                        }
+                    ]
+                },
+                "error": {
+                    "description": "Error message (when failed)",
+                    "type": "string",
+                    "example": ""
+                },
+                "id": {
+                    "description": "Unique run identifier",
+                    "type": "string",
+                    "example": "run-abc123def456"
+                },
+                "output": {
+                    "description": "Claude's raw output (full CLI output, including JSON envelope when output_format=json)",
+                    "type": "string",
+                    "example": "Here is my analysis..."
+                },
+                "session_id": {
+                    "description": "Session ID for conversation continuation",
+                    "type": "string",
+                    "example": "sess-abc123def456"
+                },
+                "status": {
+                    "description": "Execution status: completed, crashed, error",
+                    "type": "string",
+                    "example": "completed"
+                },
+                "structured_output": {
+                    "description": "Extracted structured_output from Claude's JSON envelope (when json_schema is used).\nConvenience field so callers don't need to parse the envelope themselves.",
+                    "type": "object"
+                },
+                "usage": {
+                    "description": "Token usage totals + estimated USD cost. Populated best-effort from the\nsession's JSONL; nil when the session file isn't readable yet or no\nassistant message reported usage.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stromboli_internal_job.Usage"
+                        }
+                    ]
+                }
+            }
+        },
+        "internal_api.SearchResultResponse": {
+            "description": "Search result from a container registry",
+            "type": "object",
+            "properties": {
+                "automated": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Python is an interpreted programming language"
+                },
+                "index": {
+                    "type": "string",
+                    "example": "docker.io"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "python"
+                },
+                "official": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "stars": {
+                    "type": "integer",
+                    "example": 8500
+                }
+            }
+        },
+        "internal_api.SecretInfoResponse": {
+            "description": "Secret metadata (never contains the actual secret value)",
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string",
+                    "example": "2024-01-15T10:30:00Z"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "abc123def456"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "github-token"
+                }
+            }
+        },
+        "internal_api.SecretsListResponse": {
+            "description": "List of available secrets that can be injected into agents",
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "secrets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_api.SecretInfoResponse"
+                    }
+                }
+            }
+        },
+        "internal_api.SendAgentRequest": {
+            "description": "Append a prompt to a running agent's stream-json stdin",
+            "type": "object",
+            "required": [
+                "prompt"
+            ],
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "example": "Tell me about that alert"
+                }
+            }
+        },
+        "internal_api.SendAgentResponse": {
+            "description": "Acknowledgement that a turn has started; output streams via /stream",
+            "type": "object",
+            "properties": {
+                "turn_id": {
+                    "type": "string",
+                    "example": "turn-abc123"
+                }
+            }
+        },
+        "internal_api.SessionDestroyResponse": {
+            "description": "Result of session destruction",
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "string",
+                    "example": "sess-abc123"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "internal_api.SessionInfo": {
+            "description": "Metadata about a single session",
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "example": "sess-abc123"
+                },
+                "title": {
+                    "description": "Title is set by a UserPromptSubmit hook returning\nhookSpecificOutput.sessionTitle (or by /rename in interactive mode).\nEmpty when no title was ever set for this session.",
+                    "type": "string",
+                    "example": "Refactor billing service"
+                }
+            }
+        },
+        "internal_api.SessionListResponse": {
+            "description": "List of existing sessions with metadata",
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "sessions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_api.SessionInfo"
+                    }
+                }
+            }
+        },
+        "internal_api.SessionMessageResponse": {
+            "description": "A single message from session history",
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "$ref": "#/definitions/stromboli_internal_history.Message"
+                }
+            }
+        },
+        "internal_api.SessionMessagesResponse": {
+            "description": "Paginated list of session messages",
+            "type": "object",
+            "properties": {
+                "has_more": {
+                    "type": "boolean"
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/stromboli_internal_history.Message"
+                    }
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_api.TokenRequest": {
+            "type": "object",
+            "required": [
+                "client_id"
+            ],
+            "properties": {
+                "client_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_api.TokenResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "expires_in": {
+                    "type": "integer"
+                },
+                "refresh_token": {
+                    "type": "string"
+                },
+                "token_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_api.ValidateResponse": {
+            "type": "object",
+            "properties": {
+                "expires_at": {
+                    "type": "integer"
+                },
+                "subject": {
+                    "type": "string"
+                },
+                "valid": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "internal_api.errorBody": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "stromboli_internal_agent.CreateRequest": {
+            "type": "object",
+            "properties": {
+                "claude": {
+                    "description": "Free-form Claude CLI options forwarded to the command builder.\nKept as map[string]any so we can evolve the surface without bumping the\nCreateRequest schema every time Claude adds a flag.",
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "idle_timeout_seconds": {
+                    "description": "Idle-timeout override in seconds. Zero means \"use the manager default\n(DefaultIdleTimeout)\". Negative values are rejected at parse time.",
+                    "type": "integer"
+                },
+                "prompt": {
+                    "description": "Initial prompt sent as the first turn. Optional — callers can also\ncreate an empty agent and use /send for the first interaction.",
+                    "type": "string"
+                },
+                "workdir": {
+                    "description": "Working directory inside the container.",
+                    "type": "string"
+                }
+            }
+        },
+        "stromboli_internal_agent.Snapshot": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "exit_error": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "idle_timeout_seconds": {
+                    "type": "integer"
+                },
+                "last_activity_at": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/stromboli_internal_agent.Status"
+                },
+                "turns_completed": {
+                    "type": "integer"
+                }
+            }
+        },
+        "stromboli_internal_agent.Status": {
+            "type": "string",
+            "enum": [
+                "starting",
+                "idle",
+                "generating",
+                "exited"
+            ],
+            "x-enum-varnames": [
+                "StatusStarting",
+                "StatusIdle",
+                "StatusGenerating",
+                "StatusExited"
+            ]
+        },
+        "stromboli_internal_history.ContentBlock": {
+            "description": "A content block (text, tool_use, or tool_result)",
+            "type": "object",
+            "properties": {
+                "content": {
+                    "description": "Tool result content (for tool_result)",
+                    "type": "string",
+                    "example": "file1.txt\nfile2.txt"
+                },
+                "id": {
+                    "description": "Tool use ID (for tool_use and tool_result)",
+                    "type": "string",
+                    "example": "toolu_01G5uAJ4YZ26yyJbXNnG2byM"
+                },
+                "input": {
+                    "description": "Tool input (for tool_use)",
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "is_error": {
+                    "description": "Whether tool execution errored",
+                    "type": "boolean",
+                    "example": false
+                },
+                "name": {
+                    "description": "Tool name (for tool_use)",
+                    "type": "string",
+                    "example": "Bash"
+                },
+                "text": {
+                    "description": "Text content (for text blocks)",
+                    "type": "string",
+                    "example": "I'll help you with that."
+                },
+                "tool_use_id": {
+                    "description": "Tool use ID reference (for tool_result)",
+                    "type": "string",
+                    "example": "toolu_01G5uAJ4YZ26yyJbXNnG2byM"
+                },
+                "type": {
+                    "description": "Block type: text, tool_use, tool_result",
+                    "type": "string",
+                    "example": "tool_use"
+                }
+            }
+        },
+        "stromboli_internal_history.Message": {
+            "description": "A message in the conversation history",
+            "type": "object",
+            "properties": {
+                "content": {
+                    "description": "The actual message content",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stromboli_internal_history.MessageContent"
+                        }
+                    ]
+                },
+                "cwd": {
+                    "description": "Working directory at time of message",
+                    "type": "string",
+                    "example": "/workspace"
+                },
+                "git_branch": {
+                    "description": "Git branch at time of message",
+                    "type": "string",
+                    "example": "main"
+                },
+                "parent_uuid": {
+                    "description": "Parent message UUID for threading",
+                    "type": "string",
+                    "example": "92242819-b7d1-48d4-b023-6134c3e9f63a"
+                },
+                "permission_mode": {
+                    "description": "Permission mode active for this message",
+                    "type": "string",
+                    "example": "bypassPermissions"
+                },
+                "session_id": {
+                    "description": "Session ID this message belongs to",
+                    "type": "string",
+                    "example": "c7518652-f0ea-436e-9143-327085022abd"
+                },
+                "timestamp": {
+                    "description": "Timestamp when the message was created",
+                    "type": "string",
+                    "example": "2026-01-24T10:06:42.906Z"
+                },
+                "tool_result": {
+                    "description": "Tool use result (for tool_result messages)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stromboli_internal_history.ToolResult"
+                        }
+                    ]
+                },
+                "type": {
+                    "description": "Message type: user, assistant, queue-operation",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stromboli_internal_history.MessageType"
+                        }
+                    ],
+                    "example": "assistant"
+                },
+                "uuid": {
+                    "description": "Unique identifier for this message",
+                    "type": "string",
+                    "example": "40adde19-546a-43e8-ad25-31ef4faa4112"
+                },
+                "version": {
+                    "description": "Claude Code version",
+                    "type": "string",
+                    "example": "2.1.19"
+                }
+            }
+        },
+        "stromboli_internal_history.MessageContent": {
+            "description": "Message content with role and content blocks",
+            "type": "object",
+            "properties": {
+                "content": {
+                    "description": "Content blocks (text, tool_use, tool_result)",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/stromboli_internal_history.ContentBlock"
+                    }
+                },
+                "message_id": {
+                    "description": "Message ID from API",
+                    "type": "string",
+                    "example": "msg_017ETE4Wk32ZXAQJp3GXP1Bo"
+                },
+                "model": {
+                    "description": "Model used (for assistant messages)",
+                    "type": "string",
+                    "example": "claude-opus-4-5-20251101"
+                },
+                "role": {
+                    "description": "Role: user or assistant",
+                    "type": "string",
+                    "example": "assistant"
+                },
+                "stop_reason": {
+                    "description": "Stop reason (for assistant messages)",
+                    "type": "string",
+                    "example": "end_turn"
+                },
+                "usage": {
+                    "description": "Token usage",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stromboli_internal_history.Usage"
+                        }
+                    ]
+                }
+            }
+        },
+        "stromboli_internal_history.MessageType": {
+            "type": "string",
+            "enum": [
+                "user",
+                "assistant",
+                "queue-operation"
+            ],
+            "x-enum-varnames": [
+                "MessageTypeUser",
+                "MessageTypeAssistant",
+                "MessageTypeSystem"
+            ]
+        },
+        "stromboli_internal_history.ToolResult": {
+            "description": "Detailed result of a tool execution",
+            "type": "object",
+            "properties": {
+                "interrupted": {
+                    "description": "Whether execution was interrupted",
+                    "type": "boolean",
+                    "example": false
+                },
+                "is_image": {
+                    "description": "Whether result is an image",
+                    "type": "boolean",
+                    "example": false
+                },
+                "stderr": {
+                    "description": "Standard error",
+                    "type": "string",
+                    "example": ""
+                },
+                "stdout": {
+                    "description": "Standard output",
+                    "type": "string",
+                    "example": "file1.txt\nfile2.txt"
+                }
+            }
+        },
+        "stromboli_internal_history.Usage": {
+            "description": "Token usage statistics",
+            "type": "object",
+            "properties": {
+                "cache_creation_input_tokens": {
+                    "type": "integer",
+                    "example": 336
+                },
+                "cache_read_input_tokens": {
+                    "type": "integer",
+                    "example": 18121
+                },
+                "input_tokens": {
+                    "type": "integer",
+                    "example": 150
+                },
+                "output_tokens": {
+                    "type": "integer",
+                    "example": 42
+                }
+            }
+        },
+        "stromboli_internal_job.CrashInfo": {
+            "type": "object",
+            "properties": {
+                "exit_code": {
+                    "description": "Exit code (if available)",
+                    "type": "integer"
+                },
+                "partial_output": {
+                    "description": "Partial output captured before crash",
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "Human-readable crash reason",
+                    "type": "string"
+                },
+                "signal": {
+                    "description": "Signal that killed the process (SIGSEGV, SIGKILL, etc.)",
+                    "type": "string"
+                },
+                "task_completed": {
+                    "description": "Whether the task appeared to complete before crashing",
+                    "type": "boolean"
+                }
+            }
+        },
+        "stromboli_internal_job.Status": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "running",
+                "completed",
+                "failed",
+                "crashed",
+                "cancelled"
+            ],
+            "x-enum-varnames": [
+                "StatusPending",
+                "StatusRunning",
+                "StatusCompleted",
+                "StatusFailed",
+                "StatusCrashed",
+                "StatusCancelled"
+            ]
+        },
+        "stromboli_internal_job.Usage": {
+            "type": "object",
+            "properties": {
+                "cache_creation_input_tokens": {
+                    "type": "integer"
+                },
+                "cache_read_input_tokens": {
+                    "type": "integer"
+                },
+                "estimated_cost_usd": {
+                    "description": "EstimatedCostUSD is best-effort: tokens × Anthropic's published\nper-1M rates, summed across all four buckets. Zero when the model\nisn't recognized or no usage was reported.",
+                    "type": "number"
+                },
+                "input_tokens": {
+                    "type": "integer"
+                },
+                "model": {
+                    "description": "Model identifier reported by Claude (e.g. \"claude-opus-4-7-20260101\").\nEmpty when the model is unknown — cost estimation skipped in that case.",
+                    "type": "string"
+                },
+                "output_tokens": {
+                    "type": "integer"
+                },
+                "total_tokens": {
+                    "type": "integer"
+                }
+            }
+        },
+        "stromboli_internal_types.ClaudeOptions": {
+            "description": "All available Claude CLI options for headless execution",
+            "type": "object",
+            "properties": {
+                "add_dirs": {
+                    "description": "Additional directories for tool access",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "agent": {
+                    "description": "Agent for current session",
+                    "type": "string",
+                    "example": "reviewer"
+                },
+                "agents": {
+                    "description": "Custom agents definition (JSON object)",
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "allow_dangerously_skip_permissions": {
+                    "description": "Enable bypass as an option without enabling by default",
+                    "type": "boolean",
+                    "example": false
+                },
+                "allowed_tools": {
+                    "description": "Allowed tools with patterns (e.g., \"Bash(git:*)\")",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "Bash(git:*)",
+                        "Read"
+                    ]
+                },
+                "append_system_prompt": {
+                    "description": "Append to default system prompt",
+                    "type": "string",
+                    "example": "Focus on security best practices"
+                },
+                "bedrock_service_tier": {
+                    "description": "Bedrock service tier when running against AWS Bedrock as the model\nbackend. Valid values: \"default\", \"flex\", \"priority\". Translates to\nANTHROPIC_BEDROCK_SERVICE_TIER. Ignored when not on Bedrock. (#77)",
+                    "type": "string",
+                    "example": "priority"
+                },
+                "betas": {
+                    "description": "Beta headers for API requests",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "continue": {
+                    "description": "Continue most recent conversation in workspace (ignores session_id)",
+                    "type": "boolean",
+                    "example": false
+                },
+                "dangerously_skip_permissions": {
+                    "description": "Bypass all permission checks (use in sandboxed environments only)",
+                    "type": "boolean",
+                    "example": true
+                },
+                "debug": {
+                    "description": "Debug mode with optional category filter",
+                    "type": "string",
+                    "example": "api,hooks"
+                },
+                "disable_slash_commands": {
+                    "description": "Disable all slash commands/skills",
+                    "type": "boolean",
+                    "example": false
+                },
+                "disallowed_tools": {
+                    "description": "Denied tools",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "Write"
+                    ]
+                },
+                "effort": {
+                    "description": "Effort level for thinking/agentic complexity. Valid values per the\nupstream CLI reference: low, medium, high, xhigh, max. The accepted\nsubset depends on the model — Claude rejects unsupported levels at\nruntime, so Stromboli does not gate on an enum here.",
+                    "type": "string",
+                    "example": "high"
+                },
+                "enable_powershell_tool": {
+                    "description": "Opt into Claude Code's native PowerShell tool on Windows agent hosts.\nTranslates to CLAUDE_CODE_USE_POWERSHELL_TOOL=1. No-op on non-Windows\ncontainers. (#81)",
+                    "type": "boolean",
+                    "example": false
+                },
+                "fallback_model": {
+                    "description": "Fallback model when default is overloaded",
+                    "type": "string",
+                    "example": "haiku"
+                },
+                "files": {
+                    "description": "File resources (format: file_id:path)",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "fork_session": {
+                    "description": "Create new session ID when resuming",
+                    "type": "boolean",
+                    "example": false
+                },
+                "include_partial_messages": {
+                    "description": "Include partial message chunks (stream-json only)",
+                    "type": "boolean",
+                    "example": false
+                },
+                "input_format": {
+                    "description": "Input format: text, stream-json",
+                    "type": "string",
+                    "example": "text"
+                },
+                "json_schema": {
+                    "description": "JSON Schema for structured output validation",
+                    "type": "string",
+                    "example": "{\"type\":\"object\"}"
+                },
+                "max_budget_usd": {
+                    "description": "Maximum dollar amount for API calls (pointer to distinguish 0 from unset)",
+                    "type": "number",
+                    "example": 5
+                },
+                "max_turns": {
+                    "description": "Maximum number of agentic turns (0 = unlimited, nil = use CLI default)",
+                    "type": "integer",
+                    "example": 30
+                },
+                "mcp_configs": {
+                    "description": "MCP server config files or JSON strings",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "model": {
+                    "description": "Model alias (sonnet, opus, haiku) or full name",
+                    "type": "string",
+                    "example": "sonnet"
+                },
+                "no_persistence": {
+                    "description": "Don't save session to disk",
+                    "type": "boolean",
+                    "example": false
+                },
+                "output_format": {
+                    "description": "Output format: text, json, stream-json",
+                    "type": "string",
+                    "example": "json"
+                },
+                "permission_mode": {
+                    "description": "Permission mode: acceptEdits, bypassPermissions, default, delegate, dontAsk, plan",
+                    "type": "string",
+                    "example": "bypassPermissions"
+                },
+                "plugin_dirs": {
+                    "description": "Plugin directories",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "prompt_caching_ttl": {
+                    "description": "Prompt cache TTL. \"\" leaves Claude's default; \"5m\" sets\nFORCE_PROMPT_CACHING_5M=1; \"1h\" sets ENABLE_PROMPT_CACHING_1H=1.\nUseful for long-lived agent loops where the same context is re-used\nacross many turns. (#76)",
+                    "type": "string",
+                    "example": "1h"
+                },
+                "replay_user_messages": {
+                    "description": "Re-emit user messages on stdout",
+                    "type": "boolean",
+                    "example": false
+                },
+                "resume": {
+                    "description": "Resume an existing session (requires session_id)",
+                    "type": "boolean",
+                    "example": true
+                },
+                "session_id": {
+                    "description": "Session ID (UUID) - used for both new and resumed sessions",
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "setting_sources": {
+                    "description": "Setting sources to load: user, project, local",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "user",
+                        "project"
+                    ]
+                },
+                "settings": {
+                    "description": "Path to settings JSON file or JSON string",
+                    "type": "string"
+                },
+                "strict_mcp_config": {
+                    "description": "Only use MCP servers from mcp_configs",
+                    "type": "boolean",
+                    "example": false
+                },
+                "system_prompt": {
+                    "description": "Replace default system prompt",
+                    "type": "string",
+                    "example": "You are a senior Go developer"
+                },
+                "tools": {
+                    "description": "Built-in tools (\"\", \"default\", or specific names)",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "Bash",
+                        "Read",
+                        "Edit"
+                    ]
+                },
+                "verbose": {
+                    "description": "Enable verbose mode",
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "stromboli_internal_types.EnvironmentConfig": {
+            "description": "Runtime environment configuration (single container or compose)",
+            "type": "object",
+            "properties": {
+                "build_timeout": {
+                    "description": "Optional build timeout override for compose (e.g., \"15m\")\nIf not specified, uses server default (10m)",
+                    "type": "string",
+                    "example": "15m"
+                },
+                "path": {
+                    "description": "Path to compose file (required when type=\"compose\")\nMust be an absolute path ending in .yml or .yaml",
+                    "type": "string",
+                    "example": "/home/user/project/docker-compose.yml"
+                },
+                "service": {
+                    "description": "Service name where Claude will run (required when type=\"compose\")",
+                    "type": "string",
+                    "example": "dev"
+                },
+                "type": {
+                    "description": "Type of environment: \"\" (default single container) or \"compose\"",
+                    "type": "string",
+                    "example": "compose"
+                }
+            }
+        },
+        "stromboli_internal_types.LifecycleHooks": {
+            "description": "Commands to run at specific container lifecycle stages",
+            "type": "object",
+            "properties": {
+                "hooks_timeout": {
+                    "description": "HooksTimeout is the maximum duration for all hooks combined (e.g., \"5m\", \"30s\").\nIf not specified, hooks run with the container's timeout.\nThis is useful to prevent long-running hooks from blocking the main command.",
+                    "type": "string",
+                    "example": "5m"
+                },
+                "on_create_command": {
+                    "description": "OnCreateCommand runs after container creation, before Claude starts (first run only).\nEach element is a complete shell command string (devcontainer-style).\nExample: [\"apt-get update \u0026\u0026 apt-get install -y git\", \"pip install -r requirements.txt\"]",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "pip install -r requirements.txt"
+                    ]
+                },
+                "post_create": {
+                    "description": "PostCreate runs after OnCreateCommand completes (first run only).\nEach element is a complete shell command string (devcontainer-style).",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "npm run setup"
+                    ]
+                },
+                "post_start": {
+                    "description": "PostStart runs after container starts (every run, including continues).\nEach element is a complete shell command string (devcontainer-style).",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "redis-server --daemonize yes"
+                    ]
+                }
+            }
+        },
+        "stromboli_internal_types.PodmanOptions": {
+            "description": "Podman container mount configuration",
+            "type": "object",
+            "properties": {
+                "cpu_shares": {
+                    "description": "CPU shares (relative weight, default 1024; pointer to distinguish 0 from unset)",
+                    "type": "integer",
+                    "example": 512
+                },
+                "cpus": {
+                    "description": "CPU limit (e.g., \"0.5\", \"2\")",
+                    "type": "string",
+                    "example": "1"
+                },
+                "environment": {
+                    "description": "Environment specifies a compose-based multi-service environment.\nWhen set, the agent runs inside the specified service of the compose stack\ninstead of a standalone container.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stromboli_internal_types.EnvironmentConfig"
+                        }
+                    ]
+                },
+                "image": {
+                    "description": "Container image override (must match allowed patterns)",
+                    "type": "string",
+                    "example": "python:3.12"
+                },
+                "lifecycle": {
+                    "description": "Lifecycle hooks for running commands at specific container events",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/stromboli_internal_types.LifecycleHooks"
+                        }
+                    ]
+                },
+                "memory": {
+                    "description": "Memory limit (e.g., \"512m\", \"1g\")",
+                    "type": "string",
+                    "example": "512m"
+                },
+                "secrets_env": {
+                    "description": "Secrets to inject as environment variables (env_var_name -\u003e podman_secret_name)\nThe Podman secret must exist beforehand (created via `podman secret create`)\nExample: {\"GH_TOKEN\": \"github-token\"} mounts secret \"github-token\" as env var GH_TOKEN",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "timeout": {
+                    "description": "Container timeout (e.g., \"5m\", \"1h\", \"30s\")",
+                    "type": "string",
+                    "example": "5m"
+                },
+                "volumes": {
+                    "description": "Volume mounts (host:container or host:container:options format)",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "/data:/data:ro"
+                    ]
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "OAuth2 Bearer token (future)",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
+}
