@@ -1295,6 +1295,9 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "idle_timeout_disabled": {
+                    "type": "boolean"
+                },
                 "idle_timeout_seconds": {
                     "type": "integer"
                 },
@@ -1986,8 +1989,13 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "disable_idle_timeout": {
+                    "description": "DisableIdleTimeout opts the agent out of the idle watchdog entirely.\nThe agent will run until DELETE /agents/{id} or server shutdown — no\nauto-stop on inactivity. Use only for service bots where the caller\nowns the lifecycle explicitly; an agent with this set CAN'T leak by\nbeing forgotten, so the safety net you'd otherwise have is gone.\nStromboli logs a loud WARN on spawn so the override is visible.",
+                    "type": "boolean",
+                    "example": false
+                },
                 "idle_timeout_seconds": {
-                    "description": "Idle-timeout override in seconds. Zero means \"use the manager default\n(DefaultIdleTimeout)\". Negative values are rejected at parse time.",
+                    "description": "Idle-timeout override in seconds. Zero means \"use the manager default\n(DefaultIdleTimeout)\". Negative values are rejected at parse time.\nIgnored when DisableIdleTimeout is true.",
                     "type": "integer",
                     "example": 1800
                 },
@@ -2014,6 +2022,9 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "idle_timeout_disabled": {
+                    "type": "boolean"
                 },
                 "idle_timeout_seconds": {
                     "type": "integer"

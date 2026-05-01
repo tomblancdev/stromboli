@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -79,14 +80,15 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest, build ArgvBuild
 
 	now := time.Now()
 	a := &Agent{
-		ID:             agentID,
-		SessionID:      sessionID,
-		status:         StatusStarting,
-		createdAt:      now,
-		lastActivityAt: now,
-		idleTimeout:    idleTimeout,
-		subscribers:    map[int]chan Event{},
-		done:           make(chan struct{}),
+		ID:                  agentID,
+		SessionID:           sessionID,
+		status:              StatusStarting,
+		createdAt:           now,
+		lastActivityAt:      now,
+		idleTimeout:         idleTimeout,
+		idleTimeoutDisabled: req.DisableIdleTimeout,
+		subscribers:         map[int]chan Event{},
+		done:                make(chan struct{}),
 	}
 
 	// Buffered: stdout reader runs ahead of the dispatcher; the buffer absorbs
@@ -121,8 +123,14 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest, build ArgvBuild
 	// detect turn boundaries, advance status.
 	go a.dispatch(lineSink)
 	// Background idle watchdog: stop the agent when no activity for the
-	// configured timeout.
-	go a.watchIdle(m)
+	// configured timeout. Skipped entirely when DisableIdleTimeout is set —
+	// the caller has explicitly opted out and owns lifecycle via DELETE.
+	if req.DisableIdleTimeout {
+		slog.Warn("agent created with idle timeout DISABLED — caller owns lifecycle, agent will not auto-stop on inactivity",
+			"agent_id", agentID, "session_id", sessionID)
+	} else {
+		go a.watchIdle(m)
+	}
 
 	// Optional initial prompt — the same path as POST /send, just inlined
 	// during creation so callers don't need a second request for the common

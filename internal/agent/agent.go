@@ -43,7 +43,15 @@ type CreateRequest struct {
 	Workdir string `json:"workdir,omitempty" example:"/workspace"`
 	// Idle-timeout override in seconds. Zero means "use the manager default
 	// (DefaultIdleTimeout)". Negative values are rejected at parse time.
+	// Ignored when DisableIdleTimeout is true.
 	IdleTimeoutSeconds int `json:"idle_timeout_seconds,omitempty" example:"1800"`
+	// DisableIdleTimeout opts the agent out of the idle watchdog entirely.
+	// The agent will run until DELETE /agents/{id} or server shutdown — no
+	// auto-stop on inactivity. Use only for service bots where the caller
+	// owns the lifecycle explicitly; an agent with this set CAN'T leak by
+	// being forgotten, so the safety net you'd otherwise have is gone.
+	// Stromboli logs a loud WARN on spawn so the override is visible.
+	DisableIdleTimeout bool `json:"disable_idle_timeout,omitempty" example:"false"`
 	// Claude CLI options forwarded to the command builder. Same shape as
 	// RunRequest.claude so callers don't have to learn two schemas — the
 	// field is fully typed in OpenAPI rather than a freeform object.
@@ -74,14 +82,15 @@ type Agent struct {
 	SessionID string
 
 	// Lifecycle bookkeeping.
-	mu             sync.Mutex
-	status         Status
-	createdAt      time.Time
-	lastActivityAt time.Time
-	idleTimeout    time.Duration
-	turnsCompleted int
-	currentTurnID  string
-	exitErr        error
+	mu                  sync.Mutex
+	status              Status
+	createdAt           time.Time
+	lastActivityAt      time.Time
+	idleTimeout         time.Duration
+	idleTimeoutDisabled bool
+	turnsCompleted      int
+	currentTurnID       string
+	exitErr             error
 
 	// done is closed exactly once when the agent transitions to StatusExited.
 	// Background goroutines (watchIdle) select on it to exit promptly instead
@@ -115,14 +124,15 @@ type agentProcess interface {
 
 // Snapshot is the read-only view of an Agent that the API returns.
 type Snapshot struct {
-	ID             string    `json:"id"`
-	SessionID      string    `json:"session_id"`
-	Status         Status    `json:"status"`
-	CreatedAt      time.Time `json:"created_at"`
-	LastActivityAt time.Time `json:"last_activity_at"`
-	IdleTimeoutSec int       `json:"idle_timeout_seconds"`
-	TurnsCompleted int       `json:"turns_completed"`
-	ExitError      string    `json:"exit_error,omitempty"`
+	ID                  string    `json:"id"`
+	SessionID           string    `json:"session_id"`
+	Status              Status    `json:"status"`
+	CreatedAt           time.Time `json:"created_at"`
+	LastActivityAt      time.Time `json:"last_activity_at"`
+	IdleTimeoutSec      int       `json:"idle_timeout_seconds"`
+	IdleTimeoutDisabled bool      `json:"idle_timeout_disabled,omitempty"`
+	TurnsCompleted      int       `json:"turns_completed"`
+	ExitError           string    `json:"exit_error,omitempty"`
 }
 
 // snapshot returns a consistent read of the agent's metadata.
@@ -135,13 +145,14 @@ func (a *Agent) snapshot() Snapshot {
 		exitErr = a.exitErr.Error()
 	}
 	return Snapshot{
-		ID:             a.ID,
-		SessionID:      a.SessionID,
-		Status:         a.status,
-		CreatedAt:      a.createdAt,
-		LastActivityAt: a.lastActivityAt,
-		IdleTimeoutSec: int(a.idleTimeout / time.Second),
-		TurnsCompleted: a.turnsCompleted,
-		ExitError:      exitErr,
+		ID:                  a.ID,
+		SessionID:           a.SessionID,
+		Status:              a.status,
+		CreatedAt:           a.createdAt,
+		LastActivityAt:      a.lastActivityAt,
+		IdleTimeoutSec:      int(a.idleTimeout / time.Second),
+		IdleTimeoutDisabled: a.idleTimeoutDisabled,
+		TurnsCompleted:      a.turnsCompleted,
+		ExitError:           exitErr,
 	}
 }
