@@ -103,7 +103,7 @@ Pick the [SDK or integration](sdks.md) that fits your runtime — all four track
 - [**stromboli-go**](https://github.com/tomblancdev/stromboli-go) — idiomatic Go client
 - [**stromboli-ts**](https://github.com/tomblancdev/stromboli-ts) — TypeScript / JavaScript SDK
 - [**mcp-server-stromboli**](https://github.com/tomblancdev/mcp-server-stromboli) — MCP server for Claude Desktop / Cursor / any MCP client
-- [**n8n-nodes-stromboli**](https://github.com/tomblancdev/n8n-nodes-stromboli) — n8n community node
+- **n8n-nodes-stromboli** — n8n community node _(coming soon)_
 
 Or hit the [REST API](api/endpoints.md) directly — it's just HTTP + JSON.
 
