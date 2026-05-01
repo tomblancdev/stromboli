@@ -44,6 +44,8 @@ definitions:
         type: string
       id:
         type: string
+      idle_timeout_disabled:
+        type: boolean
       idle_timeout_seconds:
         type: integer
       last_activity_at:
@@ -534,10 +536,21 @@ definitions:
           Claude CLI options forwarded to the command builder. Same shape as
           RunRequest.claude so callers don't have to learn two schemas — the
           field is fully typed in OpenAPI rather than a freeform object.
+      disable_idle_timeout:
+        description: |-
+          DisableIdleTimeout opts the agent out of the idle watchdog entirely.
+          The agent will run until DELETE /agents/{id} or server shutdown — no
+          auto-stop on inactivity. Use only for service bots where the caller
+          owns the lifecycle explicitly; an agent with this set CAN'T leak by
+          being forgotten, so the safety net you'd otherwise have is gone.
+          Stromboli logs a loud WARN on spawn so the override is visible.
+        example: false
+        type: boolean
       idle_timeout_seconds:
         description: |-
           Idle-timeout override in seconds. Zero means "use the manager default
           (DefaultIdleTimeout)". Negative values are rejected at parse time.
+          Ignored when DisableIdleTimeout is true.
         example: 1800
         type: integer
       prompt:
@@ -559,6 +572,8 @@ definitions:
         type: string
       id:
         type: string
+      idle_timeout_disabled:
+        type: boolean
       idle_timeout_seconds:
         type: integer
       last_activity_at:

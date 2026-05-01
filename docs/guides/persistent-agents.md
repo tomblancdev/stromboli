@@ -140,6 +140,23 @@ Pick the timeout to match your workload:
 
 The watchdog ticks every 30 s, so the actual stop time is `idle_timeout_seconds + (0..30s)`.
 
+### Disabling the watchdog entirely
+
+For service-style deployments where your code owns the agent's lifecycle and explicitly calls `DELETE /agents/{id}` at shutdown, set `disable_idle_timeout: true`:
+
+```json
+{
+  "prompt": "...",
+  "disable_idle_timeout": true,
+  "claude": {"model": "sonnet"}
+}
+```
+
+The watchdog goroutine isn't started; the agent runs until DELETE or server shutdown. The Snapshot returned by `GET /agents/{id}` includes `"idle_timeout_disabled": true` so observability tooling can flag long-lived agents.
+
+!!! warning "You lose the safety net"
+    With the watchdog off, an agent that's "forgotten" by buggy caller code will run indefinitely — eating container memory and Claude budget. Stromboli logs a loud `WARN` on spawn (`agent created with idle timeout DISABLED — caller owns lifecycle...`) so the override is visible. Use this only when the lifecycle is genuinely external to the agent (e.g. a long-running sidecar bot tied to your service's main process).
+
 ## Deleting
 
 ```bash

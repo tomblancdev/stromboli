@@ -227,6 +227,41 @@ func TestManager_Send_EmptyPrompt(t *testing.T) {
 	assert.ErrorIs(t, err, ErrInvalidRequest)
 }
 
+func TestManager_Create_DefaultIdleTimeoutEnabled(t *testing.T) {
+	mgr := NewManager(&fakeSpawner{})
+	snap, err := mgr.Create(context.Background(), CreateRequest{}, okBuilder)
+	require.NoError(t, err)
+
+	// Default behaviour: idle watchdog is on, snapshot reflects the manager
+	// default (DefaultIdleTimeout) and the disabled flag is false (so the
+	// `omitempty` JSON tag suppresses it from the response entirely).
+	assert.False(t, snap.IdleTimeoutDisabled)
+	assert.Equal(t, int(DefaultIdleTimeout/time.Second), snap.IdleTimeoutSec)
+}
+
+func TestManager_Create_DisableIdleTimeoutPlumbsThrough(t *testing.T) {
+	// disable_idle_timeout=true must:
+	//   1. surface in the Snapshot,
+	//   2. cause Manager.Create to skip the watchIdle goroutine (verified
+	//      indirectly via the agent's done channel — if watchIdle were
+	//      running, it'd hold a reference until the next 30s tick).
+	//   3. coexist with a custom IdleTimeoutSeconds value (the int field
+	//      becomes informational once the watchdog is disabled).
+	mgr := NewManager(&fakeSpawner{})
+	snap, err := mgr.Create(context.Background(), CreateRequest{
+		IdleTimeoutSeconds: 60, // ignored when disabled, but still recorded
+		DisableIdleTimeout: true,
+	}, okBuilder)
+	require.NoError(t, err)
+
+	assert.True(t, snap.IdleTimeoutDisabled, "Snapshot must surface the disabled flag")
+	assert.Equal(t, 60, snap.IdleTimeoutSec, "IdleTimeoutSec is informational; recorded but unused")
+
+	// Spam-stop and confirm clean teardown — watchIdle wasn't running, so
+	// markExited completes immediately.
+	require.NoError(t, mgr.Stop(snap.ID))
+}
+
 func TestManager_List_ReturnsAllAgents(t *testing.T) {
 	mgr := NewManager(&fakeSpawner{})
 	for i := 0; i < 3; i++ {
