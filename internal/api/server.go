@@ -26,7 +26,7 @@ type Server struct {
 	rateLimitConfig RateLimitConfig
 	jobMgr          *job.Manager
 	healthChecker   *HealthChecker
-	blacklist       *auth.TokenBlacklist
+	blacklist       auth.Blacklist
 	tracingEnabled  bool
 	historyHandler  *SessionHistoryHandler
 	secretsHandler  *SecretsHandler
@@ -38,7 +38,7 @@ type Server struct {
 }
 
 // NewServer creates a new API server
-func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Config, rateLimitConfig RateLimitConfig, jobMgr *job.Manager, healthChecker *HealthChecker, blacklist *auth.TokenBlacklist, tracingEnabled bool, sessionsDir string, secretsRegistry *secrets.Registry, imagesRegistry *images.Registry, agentsHandler *AgentsHandler, webhookSecret string) *Server {
+func NewServer(r runner.Runner, claudeClient *claude.Client, authConfig auth.Config, rateLimitConfig RateLimitConfig, jobMgr *job.Manager, healthChecker *HealthChecker, blacklist auth.Blacklist, tracingEnabled bool, sessionsDir string, secretsRegistry *secrets.Registry, imagesRegistry *images.Registry, agentsHandler *AgentsHandler, webhookSecret string) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())

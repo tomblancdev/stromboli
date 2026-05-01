@@ -104,6 +104,9 @@ STROMBOLI_RATE_LIMIT_BURST=20
 | `STROMBOLI_JWT_SECRET` | (none) | JWT signing secret (required when auth is enabled — minimum 32 chars, no placeholders) |
 | `STROMBOLI_JWT_EXPIRY` | `24h` | Access token lifetime |
 | `STROMBOLI_JWT_REFRESH_EXPIRY` | `168h` | Refresh token lifetime |
+| `STROMBOLI_AUTH_BLACKLIST_BACKEND` | `memory` | Storage for revoked-token tracking. `memory` (default) is fastest but loses logout state on restart. `bolt` persists to a single file (durable across restarts, single-process only). |
+| `STROMBOLI_AUTH_BLACKLIST_BOLT_PATH` | `.stromboli/blacklist.db` | Path to the bolt file when `BACKEND=bolt`. Created on first run with mode `0600`. |
+| `STROMBOLI_AUTH_BLACKLIST_CLEANUP_INTERVAL` | `1h` | How often expired entries are reaped from the blacklist. |
 
 ### Rate limiting
 

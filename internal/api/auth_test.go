@@ -18,7 +18,7 @@ func setupAuthTestRouter(authCfg auth.Config) *gin.Engine {
 	return setupAuthTestRouterWithBlacklist(authCfg, nil)
 }
 
-func setupAuthTestRouterWithBlacklist(authCfg auth.Config, blacklist *auth.TokenBlacklist) *gin.Engine {
+func setupAuthTestRouterWithBlacklist(authCfg auth.Config, blacklist auth.Blacklist) *gin.Engine {
 	router := gin.New()
 	s := &Server{
 		router:     router,
@@ -403,7 +403,9 @@ func TestLogoutHandler_WithValidToken_InvalidatesToken(t *testing.T) {
 	// Verify token is now blacklisted
 	claims, err := auth.ValidateToken(accessToken, authCfg.JWTConfig)
 	require.NoError(t, err)
-	assert.True(t, blacklist.IsBlacklisted(claims.ID))
+	blocked, err := blacklist.IsBlacklisted(claims.ID)
+	require.NoError(t, err)
+	assert.True(t, blocked)
 }
 
 func TestLogoutHandler_WithMissingAuth_Returns401(t *testing.T) {

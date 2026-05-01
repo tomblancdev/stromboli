@@ -301,8 +301,25 @@ func (s *Server) logout(c *gin.Context) {
 		return
 	}
 
-	// Add token to blacklist
-	s.blacklist.Add(claims.ID, claims.ExpiresAt.Time)
+	// Logout requires a configured blacklist — without one, we have no place
+	// to record the revocation. Surface this as 503 (rather than 200 with a
+	// silent no-op) so a misconfigured deploy is loud, not invisible.
+	if s.blacklist == nil {
+		c.JSON(http.StatusServiceUnavailable, ErrorResponse{
+			Error: "logout unavailable: token blacklist is not configured",
+		})
+		return
+	}
+
+	// Add token to blacklist. Surface backend errors as 503 so the caller
+	// retries on transient I/O issues (bolt fsync hiccup) instead of
+	// believing the logout succeeded when it didn't.
+	if err := s.blacklist.Add(claims.ID, claims.ExpiresAt.Time); err != nil {
+		c.JSON(http.StatusServiceUnavailable, ErrorResponse{
+			Error: "failed to invalidate token: " + err.Error(),
+		})
+		return
+	}
 
 	c.JSON(http.StatusOK, LogoutResponse{
 		Success: true,
