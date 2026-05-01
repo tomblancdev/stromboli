@@ -99,9 +99,9 @@ STROMBOLI_RATE_LIMIT_BURST=20
 
 | Variable | Default | Description |
 |---|---|---|
-| `STROMBOLI_AUTH_ENABLED` | `false` | Enable authentication |
+| `STROMBOLI_AUTH_ENABLED` | `true` | Enable authentication. Server fails fast at startup if no JWT secret is configured (or it's a placeholder). Disable only for local dev. |
 | `STROMBOLI_API_TOKENS` | (none) | Static API tokens (comma-separated) |
-| `STROMBOLI_JWT_SECRET` | (none) | JWT signing secret |
+| `STROMBOLI_JWT_SECRET` | (none) | JWT signing secret (required when auth is enabled — minimum 32 chars, no placeholders) |
 | `STROMBOLI_JWT_EXPIRY` | `24h` | Access token lifetime |
 | `STROMBOLI_JWT_REFRESH_EXPIRY` | `168h` | Refresh token lifetime |
 
@@ -124,10 +124,14 @@ STROMBOLI_RATE_LIMIT_BURST=20
 
 | Variable | Default | Description |
 |---|---|---|
+| `STROMBOLI_LOG_FORMAT` | `json` | Log encoder (`json` for log aggregators, `text` for humans) |
+| `STROMBOLI_LOG_LEVEL` | `info` | Log level (`debug`, `info`, `warn`, `error`) |
 | `STROMBOLI_TRACING_ENABLED` | `false` | Enable OpenTelemetry tracing |
 | `STROMBOLI_TRACING_ENDPOINT` | `localhost:4317` | OTLP gRPC endpoint |
 | `STROMBOLI_TRACING_SERVICE_NAME` | `stromboli` | Service name in traces |
-| `STROMBOLI_TRACING_INSECURE` | `true` | Use insecure connection |
+| `STROMBOLI_TRACING_INSECURE` | `false` | Disable TLS for the OTLP exporter (insecure — dev only) |
+| `STROMBOLI_METRICS_ENABLED` | `true` | Expose Prometheus metrics on a separate listener |
+| `STROMBOLI_METRICS_ADDRESS` | `127.0.0.1:9090` | Metrics listener bind address. Defaults to localhost so a forgotten port doesn't expose metrics publicly — front it with a sidecar or reverse proxy if you need cross-namespace scraping. |
 | `STROMBOLI_TOKEN_CACHE_ENABLED` | `true` | Cache credentials in memory |
 | `STROMBOLI_TOKEN_CACHE_TTL` | `5m` | Cache TTL |
 
@@ -175,17 +179,23 @@ resources:
   timeout: "30m"
 
 auth:
-  enabled: false
+  enabled: true   # default; server fails fast without a real JWT secret
 
 jwt:
-  secret: ""
+  secret: ""              # set via STROMBOLI_JWT_SECRET (≥32 chars, no placeholders)
   access_expiry: "24h"
   refresh_expiry: "168h"
 
 rate_limit:
-  enabled: false
+  enabled: false  # opt-in
   rate: 10
   burst: 20
+
+tracing:
+  enabled: false
+  service_name: "stromboli"
+  endpoint: "localhost:4317"
+  insecure: false   # TLS by default — set to true only for local dev collectors
 
 jobs:
   cleanup_ttl: "1h"
