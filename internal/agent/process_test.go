@@ -38,7 +38,7 @@ func TestProcessSpawner_ForwardsStdoutLines(t *testing.T) {
 		func(_ error) { close(exited) },
 	)
 	require.NoError(t, err)
-	defer proc.Stop(time.Second)
+	defer func() { _ = proc.Stop(time.Second) }()
 
 	var got []string
 	for line := range sink {
