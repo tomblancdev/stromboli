@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -119,18 +120,64 @@ func (s *processSpawner) Spawn(ctx context.Context, req SpawnRequest, lineSink c
 	return p, nil
 }
 
+// maxAgentLineBytes caps the size of a single forwarded line. Anything beyond
+// this is dropped with a marker emitted in its place — see forwardLines.
+const maxAgentLineBytes = 10 << 20 // 10 MiB
+
 func forwardLines(r io.Reader, sink chan<- string, prefix string) {
-	scanner := bufio.NewScanner(r)
-	// Stream-json output can have very long lines (full tool results inline).
-	scanner.Buffer(make([]byte, 0, 1<<16), 10<<20) // up to 10 MiB / line.
-	for scanner.Scan() {
-		// Block-send: the buffered sink (256 entries) absorbs bursts. If the
-		// dispatcher is so far behind that the buffer fills, applying back-
-		// pressure to Claude's stdout writer is the right move — it's far
-		// better than dropping events we'd otherwise have to silently lose.
-		sink <- prefix + scanner.Text()
+	// We use bufio.Reader rather than bufio.Scanner because Scanner permanently
+	// fails on the first line that exceeds its buffer cap. With Reader.ReadLine
+	// we can detect overflow per line, drain the rest of that line, and keep
+	// reading subsequent lines — so one giant tool result doesn't deadlock the
+	// agent (the OS pipe would otherwise fill up and block Claude's stdout
+	// write, hanging cmd.Wait forever).
+	br := bufio.NewReaderSize(r, 1<<16)
+	var (
+		buf       bytes.Buffer
+		truncated bool
+	)
+	for {
+		chunk, isPrefix, err := br.ReadLine()
+		if len(chunk) > 0 {
+			if !truncated {
+				if buf.Len()+len(chunk) <= maxAgentLineBytes {
+					buf.Write(chunk)
+				} else {
+					// First overflow chunk for this line — flip the flag and
+					// drop both this and any subsequent chunks until the line
+					// terminates. Dropping (rather than appending up to the
+					// cap) avoids producing a confusing half-line that callers
+					// might try to JSON-parse.
+					truncated = true
+				}
+			}
+		}
+		if !isPrefix {
+			// End of line reached (or end of stream with a trailing line).
+			// Block-send: the buffered sink (256 entries) absorbs bursts. If
+			// the dispatcher is so far behind that the buffer fills, applying
+			// back-pressure to Claude's stdout writer is the right move — it's
+			// far better than dropping events we'd otherwise have to silently
+			// lose.
+			if truncated {
+				sink <- prefix + fmt.Sprintf("[stromboli: line truncated, exceeded %d bytes]", maxAgentLineBytes)
+			} else if buf.Len() > 0 || err == nil {
+				// Emit even an empty line when err==nil (a bare "\n") so we
+				// don't silently drop intentional blank separators. On err
+				// (typically io.EOF), don't emit a phantom empty line.
+				sink <- prefix + buf.String()
+			}
+			buf.Reset()
+			truncated = false
+		}
+		if err != nil {
+			// io.EOF is the normal exit path when the pipe closes. Other
+			// errors (e.g. unexpected EOF on a killed process) are also a
+			// signal to stop reading — the wait goroutine handles surfacing
+			// the underlying cause.
+			return
+		}
 	}
-	// Scanner errors after process exit (closed pipe) are expected — ignore.
 }
 
 func (p *realProcess) Send(line string) error {
