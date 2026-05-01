@@ -66,7 +66,7 @@ func TestBoltBlacklist_PersistsAcrossOpen(t *testing.T) {
 	// Re-open and confirm the JTI is still present.
 	bl2, err := NewBoltBlacklist(path)
 	require.NoError(t, err)
-	defer bl2.Close()
+	defer func() { _ = bl2.Close() }()
 
 	got, err := bl2.IsBlacklisted("persistent-jti")
 	require.NoError(t, err)
@@ -105,7 +105,7 @@ func TestBoltBlacklist_StartupCleansOldEntries(t *testing.T) {
 
 	bl2, err := NewBoltBlacklist(path)
 	require.NoError(t, err)
-	defer bl2.Close()
+	defer func() { _ = bl2.Close() }()
 
 	n, err := bl2.Size()
 	require.NoError(t, err)
