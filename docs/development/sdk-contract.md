@@ -82,11 +82,14 @@ jobs:
             VERSION="${{ inputs.version }}"
             SWAGGER_URL="${{ inputs.swagger_url }}"
             if [ -z "$VERSION" ]; then
-              # Fall back to the latest stromboli release. Use the public
-              # REST API (curl, not `gh`) — GITHUB_TOKEN is scoped to THIS
-              # repo, so cross-repo `gh release view` returns "release not
-              # found" even though the release exists.
-              VERSION=$(curl -fsSL https://api.github.com/repos/tomblancdev/stromboli/releases/latest | jq -r .tag_name)
+              # Fall back to whatever stromboli last cut. Two gotchas:
+              #   1. We use curl + REST API, not `gh release view`,
+              #      because GITHUB_TOKEN is scoped to THIS repo and
+              #      cross-repo `gh` reads come back as 404.
+              #   2. We hit /releases (plural) not /releases/latest —
+              #      the latter skips prereleases, so it 404s on a repo
+              #      that only ships -alpha / -beta tags.
+              VERSION=$(curl -fsSL https://api.github.com/repos/tomblancdev/stromboli/releases | jq -r '[.[] | select(.draft == false)][0].tag_name')
               if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
                 echo "::error::Could not resolve latest stromboli release tag"
                 exit 1
