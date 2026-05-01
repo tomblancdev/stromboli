@@ -92,7 +92,7 @@ Official client libraries that track this server's OpenAPI spec automatically â€
 | **Go** | [tomblancdev/stromboli-go](https://github.com/tomblancdev/stromboli-go) | Spawn agents from Go services / CLIs |
 | **TypeScript / JS** | [tomblancdev/stromboli-ts](https://github.com/tomblancdev/stromboli-ts) | Node, Bun, Deno, browsers |
 | **MCP** | [tomblancdev/mcp-server-stromboli](https://github.com/tomblancdev/mcp-server-stromboli) | Let Claude Desktop / Cursor spawn Stromboli agents directly |
-| **n8n** | [tomblancdev/n8n-nodes-stromboli](https://github.com/tomblancdev/n8n-nodes-stromboli) | Drop Stromboli into low-code n8n workflows |
+| **n8n** | _coming soon â€” not yet published_ | Drop Stromboli into low-code n8n workflows |
 
 Building your own SDK? See the [SDK contract page](https://tomblancdev.github.io/stromboli/development/sdk-contract/) for the OpenAPI source of truth and the auto-regen receiver template.
 

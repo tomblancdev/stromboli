@@ -232,7 +232,8 @@ jobs:
           - stromboli-go
           - stromboli-ts
           - mcp-server-stromboli
-          - n8n-nodes-stromboli
+          # TODO: re-enable n8n-nodes-stromboli once the repo is published
+          # to GitHub. Currently local-only — dispatch fan-out 404s without it.
     steps:
       - name: Skip if dispatch token is missing
         id: gate

@@ -1,6 +1,6 @@
 # SDK Contract & Release Fan-out
 
-This page describes how downstream client SDKs (`stromboli-go`, `stromboli-ts`, `mcp-server-stromboli`, `n8n-nodes-stromboli`, …) stay in sync with the server's OpenAPI surface.
+This page describes how downstream client SDKs (`stromboli-go`, `stromboli-ts`, `mcp-server-stromboli`, and the upcoming `n8n-nodes-stromboli`) stay in sync with the server's OpenAPI surface.
 
 The contract is intentionally one-way: when a tag is pushed on this repo, a `repository_dispatch` fires to each registered SDK. The SDK receives the new spec, regenerates its typed client, and opens a PR titled `chore: sync to stromboli vX.Y.Z`. If the SDK's own CI passes, the PR can auto-merge. No human in the loop unless the regeneration introduces an actual breaking change.
 

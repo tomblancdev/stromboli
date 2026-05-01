@@ -34,15 +34,11 @@ All four are kept in sync with the server's OpenAPI spec via the [release fan-ou
 
     [:octicons-mark-github-16: tomblancdev/mcp-server-stromboli](https://github.com/tomblancdev/mcp-server-stromboli)
 
-- :material-graph: **n8n-nodes-stromboli**
+- :material-graph: **n8n-nodes-stromboli** _(coming soon)_
 
     Community node for [n8n](https://n8n.io). Drop Stromboli into your no-code workflows: trigger agent runs from webhooks, chain them with database / messaging / API nodes, route output to Slack / Discord / email.
 
-    [:octicons-mark-github-16: tomblancdev/n8n-nodes-stromboli](https://github.com/tomblancdev/n8n-nodes-stromboli)
-
-    ```bash
-    npm install n8n-nodes-stromboli
-    ```
+    Not yet published to GitHub or the n8n community-nodes registry. Will be added to the [release fan-out](development/sdk-contract.md) once it ships.
 
 </div>
 
@@ -53,7 +49,7 @@ All four are kept in sync with the server's OpenAPI spec via the [release fan-ou
 | Spawn Stromboli agents from a Go service | [stromboli-go](https://github.com/tomblancdev/stromboli-go) |
 | Build a Node / Bun / browser frontend that talks to Stromboli | [stromboli-ts](https://github.com/tomblancdev/stromboli-ts) |
 | Let your editor agent (Claude Desktop, Cursor) spawn Stromboli agents directly | [mcp-server-stromboli](https://github.com/tomblancdev/mcp-server-stromboli) |
-| Wire Stromboli into an n8n workflow alongside other automations | [n8n-nodes-stromboli](https://github.com/tomblancdev/n8n-nodes-stromboli) |
+| Wire Stromboli into an n8n workflow alongside other automations | n8n-nodes-stromboli _(coming soon)_ |
 | Stay protocol-agnostic / hit the API from a language without an SDK | The [REST API](api/endpoints.md) is just HTTP + JSON; any HTTP client works |
 
 ## Version compatibility
