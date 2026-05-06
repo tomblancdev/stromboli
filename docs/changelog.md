@@ -8,6 +8,19 @@ _(empty — add new entries here as PRs land)_
 
 ---
 
+## [0.5.7-alpha] - 2026-05-06
+
+### Documentation
+
+- **Receiver workflow template hardened** in response to two real-world failures found while landing the first receiver on `stromboli-go`: (1) the cross-repo release lookup now uses `curl` against the public REST API instead of `gh release view --repo`, which 404s because `GITHUB_TOKEN` in the SDK runner is scoped to its own repo; (2) it hits `/releases` (plural) instead of `/releases/latest`, which 404s on a repo that only ships `-alpha` / `-beta` tags. An inline warning calls out the repo-level "Allow GitHub Actions to create and approve pull requests" toggle, which the receiver workflow needs even with `pull-requests: write`. (#111)
+
+### Dependencies
+
+- `google.golang.org/grpc` 1.80.0 → 1.81.0 — bug fixes in xDS resource validation and HTTP/2 stream handling; pool HTTP/2 framer read buffers to reduce idle memory consumption (Linux ALTS + non-encrypted transports). New experimental SNI/SAN validation behind `GRPC_EXPERIMENTAL_XDS_SNI`. Minimum Go version raised to 1.25 (already met). (#112)
+- GitHub Actions group bumps moving runners from the deprecated Node 20 to Node 24: `docker/setup-buildx-action` v3 → v4, `docker/build-push-action` v6 → v7, `golangci/golangci-lint-action` v8 → v9. Requires Actions Runner v2.327.1+. (#113)
+
+---
+
 ## [0.5.6-alpha] - 2026-05-01
 
 ### Fixed
