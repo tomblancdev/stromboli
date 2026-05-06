@@ -102,6 +102,7 @@ nav:
   - Why Stromboli:
     - Benefits: concepts/containers-vs-worktrees.md
     - How It Works: concepts/how-it-works.md
+    - Comparison vs. alternatives: concepts/comparison.md
   - Getting Started:
     - Quick Start: getting-started/quickstart.md
     - Installation: getting-started/installation.md
