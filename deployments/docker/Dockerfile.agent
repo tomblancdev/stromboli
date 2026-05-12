@@ -1,7 +1,7 @@
 # Stromboli Claude Code Agent Image
 # Simplified from official devcontainer for automated agents
 
-FROM node:25-slim
+FROM node:26-slim
 
 ARG CLAUDE_CODE_VERSION=latest
 
