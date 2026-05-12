@@ -2,7 +2,7 @@
 # Image containing Claude CLI + Node runtime (glibc-compatible)
 # Used as mount source for dynamic images via --mount=type=image
 
-FROM node:25-slim
+FROM node:26-slim
 
 ARG CLAUDE_CODE_VERSION=latest
 
