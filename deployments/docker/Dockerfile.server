@@ -37,7 +37,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -o /stromboli ./cmd/stromboli
 
 # Runtime stage - minimal image
-FROM alpine:3.23
+FROM alpine:3.24
 
 # Install podman-remote (lightweight CLI that talks to socket)
 RUN apk add --no-cache \
